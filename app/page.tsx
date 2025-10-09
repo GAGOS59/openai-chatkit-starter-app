@@ -64,7 +64,7 @@ export default function Page() {
               </div>
             </div>
             <img
-              src="/logo-ecole-eft-france.png"
+              src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
               alt="Logo Ecole EFT France"
               className="h-10 w-auto"
             />
@@ -75,8 +75,8 @@ export default function Page() {
       {/* Intro */}
       <section className="rounded-xl border bg-white p-4 shadow-sm">
         <p className="text-sm text-gray-700">
-          A l&apos;occasion des 30 ans de l&apos;EFT, ce guide interactif vous invite a explorer la methode fondee par Gary Craig et transmise en France par Genevieve Gagos. 
-          Posez vos questions, suivez les etapes proposees, et avancez a votre rythme.
+          A l&apos;occasion des 30 ans de l&apos;EFT, ce guide interactif vous invite à explorer la méthode fondée par Gary Craig et transmise en France par Geneviève Gagos. 
+          Notez votre situation dans l'espace dédié et laissez-vous guider en suivant les étapes proposées. Et n'oubliez pas de juste avancer à votre rythme.
         </p>
       </section>
 
