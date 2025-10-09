@@ -6,7 +6,7 @@ type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
 export default function Page() {
   const [rows, setRows] = useState<Row[]>([
-    { who: 'bot', text: "Bonjour et bienvenue. Comment puis-je t'aider aujourd'hui ?" },
+    { who: 'bot', text: 'Bonjour et bienvenue. Comment puis-je t'aider maintenant ?' },
   ]);
   const [text, setText] = useState<string>('');
   const chatRef = useRef<HTMLDivElement>(null);
@@ -74,7 +74,7 @@ export default function Page() {
         <header style={{ padding: 20, borderBottom: '1px solid #0F3D69' }}>
           <h1 style={{ margin: 0, fontSize: 22 }}>Guide EFT – École EFT France</h1>
           <p style={{ margin: '6px 0 0 0', fontSize: 14, opacity: 0.85 }}>
-            Ce guide créé par Geneviève Gagos, Ecole EFT France, applique l’EFT officielle.
+            Ce guide créé par Geneviève Gagos applique l’EFT officielle.
           </p>
         </header>
 
@@ -130,7 +130,7 @@ export default function Page() {
         </div>
       </div>
 
-      <p style={{ fontSize: 16, margin: '16px 0', maxWidth: 720, marginInline: 'auto' }}>
+      <p style={{ fontSize: 14, margin: '16px 0', maxWidth: 720, marginInline: 'auto' }}>
         En cas de difficulté ou d’intensité élevée, interrompez la séance et contactez un praticien EFT certifié.
       </p>
     </main>
