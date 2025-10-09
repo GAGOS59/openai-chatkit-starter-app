@@ -97,7 +97,8 @@ export default function Page() {
                   border: r.who === 'bot' ? '1px solid #0F3D69' : 'none',
                 }}
               >
-                {r.text}
+               <p className="whitespace-pre-line leading-relaxed">{r.text}</p>
+
               </div>
             </div>
           ))}
