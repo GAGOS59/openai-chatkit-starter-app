@@ -27,7 +27,8 @@ export default function Page() {
     setText('');
 
     try {
-      const resp = await fetch('/api/eft-chat', {
+      const resp = await fetch('/api/guide-eft', {
+
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: t, history: historyRef.current }),
