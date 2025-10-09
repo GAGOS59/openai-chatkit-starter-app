@@ -71,9 +71,7 @@ export default function Page() {
           overflow: 'hidden',
         }}
       >
-        <p>
-          À l'occasion des 30 ans de l'EFT (1995 - 2025), ce guide interactif vous invite à explorer la méthode fondée par Gary Craig et transmise en France par Geneviève Gagos. Indiquez votre situation du moment dans l'espace dédié et laissez-vous guider. Avancez à votre rythme.
-        </p>
+        
         <header style={{ padding: 20, borderBottom: '1px solid #0F3D69' }}>
           <header className="flex items-center justify-between border-b pb-2 mb-4">
   <div>
