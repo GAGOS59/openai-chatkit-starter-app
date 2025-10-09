@@ -1,88 +1,71 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
+
 type Row = { who: "bot" | "user"; text: string };
 
+
 export default function Page() {
-  const [rows, setRows] = useState<Row[]>([
-    { who: "bot", text: "Bonjour et bienvenue. Comment puis-je t'aider aujourd'hui ?" },
-  ]);
-  const [text, setText] = useState("");
-  const chatRef = useRef<HTMLDivElement>(null);
+const [rows, setRows] = useState<Row[]>([
+{ who: "bot", text: "Bonjour et bienvenue. Comment puis-je t'aider aujourd'hui ?" },
+]);
+const [text, setText] = useState("");
+const chatRef = useRef<HTMLDivElement>(null);
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-  }
 
-  return (
-    <main className="p-6 max-w-3xl mx-auto space-y-4">
-      <h1 className="text-2xl font-semibold">Guide EFT – Démo</h1>
-      <div ref={chatRef} className="border rounded-lg p-4 h-40">Build smoke test OK.</div>
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="flex-1 border rounded px-3 py-2"
-          placeholder="Votre question sur l'EFT"
-        />
-        <button type="submit" className="border rounded px-4 py-2">Envoyer</button>
-      </form>
-    </main>
-  );
+function onSubmit(e: FormEvent) {
+e.preventDefault();
+if (!text.trim()) return;
+setRows((r) => [...r, { who: "user", text }]);
+setText("");
 }
 
-// =============================
-// app/api/guide-eft/route.ts
-// =============================
-// =============================
-import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
-  try {
-    const { prompt } = await req.json();
+useEffect(() => {
+if (chatRef.current) {
+chatRef.current.scrollTop = chatRef.current.scrollHeight;
+}
+}, [rows]);
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY" },
-        { status: 500 }
-      );
-    }
 
-    const res = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        input:
-          "Réponds en français de façon claire, concise et professionnelle comme assistante EFT.\nQuestion: " +
-          String(prompt ?? ""),
-      }),
-    });
+return (
+<main className="mx-auto max-w-3xl p-6 space-y-4">
+<h1 className="text-2xl font-semibold">Guide EFT – Démo</h1>
 
-    if (!res.ok) {
-      const detail = await res.text();
-      return NextResponse.json(
-        { error: "Server error", detail },
-        { status: 500 }
-      );
-    }
 
-    const json = await res.json();
-    const answer =
-      json?.output?.[0]?.content?.[0]?.text ??
-      json?.choices?.[0]?.message?.content ??
-      json?.content?.[0]?.text ??
-      "";
+<div ref={chatRef} className="h-96 overflow-y-auto rounded-lg border p-4 bg-white">
+<div className="space-y-3">
+{rows.map((r, i) => (
+<div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
+<div
+className={
+(r.who === "bot"
+? "bg-gray-50 text-gray-900"
+: "bg-blue-50 text-blue-900 border-blue-200") +
+" max-w-[80%] rounded-xl border px-3 py-2 leading-relaxed shadow-sm"
+}
+>
+{r.text.split("\n").map((line, idx) => (
+<p key={idx} className="whitespace-pre-wrap">
+{line}
+</p>
+))}
+</div>
+</div>
+))}
+</div>
+</div>
 
-    return NextResponse.json({ answer });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: "Server error", detail: String(err?.message ?? err) },
-      { status: 500 }
-    );
-  }
+
+<form onSubmit={onSubmit} className="flex gap-2">
+<input
+value={text}
+onChange={(e) => setText(e.target.value)}
+className="flex-1 rounded border px-3 py-2"
+placeholder="Pose ta question sur l'EFT..."
+/>
+<button type="submit" className="rounded border px-4 py-2">Envoyer</button>
+</form>
+</main>
+);
 }
