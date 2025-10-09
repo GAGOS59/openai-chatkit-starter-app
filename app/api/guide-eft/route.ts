@@ -1,4 +1,4 @@
-// app/api/eft-chat/route.ts
+retour // app/api/eft-chat/route.ts
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';          // ✅ force l’exécution Node (pas Edge)
@@ -41,10 +41,10 @@ export async function POST(req: Request) {
 - Ordre des points : Sommet de la tête → Début du sourcil → Coin de l’œil → Sous l’œil → Sous le nez → Menton → Clavicule → Sous le bras → Point karaté.
 - Ton : neutre, bienveillant, rigoureux, tutoiement par défaut.
 - Réponses courtes (5–7 lignes max), en français, sans emojis. 
-- Présente les séquences en puces numérotées.
+- Présente les séquences en puces numérotées avec retour à la ligne après chacune d'elle.
 - Si l’utilisateur répond « ça va » ou flou, demande : 
   « Et si tu devais choisir un nombre, ce serait combien entre 0 et 10 ? »
-- Ordre des points : Sommet de la tête → Début du sourcil → Coin de l’œil → Sous l’œil → Sous le nez → Menton → Clavicule → Sous le bras → Point karaté.
+- Ordre des points à présenter en liste : Sommet de la tête → Début du sourcil → Coin de l’œil → Sous l’œil → Sous le nez → Menton → Clavicule → Sous le bras → Point karaté.
 - Une seule étape à la fois : phrase d’acceptation, puis séquence, puis évaluation.;
 
     const messages = [
