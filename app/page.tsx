@@ -75,8 +75,8 @@ export default function Page() {
       <section className="rounded-xl border bg-white p-4 shadow-sm">
         <p className="text-sm text-gray-700">
           À l&apos;occasion des 30 ans de l&apos;EFT, ce guide interactif vous invite à explorer la méthode
-          fondée par Gary Craig et transmise en France par Geneviève Gagos. Posez vos questions, suivez les
-          étapes proposées, et avancez à votre rythme.
+          fondée par Gary Craig et transmise en France par Geneviève Gagos. Indiquez votre situation dans l'espace dédié ci-dessous, puis laissez-vous guider à travers
+          les étapes proposées. Et surtout, avancez à votre rythme.
         </p>
       </section>
 
