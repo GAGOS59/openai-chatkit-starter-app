@@ -130,7 +130,7 @@ export default function Page() {
         </div>
       </div>
 
-      <p style={{ fontSize: 14, margin: '16px 0', maxWidth: 720, marginInline: 'auto' }}>
+      <p style={{ fontSize: 16, margin: '16px 0', maxWidth: 720, marginInline: 'auto' }}>
         En cas de difficulté ou d’intensité élevée, interrompez la séance et contactez un praticien EFT certifié.
       </p>
     </main>
