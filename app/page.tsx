@@ -144,30 +144,39 @@ export default function Page() {
         </div>
       </div>
 
-      <div style="
-  background-color:#F3EEE6;
-  color:#0f3d69;
-  border:1px solid #d9d5ce;
-  border-radius:12px;
-  padding:14px 18px;
-  font-size:14px;
-  line-height:1.6;
-  box-shadow:0 1px 3px rgba(0,0,0,0.08);
-  margin-top:20px;
-">
-  <strong style="display:block; font-size:15px; margin-bottom:6px;">Note de prudence</strong>
-  Ce guide est proposé à titre informatif et éducatif.  
-  Il ne remplace en aucun cas un avis médical, psychologique ou professionnel.  
-  <br><br>
-  L’École EFT France et ses représentants déclinent toute responsabilité  
-  quant à l’interprétation, l’usage ou les conséquences liés à l’application  
-  des informations ou protocoles présentés.  
-  Chaque utilisateur reste responsable de sa pratique et de ses choix.  
-  <br><br>
-  En cas de doute, de détresse émotionnelle ou de trouble persistant,  
-  il est vivement recommandé de consulter un professionnel de santé  
-  ou un praticien EFT certifié.
+     <div
+  style={{
+    backgroundColor: "#F3EEE6",
+    color: "#0f3d69",
+    border: "1px solid #d9d5ce",
+    borderRadius: "12px",
+    padding: "14px 18px",
+    fontSize: "14px",
+    lineHeight: "1.6",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+    marginTop: "20px",
+  }}
+>
+  <strong style={{ display: "block", fontSize: "15px", marginBottom: "6px" }}>
+    Note de prudence
+  </strong>
+  <p>
+    Ce guide est proposé à titre informatif et éducatif. Il ne remplace en
+    aucun cas un avis médical, psychologique ou professionnel.
+  </p>
+  <p>
+    L’École EFT France et ses représentants déclinent toute responsabilité quant
+    à l’interprétation, l’usage ou les conséquences liés à l’application des
+    informations ou protocoles présentés. Chaque utilisateur reste responsable
+    de sa pratique et de ses choix.
+  </p>
+  <p>
+    En cas de doute, de détresse émotionnelle ou de trouble persistant, il est
+    vivement recommandé de consulter un professionnel de santé ou un praticien
+    EFT certifié.
+  </p>
 </div>
+
 
     </main>
   );
