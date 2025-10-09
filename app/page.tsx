@@ -172,8 +172,7 @@ export default function Page() {
   </p>
   <p>
     En cas de doute, de détresse émotionnelle ou de trouble persistant, il est
-    vivement recommandé de consulter un professionnel de santé ou un praticien
-    EFT certifié.
+    vivement recommandé de consulter un professionnel de santé.
   </p>
 </div>
 
