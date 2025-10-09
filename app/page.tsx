@@ -74,9 +74,9 @@ export default function Page() {
         }}
       >
         <header style={{ padding: 20, borderBottom: '1px solid #0F3D69' }}>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Guide EFT – École EFT France</h1>
+          <h1 style={{ margin: 0, fontSize: 22 }}>Guide EFT France – Geneviève Gagos – École EFT France</h1>
           <p style={{ margin: '6px 0 0 0', fontSize: 14, opacity: 0.85 }}>
-            Écrivez simplement « Bonjour » pour commencer. Le guide applique l’EFT officielle (Gary Craig, Geneviève Gagos).
+            Écrivez simplement « Bonjour » pour commencer. Le guide EFT France créé par Geneviève Gagos applique l’EFT officielle (Gary Craig).
           </p>
         </header>
 
@@ -132,7 +132,7 @@ export default function Page() {
         </div>
       </div>
 
-      <p style={{ fontSize: 14, margin: '16px 0', maxWidth: 720, marginInline: 'auto' }}>
+      <p style={{ fontSize: 16, margin: '16px 0', maxWidth: 720, marginInline: 'auto' }}>
         En cas de difficulté ou d’intensité élevée, interrompez la séance et contactez un praticien EFT certifié.
       </p>
     </main>
