@@ -1,6 +1,8 @@
 // app/api/eft-chat/route.ts
 import { NextResponse } from 'next/server';
 
+type ChatTurn = { role: 'user' | 'assistant'; content: string };
+
 export async function OPTIONS() {
   const res = new NextResponse(null, { status: 200 });
   res.headers.set('Access-Control-Allow-Origin', '*');
@@ -16,7 +18,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing OPENAI_API_KEY' }, { status: 500 });
     }
 
-    const { message, history } = await req.json();
+    const body = (await req.json()) as { message: string; history?: ChatTurn[] };
+    const message = body?.message;
+    const history = Array.isArray(body?.history) ? (body.history as ChatTurn[]) : [];
+
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Missing message' }, { status: 400 });
     }
@@ -35,17 +40,21 @@ Réponds en français, sans emojis.`;
 
     const messages = [
       { role: 'system', content: system },
-      ...(Array.isArray(history) ? history : []),
-      { role: 'user', content: message }
+      ...history,
+      { role: 'user', content: message },
     ];
 
     const resp = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages, temperature: 0.3 })
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages,
+        temperature: 0.3,
+      }),
     });
 
     if (!resp.ok) {
@@ -53,13 +62,16 @@ Réponds en français, sans emojis.`;
       return NextResponse.json({ error: 'OpenAI error', detail: errText }, { status: resp.status });
     }
 
-    const data = await resp.json();
-    const reply = data.choices?.[0]?.message?.content?.trim() || '';
+    const data: {
+      choices?: { message?: { content?: string } }[];
+    } = await resp.json();
 
+    const reply = (data.choices?.[0]?.message?.content ?? '').trim();
     const res = NextResponse.json({ reply });
     res.headers.set('Access-Control-Allow-Origin', '*');
     return res;
-  } catch (e: any) {
-    return NextResponse.json({ error: 'Server error', detail: String(e) }, { status: 500 });
+  } catch (e: unknown) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: 'Server error', detail }, { status: 500 });
   }
 }
