@@ -113,6 +113,18 @@ export default function Page() {
         </button>
       </form>
 
+      
+<div className="text-center mt-6">
+  <a
+    href="https://ecole-eft-france.fr/pages/formations-eft.html"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200"
+  >
+    Découvrir nos formations
+  </a>
+</div>
+
       {/* Note de prudence + signature */}
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
