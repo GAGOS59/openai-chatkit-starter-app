@@ -72,10 +72,23 @@ export default function Page() {
         }}
       >
         <header style={{ padding: 20, borderBottom: '1px solid #0F3D69' }}>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Guide EFT – École EFT France</h1>
-          <p style={{ margin: '6px 0 0 0', fontSize: 14, opacity: 0.85 }}>
-            Ce guide créé par Geneviève Gagos applique l’EFT officielle.
-          </p>
+          <header className="flex items-center justify-between border-b pb-2 mb-4">
+  <div>
+    <h1 className="text-2xl font-semibold text-[#0f3d69]">
+      Guide EFT – École EFT France
+    </h1>
+    <p className="text-sm text-gray-600">
+      Ce guide créé par Geneviève Gagos applique l’EFT officielle.
+    </p>
+  </div>
+
+  <img
+    src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
+    alt="Logo École EFT France"
+    className="h-10 w-auto"
+  />
+</header>
+
         </header>
 
         <div ref={chatRef} style={{ height: 520, overflowY: 'auto', padding: 16, background: '#fff' }}>
