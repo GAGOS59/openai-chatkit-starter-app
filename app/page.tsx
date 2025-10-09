@@ -124,7 +124,7 @@ export default function Page() {
     Découvrir nos formations
   </a>
   <p className="text-sm text-gray-600 mt-2">
-    Pour aller plus loin dans la pratique et la transmission de l’EFT, découvrez les formations proposées par l’École EFT France.
+    Pour aller plus loin dans la pratique et la transmission de l’EFT, <br></br>découvrez les formations proposées par l’École EFT France.
   </p>
 </div>
 
