@@ -1,84 +1,88 @@
 "use client";
-async function onSubmit(e: React.FormEvent) {
-e.preventDefault();
-if (!text.trim()) return;
+import React, { useRef, useState, useEffect, FormEvent } from "react";
 
+type Row = { who: "bot" | "user"; text: string };
 
-const userMsg = text;
-setText("");
-setRows((r) => [...r, { who: "user", text: userMsg }]);
+export default function Page() {
+  const [rows, setRows] = useState<Row[]>([
+    { who: "bot", text: "Bonjour et bienvenue. Comment puis-je t'aider aujourd'hui ?" },
+  ]);
+  const [text, setText] = useState("");
+  const chatRef = useRef<HTMLDivElement>(null);
 
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+  }
 
-try {
-const res = await fetch("/api/guide-eft", {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ prompt: userMsg }),
-});
-
-
-if (!res.ok) {
-const detail = await res.text();
-setRows((r) => [
-...r,
-{
-who: "bot",
-text:
-"Oups — le serveur a répondu en erreur. Réessaie dans un instant.\n" +
-detail,
-},
-]);
-return;
+  return (
+    <main className="p-6 max-w-3xl mx-auto space-y-4">
+      <h1 className="text-2xl font-semibold">Guide EFT – Démo</h1>
+      <div ref={chatRef} className="border rounded-lg p-4 h-40">Build smoke test OK.</div>
+      <form onSubmit={onSubmit} className="flex gap-2">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="flex-1 border rounded px-3 py-2"
+          placeholder="Votre question sur l'EFT"
+        />
+        <button type="submit" className="border rounded px-4 py-2">Envoyer</button>
+      </form>
+    </main>
+  );
 }
 
+// =============================
+// app/api/guide-eft/route.ts
+// =============================
+// =============================
+import { NextResponse } from "next/server";
 
-const data = await res.json();
-setRows((r) => [
-...r,
-{ who: "bot", text: data.answer ?? String(data.message ?? "") },
-]);
-} catch (err: any) {
-setRows((r) => [
-...r,
-{ who: "bot", text: "Erreur réseau inattendue : " + String(err) },
-]);
-}
-}
+export async function POST(req: Request) {
+  try {
+    const { prompt } = await req.json();
 
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Missing OPENAI_API_KEY" },
+        { status: 500 }
+      );
+    }
 
-useEffect(() => {
-chatRef.current?.scrollTo(0, chatRef.current.scrollHeight);
-}, [rows]);
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input:
+          "Réponds en français de façon claire, concise et professionnelle comme assistante EFT.\nQuestion: " +
+          String(prompt ?? ""),
+      }),
+    });
 
+    if (!res.ok) {
+      const detail = await res.text();
+      return NextResponse.json(
+        { error: "Server error", detail },
+        { status: 500 }
+      );
+    }
 
-return (
-<main className="p-6 max-w-3xl mx-auto space-y-4">
-<h1 className="text-2xl font-semibold">Guide EFT – Démo</h1>
+    const json = await res.json();
+    const answer =
+      json?.output?.[0]?.content?.[0]?.text ??
+      json?.choices?.[0]?.message?.content ??
+      json?.content?.[0]?.text ??
+      "";
 
-
-<div
-ref={chatRef}
-className="border rounded-lg p-4 h-96 overflow-y-auto space-y-2"
->
-{rows.map((r, i) => (
-<div key={i} className={r.who === "bot" ? "bg-gray-50 p-2 rounded" : "text-right"}>
-<p>{r.text}</p>
-</div>
-))}
-</div>
-
-
-<form onSubmit={onSubmit} className="flex gap-2">
-<input
-value={text}
-onChange={(e) => setText(e.target.value)}
-className="flex-1 border rounded px-3 py-2"
-placeholder={"Pose ta question sur l'EFT..."}
-/>
-<button type="submit" className="border rounded px-4 py-2">
-Envoyer
-</button>
-</form>
-</main>
-);
+    return NextResponse.json({ answer });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: "Server error", detail: String(err?.message ?? err) },
+      { status: 500 }
+    );
+  }
 }
