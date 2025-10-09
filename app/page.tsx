@@ -6,7 +6,7 @@ type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
 export default function Page() {
   const [rows, setRows] = useState<Row[]>([
-    { who: 'bot', text: 'Bonjour et bienvenue. Comment puis-je t'aider maintenant ?' },
+    { who: 'bot', text: 'Bonjour et bienvenue. Comment puis-je t aider maintenant ?' },
   ]);
   const [text, setText] = useState<string>('');
   const chatRef = useRef<HTMLDivElement>(null);
