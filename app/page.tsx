@@ -1,13 +1,45 @@
-// app/page.tsx
+// app/page.tsx — version complète avec rendu lisible des réponses (listes + sauts de ligne)
+
 'use client';
 import { useRef, useState } from 'react';
 
 type Row = { who: 'me' | 'bot'; text: string };
 type ChatTurn = { role: 'user' | 'assistant'; content: string };
 
+function escapeHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toHtml(raw: string) {
+  const txt = raw.replace(/\r\n?/g, '\n').trim();
+  const lines = txt.split(/\n/);
+  const isOL = lines.every((l) => /^\s*\d+\.\s+/.test(l) || l.trim() === '');
+  const isUL = !isOL && lines.every((l) => /^\s*[-*•]\s+/.test(l) || l.trim() === '');
+
+  if (isOL) {
+    const items = lines
+      .filter((l) => l.trim() !== '')
+      .map((l) => escapeHtml(l.replace(/^\s*\d+\.\s+/, '')))
+      .map((li) => `<li>${li}</li>`) 
+      .join('');
+    return `<ol>${items}</ol>`;
+  }
+  if (isUL) {
+    const items = lines
+      .filter((l) => l.trim() !== '')
+      .map((l) => escapeHtml(l.replace(/^\s*[-*•]\s+/, '')))
+      .map((li) => `<li>${li}</li>`) 
+      .join('');
+    return `<ul>${items}</ul>`;
+  }
+
+  const paras = txt.split(/\n\n+/).map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`);
+  return paras.join('');
+}
+
 export default function Page() {
   const [rows, setRows] = useState<Row[]>([
-    { who: 'bot', text: 'Bonjour et bienvenue. Que ressens-tu exactement ici et maintenant ?' },
+    { who: 'bot', text: 'Bonjour et bienvenue. Comment puis-je t'aider aujourd'hui ?' },
   ]);
   const [text, setText] = useState<string>('');
   const chatRef = useRef<HTMLDivElement>(null);
@@ -28,7 +60,6 @@ export default function Page() {
 
     try {
       const resp = await fetch('/api/guide-eft', {
-
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: t, history: historyRef.current }),
@@ -74,33 +105,50 @@ export default function Page() {
         }}
       >
         <header style={{ padding: 20, borderBottom: '1px solid #0F3D69' }}>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Guide EFT France – Geneviève Gagos – École EFT France</h1>
+          <h1 style={{ margin: 0, fontSize: 22 }}>Guide EFT – École EFT France</h1>
           <p style={{ margin: '6px 0 0 0', fontSize: 14, opacity: 0.85 }}>
-            Écrivez simplement « Bonjour » pour commencer. Le guide EFT France créé par Geneviève Gagos applique l’EFT officielle (Gary Craig).
+           Ce guide créé par Geneviève Gagos) applique l’EFT officielle.
           </p>
         </header>
 
         <div ref={chatRef} style={{ height: 520, overflowY: 'auto', padding: 16, background: '#fff' }}>
           {rows.map((r, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-              <div
-                style={{
-                  maxWidth: '80%',
-                  padding: '12px 14px',
-                  borderRadius: 14,
-                  lineHeight: 1.45,
-                  fontSize: 16,
-                  marginLeft: r.who === 'me' ? 'auto' : undefined,
-                  marginRight: r.who === 'bot' ? 'auto' : undefined,
-                  background: r.who === 'me' ? '#0F3D69' : '#F3EEE6',
-                  color: r.who === 'me' ? '#fff' : '#0F3D69',
-                  borderBottomRightRadius: r.who === 'me' ? 4 : 14,
-                  borderBottomLeftRadius: r.who === 'bot' ? 4 : 14,
-                  border: r.who === 'bot' ? '1px solid #0F3D69' : 'none',
-                }}
-              >
-                {r.text}
-              </div>
+              {r.who === 'me' ? (
+                <div
+                  style={{
+                    maxWidth: '80%',
+                    padding: '12px 14px',
+                    borderRadius: 14,
+                    lineHeight: 1.45,
+                    fontSize: 16,
+                    marginLeft: 'auto',
+                    background: '#0F3D69',
+                    color: '#fff',
+                    borderBottomRightRadius: 4,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {r.text}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    maxWidth: '80%',
+                    padding: '12px 14px',
+                    borderRadius: 14,
+                    lineHeight: 1.45,
+                    fontSize: 16,
+                    marginRight: 'auto',
+                    background: '#F3EEE6',
+                    color: '#0F3D69',
+                    borderBottomLeftRadius: 4,
+                    border: '1px solid #0F3D69',
+                  }}
+                  dangerouslySetInnerHTML={{ __html: toHtml(r.text) }}
+                />
+              )}
             </div>
           ))}
         </div>
