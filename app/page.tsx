@@ -155,7 +155,7 @@ export default function Page() {
   box-shadow:0 1px 3px rgba(0,0,0,0.08);
   margin-top:20px;
 ">
-  <strong style="display:block; font-size:15px; margin-bottom:6px;">⚖️ Note de prudence</strong>
+  <strong style="display:block; font-size:15px; margin-bottom:6px;">Note de prudence</strong>
   Ce guide est proposé à titre informatif et éducatif.  
   Il ne remplace en aucun cas un avis médical, psychologique ou professionnel.  
   <br><br>
