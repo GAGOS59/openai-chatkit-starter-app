@@ -1,83 +1,88 @@
-"use client";
-import * as React from "react";
+import { NextResponse } from "next/server";
 
-type Msg = { role: "user" | "assistant"; content: string };
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export default function GuideEFT() {
-  const [messages, setMessages] = React.useState<Msg[]>([
-    { role: "assistant", content: "Bonjour ! En quoi puis-je vous guider ?" },
-  ]);
-  const [input, setInput] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
+// Types stricts de la réponse OpenAI (partie utile)
+interface OAChatMessage { content: string }
+interface OAChatChoice { message: OAChatMessage }
+interface OAResponse { choices: OAChatChoice[] }
 
-  async function onSend(e?: React.FormEvent) {
-    e?.preventDefault();
-    const text = input.trim();
-    if (!text || loading) return;
+// Gardiens de type (sans `any`)
+function isRecord(u: unknown): u is Record<string, unknown> {
+  return typeof u === "object" && u !== null;
+}
+function isOAResponse(u: unknown): u is OAResponse {
+  if (!isRecord(u)) return false;
+  const choices = u["choices"];
+  if (!Array.isArray(choices) || choices.length === 0) return false;
+  const first = choices[0];
+  if (!isRecord(first)) return false;
+  const msg = (first as Record<string, unknown>)["message"];
+  if (!isRecord(msg)) return false;
+  const content = (msg as Record<string, unknown>)["content"];
+  return typeof content === "string";
+}
 
-    setMessages((m) => [...m, { role: "user", content: text }]);
-    setInput("");
-    setLoading(true);
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const message = typeof body?.message === "string" ? body.message.trim() : "";
+    const history = Array.isArray(body?.history) ? body.history : [];
+    const system =
+      typeof body?.system === "string"
+        ? body.system
+        : "Tu es un guide EFT bienveillant, clair et concis. Réponds en français.";
 
-    try {
-      const resp = await fetch("/api/guide-eft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
-      });
-      const data = await resp.json();
-      if (!resp.ok || !data?.answer) throw new Error(data?.error || "Réponse indisponible");
-      setMessages((m) => [...m, { role: "assistant", content: String(data.answer) }]);
-    } catch (err) {
-      // on affiche un message et on utilise err pour éviter no-unused-vars si besoin
-      console.error("[GuideEFT] front error:", err);
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Je rencontre un souci technique. Réessayez dans un instant." },
-      ]);
-    } finally {
-      setLoading(false);
+    if (!message) {
+      return NextResponse.json({ error: "Champ 'message' requis." }, { status: 400 });
     }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Clé API manquante côté serveur." }, { status: 500 });
+    }
+
+    const messages = [
+      { role: "system", content: String(system) },
+      ...history,
+      { role: "user", content: message },
+    ];
+
+    const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages,
+        temperature: 0.3,
+      }),
+    });
+
+    if (!upstream.ok) {
+      const text = await upstream.text();
+      return NextResponse.json(
+        { error: "Service indisponible", code: upstream.status, details: text },
+        { status: 502 }
+      );
+    }
+
+    const raw: unknown = await upstream.json();
+    if (!isOAResponse(raw)) {
+      return NextResponse.json({ error: "Format de réponse inattendu." }, { status: 502 });
+    }
+
+    const answer = raw.choices[0].message.content.trim();
+    if (!answer) {
+      return NextResponse.json({ error: "Réponse vide du modèle." }, { status: 502 });
+    }
+
+    return NextResponse.json({ ok: true, answer });
+  } catch (error: unknown) {
+    console.error("[guide-eft] route error:", error);
+    return NextResponse.json({ error: "Erreur serveur." }, { status: 500 });
   }
-
-  return (
-    <div className="max-w-3xl mx-auto p-4">
-      <div className="border rounded-2xl p-4 bg-white space-y-3 max-h-[60vh] overflow-y-auto">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={
-              m.role === "assistant"
-                ? "self-start bg-gray-100 text-gray-900 px-3 py-2 rounded-2xl"
-                : "self-end bg-blue-100 text-blue-900 px-3 py-2 rounded-2xl ml-auto"
-            }
-          >
-            {m.content}
-          </div>
-        ))}
-        {loading && (
-          <div className="self-start bg-gray-100 text-gray-500 px-3 py-2 rounded-2xl italic">
-            L&apos;outil réfléchit...
-          </div>
-        )}
-      </div>
-
-      <form onSubmit={onSend} className="mt-3 flex gap-2">
-        <input
-          className="flex-1 border rounded-xl px-3 py-2"
-          placeholder="Décrivez votre situation..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={loading}
-        />
-        <button
-          type="submit"
-          className="border rounded-xl px-4 py-2 bg-blue-600 text-white disabled:opacity-50"
-          disabled={loading}
-        >
-          {loading ? "Envoi..." : "Envoyer"}
-        </button>
-      </form>
-    </div>
-  );
 }
