@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const runtime = "nodejs"; // ✅ force l'exécution côté serveur Node.js
+export const runtime = "nodejs"; // force l'exécution serveur (jamais côté client)
 
 type Stage =
   | "Intake"
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
 
-    // ❗ L’URL amont n’est plus en dur : passe par une variable d’environnement
+    // URL non codée en dur (variable d'environnement)
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/,"")}/v1/responses`;
 
@@ -185,8 +185,7 @@ ${transcript}
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        // 🔐 La clé ne quitte JAMAIS le serveur
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`, // la clé ne quitte jamais le serveur
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -206,6 +205,7 @@ ${transcript}
 
     const json = (await res.json()) as unknown;
     const answer = extractAnswer(json);
+
     return NextResponse.json({ answer });
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
