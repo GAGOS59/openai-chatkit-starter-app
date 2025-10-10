@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const runtime = "nodejs"; // exécution serveur uniquement
+export const runtime = "nodejs";
 
 type Stage =
   | "Intake"
@@ -14,16 +14,13 @@ type Stage =
   | "Réévaluation"
   | "Clôture";
 
-type SudQualifier = "" | "très présente" | "encore présente" | "reste encore un peu" | "disparue";
-
 type Slots = {
-  intake?: string;       // ex. "douleur lancinante à la jointure de l'épaule" / "peur de l'orage"
-  duration?: string;     // ex. "une semaine"
-  context?: string;      // ex. "je me suis retrouvée seule pour ranger le bazar de mon mari"
-  sud?: number;          // 0..10
-  round?: number;        // 1,2,3…
-  aspect?: string;       // construit coté front
-  sud_qualifier?: SudQualifier;
+  intake?: string;
+  duration?: string;
+  context?: string;
+  sud?: number;   // 0..10
+  round?: number; // 1,2,3…
+  aspect?: string;
 };
 
 type GuideRequest = {
@@ -48,66 +45,85 @@ function stepFromStage(stage?: Stage): number {
   }
 }
 
-/* ---------- utilitaires ---------- */
-function lowerFirst(s: string): string {
-  if (!s) return s;
-  return s.charAt(0).toLowerCase() + s.slice(1);
-}
+/* ---------------- Utilitaires texte ---------------- */
 function clean(s: string): string {
   return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
 }
 function splitContext(ctx: string): string[] {
-  const parts = ctx
+  return ctx
     .split(/[,.;]|(?:\s(?:et|quand|lorsque)\s)/gi)
     .map((p) => clean(p))
     .filter((p) => p.length > 0)
     .slice(0, 6);
-  return parts;
 }
-function qualifierFromSud(q: SudQualifier): string {
-  if (q === "très présente") return " très présente";
-  if (q === "encore présente") return " encore présente";
-  if (q === "reste encore un peu") return " qui reste encore un peu";
-  return "";
+function sudQualifierFromNumber(sud?: number): string {
+  if (typeof sud !== "number") return "";
+  if (sud === 0) return ""; // en ronde, si 0 on ne qualifie pas
+  if (sud >= 7) return " très présente";
+  if (sud >= 4) return " encore présente";
+  return " qui reste encore un peu";
 }
+function baseFromIntake(intakeRaw: string): { generic: string; short: string } {
+  const intake = clean(intakeRaw).toLowerCase();
+
+  // Quelques règles simples de genre
+  const starts = (w: string) => intake.startsWith(w);
+
+  // cas fréquents
+  if (starts("mal ")) {
+    return { generic: "Ce " + clean(intakeRaw), short: "Ce " + clean(intakeRaw) };
+  }
+  if (starts("douleur")) {
+    return { generic: "Cette " + clean(intakeRaw), short: "Cette " + clean(intakeRaw) };
+  }
+  if (starts("peur")) {
+    return { generic: "Cette " + clean(intakeRaw), short: "Cette " + clean(intakeRaw) };
+  }
+  if (starts("gêne") || starts("gene") || starts("tension") || starts("colère") || starts("colere") || starts("tristesse")) {
+    return { generic: "Cette " + clean(intakeRaw), short: "Cette " + clean(intakeRaw) };
+  }
+
+  // fallback neutre
+  return { generic: "Ce problème", short: "Ce problème" };
+}
+
+/* ---- Génération déterministe des 8 phrases de rappel pour l'étape 6 ---- */
 function buildRappelPhrases(slots: Slots): string[] {
   const intake = clean(slots.intake ?? "");
   const ctx = clean(slots.context ?? "");
-  const q = qualifierFromSud(slots.sud_qualifier ?? "");
+  const sudQ = sudQualifierFromNumber(slots.sud);
   const round = slots.round ?? 1;
 
-  const baseGeneric = intake ? `Cette ${lowerFirst(intake)}` : "Ce problème";
-  const baseShort =
-    intake && /douleur|gêne|tension|peur|col[èe]re|tristesse/i.test(intake)
-      ? `Cette ${lowerFirst(intake.replace(/^une |un /i, ""))}`
-      : baseGeneric;
-
+  const { generic, short } = baseFromIntake(intake);
   const contextParts = ctx ? splitContext(ctx) : [];
 
+  // Si ronde >1 et SUD>0, on renforce un peu la sensation
   const roundMod =
     typeof slots.sud === "number" && slots.sud > 0 && round > 1
       ? (slots.sud >= 7 ? " toujours" : " encore")
       : "";
 
-  const phrases: string[] = [];
-  phrases.push(`${baseGeneric}${q || roundMod}.`);
-  phrases.push(`${baseShort}.`);
+  const qOrRound = sudQ || roundMod;
 
+  const phrases: string[] = [];
+  // 1–2 : libellés de base
+  phrases.push(`${generic}${qOrRound}.`);
+  phrases.push(`${short}.`);
+
+  // 3–6 : fragments de contexte si présents, sinon variations
   for (let i = 0; i < 4; i++) {
     if (contextParts[i]) {
       const sentence = contextParts[i][0].toUpperCase() + contextParts[i].slice(1) + ".";
       phrases.push(sentence);
     } else {
-      phrases.push(`${(i % 2 === 0) ? baseGeneric : baseShort}${roundMod ? roundMod : q}.`);
+      phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
     }
   }
 
-  if (contextParts[0]) {
-    phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
-  } else {
-    phrases.push(`${baseShort}.`);
-  }
-  phrases.push(`${baseGeneric}.`);
+  // 7–8 : rappel global
+  if (contextParts[0]) phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
+  else phrases.push(`${short}.`);
+  phrases.push(`${generic}.`);
 
   return phrases.slice(0, 8);
 }
@@ -150,11 +166,11 @@ Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
 
 FLUX (verrouillé)
-1) Intake — qualité + localisation.
+1) Intake — qualité + localisation (ou libellé précis si émotion).
 2) Durée — depuis quand.
 3) Contexte — circonstances/événements/émotions.
 4) Évaluation — SUD (0–10) pour la première fois.
-5) Setup — PK ×3 avec la phrase, puis attendre "prêt".
+5) Setup — Point Karaté ×3 avec la phrase, puis attendre que la personne écrive "prêt".
 6) Tapping — ronde point par point.
 7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
 8) Clôture — bref + prudence. Ne relance pas.
@@ -162,7 +178,11 @@ FLUX (verrouillé)
 LANGAGE
 - AUCUN filler (“respire”, “doucement”, etc.).
 - N’utiliser que les mots de l’utilisateur via les slots fournis.
-- Une seule consigne par message (sauf Setup: 2 lignes max).
+- Une seule consigne par message (sauf Setup: 2 lignes max, impératif clair).
+
+ÉTAPE 5 — EXACTEMENT 2 LIGNES
+1) Tapote sur le Point Karaté (tranche de la main) en répétant 3 fois : « Même si j’ai cette {aspect (minuscule initiale)}, je m’accepte profondément et complètement. »
+2) Quand c’est fait, écris « prêt » et je te guide pour la ronde.
 
 ÉTAPE 6 — IMPORTANT
 - Des phrases P1..P8 sont fournies par le serveur (rappel point par point).
@@ -206,7 +226,6 @@ export async function POST(req: Request) {
   • sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
   • round=${Number.isFinite(slots.round) ? slots.round : "NA"}
   • aspect="${slots.aspect ?? ""}"
-  • sud_qualifier="${slots.sud_qualifier ?? ""}"
 
 [PHRASES_POUR_ETAPE_6]
 P1="${phrases[0]}"
