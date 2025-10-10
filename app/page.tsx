@@ -34,7 +34,9 @@ export default function Page() {
   ]);
   const [text, setText] = useState("");
   const chatRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; }, [rows]);
+  useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [rows]);
 
   // Mise en forme
   function renderPretty(s: string) {
@@ -43,14 +45,25 @@ export default function Page() {
       <div className="space-y-3">
         {paragraphs.map((p, i) => {
           if (/^(?:- |\u2022 |\* )/m.test(p)) {
-            const items = p.split(/\n/).filter(Boolean).map(t => t.replace(/^(- |\u2022 |\* )/, ""));
+            const items = p
+              .split(/\n/)
+              .filter(Boolean)
+              .map((t) => t.replace(/^(- |\u2022 |\* )/, ""));
             return (
               <ul key={i} className="list-disc pl-5 space-y-1">
-                {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
+                {items.map((li, j) => (
+                  <li key={j} className="whitespace-pre-wrap">
+                    {li}
+                  </li>
+                ))}
               </ul>
             );
           }
-          return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
+          return (
+            <p key={i} className="whitespace-pre-line leading-relaxed">
+              {p}
+            </p>
+          );
         })}
       </div>
     );
@@ -59,18 +72,30 @@ export default function Page() {
   // Confusion
   function isConfusion(s: string) {
     const t = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return /je ne comprends pas|je comprends pas|pas compris|pas comprendre|reformule|reexpliquer|c est quoi|c'est quoi/.test(t) || t.trim() === "?";
+    return (
+      /je ne comprends pas|je comprends pas|pas compris|pas comprendre|reformule|reexpliquer|c est quoi|c'est quoi/.test(
+        t
+      ) || t.trim() === "?"
+    );
   }
 
   // Avance linéaire (hors boucle SUD)
   function advanceLinear(stageNow: Stage): { nextStage: Stage; nextEtape: number } {
-    const order: Stage[] = ["Intake","Durée","Contexte","Setup","Tapping","Réévaluation","Clôture"];
+    const order: Stage[] = [
+      "Intake",
+      "Durée",
+      "Contexte",
+      "Setup",
+      "Tapping",
+      "Réévaluation",
+      "Clôture",
+    ];
     const idx = order.indexOf(stageNow);
     if (idx < order.length - 1) return { nextStage: order[idx + 1], nextEtape: idx + 2 };
     return { nextStage: "Clôture", nextEtape: 7 };
   }
 
-  // Parse SUD (0..10) d'une réponse
+  // Parse SUD (0..10)
   function parseSUD(s: string): number | null {
     const m = s.match(/(^|[^0-9])(10|[0-9])([^0-9]|$)/);
     if (!m) return null;
@@ -84,40 +109,38 @@ export default function Page() {
     const userText = text.trim();
     if (!userText) return;
 
-    setRows(r => [...r, { who: "user", text: userText }]);
-    setTranscript(t => t + `\nUtilisateur: ${userText}`);
+    setRows((r) => [...r, { who: "user", text: userText }]);
+    setTranscript((t) => t + `\nUtilisateur: ${userText}`);
     setText("");
 
-    // Met à jour les slots selon l'étape courante
+    // Met à jour les slots selon l'étape
     const updated: Slots = { ...slots };
     if (stage === "Intake") updated.intake = userText;
     if (stage === "Durée") updated.duration = userText;
     if (stage === "Contexte") updated.context = userText;
 
-    // Étape Réévaluation : extraire SUD et décider de la boucle
+    // Étape 6 : gère le SUD et décide du retour à 5 ou de la clôture (objectif strict 0)
     let forceStage: Stage | null = null;
     let forceEtape: number | null = null;
-    const confused = isConfusion(userText); // ← FIX: const (pas let)
+    const confused = isConfusion(userText);
 
     if (stage === "Réévaluation" && !confused) {
       const sud = parseSUD(userText);
       if (sud === null) {
-        // on reste à 6 et on redemande
         updated.sud = undefined;
         forceStage = "Réévaluation";
         forceEtape = 6;
       } else {
         updated.sud = sud;
         if (sud > 0) {
-          // nouvelle ronde sur le même aspect (objectif strict : 0)
           const nextRound = (round || 1) + 1;
-          updated.round = nextRound;
+          updated.round = nextRound; // FIX: prépare la prochaine ronde dans les slots
           setRound(nextRound);
           forceStage = "Tapping";
           forceEtape = 5;
         } else {
-          // sud === 0 ⇒ clôture
-          updated.round = round;
+          // sud === 0 → clôture
+          updated.round = round; // conserve la ronde atteinte à 0
           forceStage = "Clôture";
           forceEtape = 7;
         }
@@ -127,7 +150,10 @@ export default function Page() {
     setSlots(updated);
 
     // Mémoire courte
-    const shortTranscript = (transcript + `\nUtilisateur: ${userText}`).split("\n").slice(-10).join("\n");
+    const shortTranscript = (transcript + `\nUtilisateur: ${userText}`)
+      .split("\n")
+      .slice(-10)
+      .join("\n");
 
     // Appel API
     const res = await fetch("/api/guide-eft", {
@@ -139,17 +165,19 @@ export default function Page() {
         etape: forceEtape ?? etape,
         transcript: shortTranscript,
         confused,
-        slots: { ...updated, round },
+        // ⚠️ FIX CRITIQUE : NE PAS réécraser updated.round avec l'ancien round
+        // slots: { ...updated, round },  // ⛔️ ancien code (bug)
+        slots: updated,                   // ✅ envoie les slots corrects (incluant updated.round)
       }),
     });
 
     const json = await res.json().catch(() => ({ answer: "" }));
     const answer: string = json?.answer ?? "";
 
-    setRows(r => [...r, { who: "bot", text: answer }]);
-    setTranscript(t => t + `\nAssistant: ${answer}`);
+    setRows((r) => [...r, { who: "bot", text: answer }]);
+    setTranscript((t) => t + `\nAssistant: ${answer}`);
 
-    // Décision de progression côté client
+    // Progession de l'étape côté client
     if (forceStage && forceEtape) {
       setStage(forceStage);
       setEtape(forceEtape);
@@ -171,7 +199,9 @@ export default function Page() {
           <div>
             <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
             <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
-            <p className="text-sm mt-1 opacity-90">Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.</p>
+            <p className="text-sm mt-1 opacity-90">
+              Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
+            </p>
           </div>
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
@@ -185,14 +215,33 @@ export default function Page() {
       <section className="rounded-xl border bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-[#0f3d69] mb-2">Carte des points EFT</h2>
         <ul className="list-disc pl-5 space-y-1 text-sm text-gray-800">
-          <li><strong>Sommet de la tête (ST)</strong> : haut du crâne</li>
-          <li><strong>Début du sourcil (DS)</strong> : base du sourcil côté nez</li>
-          <li><strong>Coin de l’œil (CO)</strong> : os de l’orbite côté externe</li>
-          <li><strong>Sous l’œil (SO)</strong> : os sous l’orbite</li>
-          <li><strong>Sous le nez (SN)</strong> : entre nez et lèvre</li>
-          <li><strong>Creux du menton (CM)</strong> : creux du menton</li>
-          <li><strong>Clavicule (CL)</strong> : sous la clavicule, zone tendre</li>
-          <li><strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle</li>
+          <li>
+            <strong>Point Karaté (PK)</strong> : tranche de la main — à utiliser pour la phrase de préparation (répéter 3 fois).
+          </li>
+          <li>
+            <strong>Sommet de la tête (ST)</strong> : haut du crâne
+          </li>
+          <li>
+            <strong>Début du sourcil (DS)</strong> : base du sourcil côté nez
+          </li>
+          <li>
+            <strong>Coin de l’œil (CO)</strong> : os de l’orbite côté externe
+          </li>
+          <li>
+            <strong>Sous l’œil (SO)</strong> : os sous l’orbite
+          </li>
+          <li>
+            <strong>Sous le nez (SN)</strong> : entre nez et lèvre
+          </li>
+          <li>
+            <strong>Creux du menton (CM)</strong> : creux du menton
+          </li>
+          <li>
+            <strong>Clavicule (CL)</strong> : sous la clavicule, zone tendre
+          </li>
+          <li>
+            <strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle
+          </li>
         </ul>
         <p className="text-xs text-gray-600 mt-3">
           Objectif des rondes : ramener le SUD à <strong>0</strong>, en douceur et à votre rythme.
@@ -200,11 +249,21 @@ export default function Page() {
       </section>
 
       {/* Chat */}
-      <div ref={chatRef} className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm">
+      <div
+        ref={chatRef}
+        className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+      >
         <div className="space-y-3">
           {rows.map((r, i) => (
             <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
-              <div className={(r.who === "bot" ? "bg-gray-50 text-gray-900 border-gray-200" : "bg-blue-50 text-blue-900 border-blue-200") + " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"}>
+              <div
+                className={
+                  (r.who === "bot"
+                    ? "bg-gray-50 text-gray-900 border-gray-200"
+                    : "bg-blue-50 text-blue-900 border-blue-200") +
+                  " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"
+                }
+              >
                 {renderPretty(r.text)}
               </div>
             </div>
@@ -220,15 +279,27 @@ export default function Page() {
           className="flex-1 rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
           placeholder="Posez votre question sur l&apos;EFT…"
         />
-        <button type="submit" className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99]">Envoyer</button>
+        <button
+          type="submit"
+          className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99]"
+        >
+          Envoyer
+        </button>
       </form>
 
       {/* CTA + Note */}
       <div className="text-center mt-6">
-        <a href="https://ecole-eft-france.fr/pages/formations-eft.html" target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200">
+        <a
+          href="https://ecole-eft-france.fr/pages/formations-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200"
+        >
           Découvrir nos formations
         </a>
-        <p className="text-sm text-gray-600 mt-2">Pour aller plus loin dans la pratique et la transmission de l’EFT, découvrez les formations proposées par l’École EFT France.</p>
+        <p className="text-sm text-gray-600 mt-2">
+          Pour aller plus loin dans la pratique et la transmission de l’EFT, découvrez les formations proposées par l’École EFT France.
+        </p>
       </div>
 
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
@@ -239,8 +310,11 @@ export default function Page() {
           responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
           des informations ou protocoles présentés. Chaque utilisateur reste responsable de sa pratique et de ses choix.
         </p>
-        <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans de l&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
+        <p className="text-xs mt-3 opacity-80">
+          — Édition spéciale 30 ans de l&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos
+        </p>
       </div>
     </main>
   );
 }
+
