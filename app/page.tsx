@@ -22,7 +22,7 @@ type Slots = {
   aspect?: string;
 };
 
-// -------- Helpers --------
+/* ---------------- Helpers ---------------- */
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
@@ -32,18 +32,41 @@ function parseSUD(s: string): number | null {
   const m = s.match(/(^|[^0-9])(10|[0-9])([^0-9]|$)/);
   if (!m) return null;
   const v = Number(m[2]);
-  if (Number.isFinite(v) && v >= 0 && v <= 10) return v;
-  return null;
+  return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
+}
+
+/** Transforme des formulations naturelles en syntagmes corrects.
+ *  ex: "j'ai mal à l'épaule" -> "mal à l'épaule" (masc)
+ *      "j'ai une douleur à l'épaule" -> "douleur à l'épaule" (fem)
+ */
+function normalizeIntake(input: string): string {
+  let s = input.trim().replace(/\s+/g, " ");
+  // j'ai mal à ...
+  const m1 = s.match(/^j['’]ai\s+mal\s+à\s+(.+)$/i);
+  if (m1) return `mal à ${m1[1]}`;
+  // j'ai une/ la douleur ...
+  const m2 = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
+  if (m2) return `douleur ${m2[1].trim()}`;
+  // j'ai une peur de ...
+  const m3 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
+  if (m3) return `peur ${m3[1].trim()}`;
+  // j'ai peur de ...
+  const m4 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
+  if (m4) return `peur ${m4[1].trim()}`;
+  // j'ai une tension / gêne ...
+  const m5 = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
+  if (m5) return `${m5[1]} ${m5[2].trim()}`;
+  return s;
 }
 function isMasculine(intake: string): boolean {
-  return intake.trim().toLowerCase().startsWith("mal ");
+  return /^mal\b/i.test(intake);
 }
-function buildAspect(intakeText: string, ctxShort: string): string {
-  if (!ctxShort) return intakeText;
-  const masculine = isMasculine(intakeText);
+function buildAspect(intakeTextRaw: string, ctxShort: string): string {
+  const intake = normalizeIntake(intakeTextRaw);
+  if (!ctxShort) return intake;
+  const masculine = isMasculine(intake);
   const liaison = masculine ? "lié à" : "liée à";
-  // pas de virgule avant "lié(e) à"
-  return `${intakeText} ${liaison} ${ctxShort}`;
+  return `${intake} ${liaison} ${ctxShort}`;
 }
 function renderPretty(s: string) {
   const paragraphs = s.split(/\n\s*\n/);
@@ -64,7 +87,7 @@ function renderPretty(s: string) {
   );
 }
 
-// -------- Component --------
+/* ---------------- Component ---------------- */
 export default function Page() {
   // Session
   const [stage, setStage] = useState<Stage>("Intake");
@@ -84,7 +107,7 @@ export default function Page() {
     const userText = text.trim();
     if (!userText) return;
 
-    // Si on est en Clôture et qu’un nouveau sujet arrive, on réinitialise la session
+    // Nouveau sujet après clôture → reset
     if (stage === "Clôture") {
       setStage("Intake");
       setEtape(1);
@@ -94,37 +117,43 @@ export default function Page() {
     setRows(r => [...r, { who: "user", text: userText }]);
     setText("");
 
-    // Met à jour les slots selon l'étape courante (après éventuel reset ci-dessus)
+    // MàJ slots (après éventuel reset)
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
-      updated.intake = userText;                 // libellé précis (douleur/peur…)
+      // normaliser l'intake (évite "Cette j'ai mal...")
+      updated.intake = normalizeIntake(userText);
     } else if (stage === "Durée") {
-      updated.duration = userText;               // depuis quand
+      updated.duration = userText;
     } else if (stage === "Contexte") {
-      updated.context = userText;                // contexte
+      updated.context = userText;
     } else if (stage === "Évaluation") {
       const sud = parseSUD(userText);
-      if (sud !== null) updated.sud = sud;       // SUD initial
+      if (sud !== null) updated.sud = sud;
     } else if (stage === "Réévaluation") {
       const sud = parseSUD(userText);
-      if (sud !== null) updated.sud = sud;       // SUD après ronde
+      if (sud !== null) updated.sud = sud;
     }
 
-    // Construit aspect (avec contexte “lié(e) à …”, si présent, accordé)
+    // — Lire un SUD si l’utilisateur le tape juste après l’étape 6 (le message “Veuillez évaluer…”)
+    if (stage === "Tapping") {
+      const sudInline = parseSUD(userText);
+      if (sudInline !== null) updated.sud = sudInline;
+    }
+
+    // Aspect (accord + pas de virgule avant "lié(e) à")
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
     const aspect = buildAspect(intakeText, ctxShort);
     updated.aspect = aspect;
-
     setSlots(updated);
 
-    // --- Décision d'étape à envoyer à l'API (anti-répétitions) ---
+    // --- Étape pour l'API (anti-boucles) ---
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
-    // Détecte "prêt"
+    // prêt ?
     const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
 
     if (stage === "Intake")           { stageForAPI = "Durée";        etapeForAPI = 2; }
@@ -137,17 +166,15 @@ export default function Page() {
       stageForAPI = "Tapping";        etapeForAPI = 6;
     }
     else if (stage === "Tapping") {
-      // ⚠️ Si l’utilisateur saisit un chiffre ici, on l’interprète comme un SUD de réévaluation
-      const sudHere = parseSUD(userText);
-      if (sudHere !== null) {
-        updated.sud = sudHere;
-        if (sudHere === 0) {
+      // si un SUD vient d'être tapé, on agit immédiatement
+      if (typeof updated.sud === "number") {
+        if (updated.sud === 0) {
           stageForAPI = "Clôture";    etapeForAPI = 8;
         } else {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots(s => ({ ...s, round: nextRound }));
-          stageForAPI = "Tapping";    etapeForAPI = 6; // on enchaîne une nouvelle ronde
+          stageForAPI = "Tapping";    etapeForAPI = 6; // nouvelle ronde
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -214,7 +241,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Carte des points (aide fixe) */}
+      {/* Carte des points */}
       <section className="rounded-xl border bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-[#0f3d69] mb-2">Carte des points EFT</h2>
         <ul className="list-disc pl-5 space-y-1 text-sm text-gray-800">
