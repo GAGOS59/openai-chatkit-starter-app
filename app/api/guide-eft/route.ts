@@ -18,15 +18,15 @@ type Slots = {
   intake?: string;
   duration?: string;
   context?: string;
-  sud?: number;   // 0..10
-  round?: number; // 1,2,3…
+  sud?: number;
+  round?: number;
   aspect?: string;
 };
 
 type GuideRequest = {
   prompt?: string;
   stage?: Stage;
-  etape?: number;   // 1..8
+  etape?: number;
   transcript?: string;
   slots?: Slots;
 };
@@ -45,7 +45,7 @@ function stepFromStage(stage?: Stage): number {
   }
 }
 
-/* ---------------- Utilitaires texte ---------------- */
+/* ---- utils ---- */
 function clean(s: string): string {
   return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
 }
@@ -59,20 +59,16 @@ function splitContext(ctx: string): string[] {
 function detectGender(intakeRaw: string): "m" | "f" {
   const s = clean(intakeRaw).toLowerCase();
   if (s.startsWith("mal ")) return "m";
-  if (s.startsWith("douleur")) return "f";
-  if (s.startsWith("peur")) return "f";
-  if (s.startsWith("gêne") || s.startsWith("gene")) return "f";
-  if (s.startsWith("tension")) return "f";
-  if (s.startsWith("colère") || s.startsWith("colere")) return "f";
-  if (s.startsWith("tristesse")) return "f";
-  // défaut: féminin (plus courant)
+  if (s.startsWith("douleur") || s.startsWith("peur") || s.startsWith("gêne") || s.startsWith("gene") || s.startsWith("tension") || s.startsWith("colère") || s.startsWith("colere") || s.startsWith("tristesse")) {
+    return "f";
+  }
   return "f";
 }
 function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   if (typeof sud !== "number" || sud === 0) return "";
   if (sud >= 7) return g === "m" ? " très présent" : " très présente";
   if (sud >= 4) return g === "m" ? " encore présent" : " encore présente";
-  return " qui reste encore un peu"; // neutre
+  return " qui reste encore un peu";
 }
 function baseFromIntake(intakeRaw: string): { generic: string; short: string; g: "m" | "f" } {
   const intake = clean(intakeRaw);
@@ -85,18 +81,14 @@ function baseFromIntake(intakeRaw: string): { generic: string; short: string; g:
   }
   return { generic: "Ce problème", short: "Ce problème", g: "m" };
 }
-
-/* ---- Génération déterministe des 8 phrases de rappel pour l'étape 6 ---- */
 function buildRappelPhrases(slots: Slots): string[] {
   const intake = clean(slots.intake ?? "");
   const ctx = clean(slots.context ?? "");
   const { generic, short, g } = baseFromIntake(intake);
   const sudQ = sudQualifierFromNumber(slots.sud, g);
   const round = slots.round ?? 1;
-
   const contextParts = ctx ? splitContext(ctx) : [];
 
-  // Si ronde >1 et SUD>0, on renforce un peu la sensation
   const roundMod =
     typeof slots.sud === "number" && slots.sud > 0 && round > 1
       ? (slots.sud >= 7 ? " toujours" : " encore")
@@ -105,11 +97,8 @@ function buildRappelPhrases(slots: Slots): string[] {
   const qOrRound = sudQ || roundMod;
 
   const phrases: string[] = [];
-  // 1–2 : libellés de base
   phrases.push(`${generic}${qOrRound}.`);
   phrases.push(`${short}.`);
-
-  // 3–6 : fragments de contexte si présents, sinon variations
   for (let i = 0; i < 4; i++) {
     if (contextParts[i]) {
       const sentence = contextParts[i][0].toUpperCase() + contextParts[i].slice(1) + ".";
@@ -118,16 +107,11 @@ function buildRappelPhrases(slots: Slots): string[] {
       phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
     }
   }
-
-  // 7–8 : rappel global
   if (contextParts[0]) phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
   else phrases.push(`${short}.`);
   phrases.push(`${generic}.`);
-
   return phrases.slice(0, 8);
 }
-
-/* ---------- extraction réponse OpenAI (sans any) ---------- */
 function extractAnswer(json: unknown): string {
   if (!json || typeof json !== "object") return "";
   const j = json as Record<string, unknown>;
@@ -140,7 +124,6 @@ function extractAnswer(json: unknown): string {
       if (typeof text === "string") return text;
     }
   }
-
   const choices = j.choices as unknown;
   if (Array.isArray(choices) && choices[0] && typeof choices[0] === "object") {
     const msg = (choices[0] as Record<string, unknown>).message as unknown;
@@ -149,17 +132,15 @@ function extractAnswer(json: unknown): string {
       if (typeof content === "string") return content;
     }
   }
-
   const contentTop = j.content as unknown;
   if (Array.isArray(contentTop) && contentTop[0] && typeof contentTop[0] === "object") {
     const text = (contentTop[0] as Record<string, unknown>).text;
     if (typeof text === "string") return text;
   }
-
   return "";
 }
 
-/* ---------- prompt système ---------- */
+/* ---- SYSTEM ---- */
 const SYSTEM = `
 Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
@@ -178,7 +159,7 @@ FLUX (verrouillé)
 
 LANGAGE
 - AUCUN filler (“respire”, “doucement”, etc.).
-- Utiliser les mots de l’utilisateur via les slots fournis.
+- Utiliser uniquement les mots de l’utilisateur via les slots fournis.
 - Une seule consigne par message (sauf Setup: 2 lignes max, impératif clair).
 
 ÉTAPE 6 — IMPORTANT
@@ -189,17 +170,16 @@ LANGAGE
 FORMAT
 - Commencer par "Étape {N} — ".
 - Étapes 1–4 & 7–8 : 1 ligne (2 max pour 5).
-- Étape 6 : liste de 8 puces (ST→SB) + phrase finale demandant le SUD.
+- Étape 6 : 8 puces (ST → SB) + phrase finale demandant le SUD.
 `;
 
-/* ---------- handler ---------- */
+/* ---- Handler ---- */
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
-
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/,"")}/v1/responses`;
 
