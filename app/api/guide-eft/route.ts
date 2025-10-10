@@ -112,33 +112,6 @@ function buildRappelPhrases(slots: Slots): string[] {
   phrases.push(`${generic}.`);
   return phrases.slice(0, 8);
 }
-function extractAnswer(json: unknown): string {
-  if (!json || typeof json !== "object") return "";
-  const j = json as Record<string, unknown>;
-
-  const output = j.output as unknown;
-  if (Array.isArray(output) && output[0] && typeof output[0] === "object") {
-    const content = (output[0] as Record<string, unknown>).content as unknown;
-    if (Array.isArray(content) && content[0] && typeof content[0] === "object") {
-      const text = (content[0] as Record<string, unknown>).text;
-      if (typeof text === "string") return text;
-    }
-  }
-  const choices = j.choices as unknown;
-  if (Array.isArray(choices) && choices[0] && typeof choices[0] === "object") {
-    const msg = (choices[0] as Record<string, unknown>).message as unknown;
-    if (msg && typeof msg === "object") {
-      const content = (msg as Record<string, unknown>).content;
-      if (typeof content === "string") return content;
-    }
-  }
-  const contentTop = j.content as unknown;
-  if (Array.isArray(contentTop) && contentTop[0] && typeof contentTop[0] === "object") {
-    const text = (contentTop[0] as Record<string, unknown>).text;
-    if (typeof text === "string") return text;
-  }
-  return "";
-}
 
 /* ---- SYSTEM ---- */
 const SYSTEM = `
@@ -152,25 +125,15 @@ FLUX (verrouillé)
 4) Évaluation — SUD (0–10) pour la première fois.
 5) Setup — Point Karaté ×3 : « Même si j’ai cette {aspect}, je m’accepte profondément et complètement. »
    Puis attendre que la personne écrive « prêt ».
-6) Tapping — ronde point par point (ST→SB).
 7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
 8) Clôture — remercie, félicite le travail fourni, propose une pause/hydratation, rappelle la note de prudence.
-   N’ouvre pas un nouveau sujet, ne relance pas.
 
 LANGAGE
-- AUCUN filler (“respire”, “doucement”, etc.).
-- Utiliser uniquement les mots de l’utilisateur via les slots fournis.
-- Une seule consigne par message (sauf Setup: 2 lignes max, impératif clair).
-
-ÉTAPE 6 — IMPORTANT
-- Des phrases P1..P8 sont fournies par le serveur (rappel point par point).
-- TU DOIS les utiliser EXACTEMENT, dans l’ordre, une par point (ST, DS, CO, SO, SN, MT, CL, SB).
-- Ne modifie pas ces phrases, ne les réécris pas, ne les enrichis pas.
+- Pas de fillers. Utiliser uniquement les mots fournis.
+- Une seule consigne par message (sauf Setup: 2 lignes max).
 
 FORMAT
 - Commencer par "Étape {N} — ".
-- Étapes 1–4 & 7–8 : 1 ligne (2 max pour 5).
-- Étape 6 : 8 puces (ST → SB) + phrase finale demandant le SUD.
 `;
 
 /* ---- Handler ---- */
@@ -191,28 +154,42 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    const phrases = buildRappelPhrases(slots);
+    // Étape 6 : rendu déterministe côté serveur
+    if (etape === 6) {
+      const p = buildRappelPhrases(slots);
+      const txt =
+`Étape 6 —
 
+- ST : ${p[0]}
+- DS : ${p[1]}
+- CO : ${p[2]}
+- SO : ${p[3]}
+- SN : ${p[4]}
+- MT : ${p[5]}
+- CL : ${p[6]}
+- SB : ${p[7]}
+Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
+      return NextResponse.json({ answer: txt });
+    }
+
+    // Étape 8 : clôture stable
+    if (etape === 8) {
+      const txt =
+"Étape 8 — Merci pour le travail fourni. Félicitations pour votre avancée. Prenez un moment pour vous hydrater et vous reposer. Rappelez-vous que ce guide est éducatif et ne remplace pas un avis médical.";
+      return NextResponse.json({ answer: txt });
+    }
+
+    // Autres étapes : modèle avec SYSTEM strict
     const USER_BLOCK =
 `[CONTEXTE]
-- Étape (1..8) : ${etape}
-- Slots:
-  • intake="${slots.intake ?? ""}"
-  • duration="${slots.duration ?? ""}"
-  • context="${slots.context ?? ""}"
-  • sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
-  • round=${Number.isFinite(slots.round) ? slots.round : "NA"}
-  • aspect="${slots.aspect ?? ""}"
-
-[PHRASES_POUR_ETAPE_6]
-P1="${phrases[0]}"
-P2="${phrases[1]}"
-P3="${phrases[2]}"
-P4="${phrases[3]}"
-P5="${phrases[4]}"
-P6="${phrases[5]}"
-P7="${phrases[6]}"
-P8="${phrases[7]}"
+Étape demandée: ${etape}
+Slots:
+- intake="${slots.intake ?? ""}"
+- duration="${slots.duration ?? ""}"
+- context="${slots.context ?? ""}"
+- sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
+- round=${Number.isFinite(slots.round) ? slots.round : "NA"}
+- aspect="${slots.aspect ?? ""}"
 
 [DERNIER MESSAGE UTILISATEUR]
 ${prompt}
@@ -220,10 +197,8 @@ ${prompt}
 [HISTORIQUE (court)]
 ${transcript}
 
-[INSTRUCTIONS]
-- Génère la sortie de l'étape ${etape} en respectant STRICTEMENT le SYSTEM ci-dessus.
-- Si étape 6 : utilise P1..P8 telles quelles (sans reformulation), point par point.
-`;
+[INSTRUCTION]
+Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
@@ -238,7 +213,7 @@ ${transcript}
         model: "gpt-4o-mini",
         input: `${SYSTEM}\n\n${USER_BLOCK}`,
         temperature: 0.2,
-        max_output_tokens: 380,
+        max_output_tokens: 260,
       }),
       signal: controller.signal,
     }).catch(() => {
@@ -250,9 +225,12 @@ ${transcript}
       return NextResponse.json({ error: "Upstream failure" }, { status: 502 });
     }
 
-    const json = (await res.json()) as unknown;
-    const answer = extractAnswer(json);
-
+    const json = await res.json();
+    const answer =
+      (json?.output?.[0]?.content?.[0]?.text) ??
+      (json?.choices?.[0]?.message?.content) ??
+      (json?.content?.[0]?.text) ??
+      "";
     return NextResponse.json({ answer });
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
