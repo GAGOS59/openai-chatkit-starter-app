@@ -22,20 +22,11 @@ type Slots = {
   aspect?: string;
 };
 
-type ApiResponse = { answer?: string; error?: string; detail?: string };
-
 // -------- Helpers --------
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
   return t.split(" ").slice(0, 14).join(" ");
-}
-function sudQualifier(sud?: number): string {
-  if (typeof sud !== "number") return "";
-  if (sud === 0) return "disparue";
-  if (sud >= 7) return "très présente";
-  if (sud >= 4) return "encore présente";
-  return "reste encore un peu";
 }
 function parseSUD(s: string): number | null {
   const m = s.match(/(^|[^0-9])(10|[0-9])([^0-9]|$)/);
@@ -80,11 +71,10 @@ export default function Page() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    let userText = text.trim();
+    const userText = text.trim();
     if (!userText) return;
 
-    // 🔄 Si on est en Clôture et que l'utilisateur tape un nouveau sujet,
-    // on REINITIALISE la session (nouvelle demande).
+    // Si on est en Clôture et qu’un nouveau sujet arrive, on réinitialise la session
     if (stage === "Clôture") {
       setStage("Intake");
       setEtape(1);
