@@ -34,26 +34,17 @@ function parseSUD(s: string): number | null {
   const v = Number(m[2]);
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
-
-/** Transforme des formulations naturelles en syntagmes corrects.
- *  ex: "j'ai mal à l'épaule" -> "mal à l'épaule" (masc)
- *      "j'ai une douleur à l'épaule" -> "douleur à l'épaule" (fem)
- */
+/** "j'ai mal à l'épaule" -> "mal à l'épaule"; "j'ai une douleur ..." -> "douleur ..." */
 function normalizeIntake(input: string): string {
-  const s = input.trim().replace(/\s+/g, " "); // FIX: let → const
-  // j'ai mal à ...
+  const s = input.trim().replace(/\s+/g, " ");
   const m1 = s.match(/^j['’]ai\s+mal\s+à\s+(.+)$/i);
   if (m1) return `mal à ${m1[1]}`;
-  // j'ai une/ la douleur ...
   const m2 = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (m2) return `douleur ${m2[1].trim()}`;
-  // j'ai une peur de ...
   const m3 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (m3) return `peur ${m3[1].trim()}`;
-  // j'ai peur de ...
   const m4 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (m4) return `peur ${m4[1].trim()}`;
-  // j'ai une tension / gêne ...
   const m5 = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (m5) return `${m5[1]} ${m5[2].trim()}`;
   return s;
@@ -61,12 +52,26 @@ function normalizeIntake(input: string): string {
 function isMasculine(intake: string): boolean {
   return /^mal\b/i.test(intake);
 }
+/** Nettoie le contexte pour éviter "lié à je …" → "lié à être …" / "lié à ..." */
+function normalizeContextForAspect(ctx: string): string {
+  let c = ctx.trim();
+  // supprime "je " / "j'ai " / "j’étais " en tête
+  c = c.replace(/^je\s+/i, "");
+  c = c.replace(/^j['’]ai\s+/i, "");
+  c = c.replace(/^j['’](?:étais|etais)\s+/i, "être ");
+  // si commence par un verbe conjugué "suis", "ai", "étais" → infinitif approximatif
+  c = c.replace(/^suis\b/i, "être ");
+  c = c.replace(/^ai\b/i, "avoir ");
+  c = c.replace(/^étais\b/i, "être ");
+  return c;
+}
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const intake = normalizeIntake(intakeTextRaw);
   if (!ctxShort) return intake;
   const masculine = isMasculine(intake);
   const liaison = masculine ? "lié à" : "liée à";
-  return `${intake} ${liaison} ${ctxShort}`;
+  const cleaned = normalizeContextForAspect(ctxShort);
+  return `${intake} ${liaison} ${cleaned}`;
 }
 function renderPretty(s: string) {
   const paragraphs = s.split(/\n\s*\n/);
@@ -134,13 +139,13 @@ export default function Page() {
       if (sud !== null) updated.sud = sud;
     }
 
-    // SUD saisi juste après l’étape 6
+    // SUD saisi juste après l’étape 6 (réponse directe à la consigne)
     if (stage === "Tapping") {
       const sudInline = parseSUD(userText);
       if (sudInline !== null) updated.sud = sudInline;
     }
 
-    // Aspect
+    // Aspect (accord + pas de virgule avant "lié(e) à"), contexte nettoyé
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
@@ -148,7 +153,7 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // Étape pour l'API
+    // --- Étape pour l'API (et short-circuit 0) ---
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
@@ -166,12 +171,22 @@ export default function Page() {
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
-          stageForAPI = "Clôture";    etapeForAPI = 8;
+          // 🔒 Clôture immédiate côté client — pas d'appel API
+          setRows(r => [...r, {
+            who: "bot",
+            text:
+              "Étape 8 — Merci pour le travail fourni. Félicitations pour votre avancée. " +
+              "Prenez un moment pour vous hydrater et vous reposer. " +
+              "Rappelez-vous que ce guide est éducatif et ne remplace pas un avis médical."
+          }]);
+          setStage("Clôture");
+          setEtape(8);
+          return;
         } else {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots(s => ({ ...s, round: nextRound }));
-          stageForAPI = "Tapping";    etapeForAPI = 6;
+          stageForAPI = "Tapping";    etapeForAPI = 6; // nouvelle ronde (phrases recalculées serveur)
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -179,7 +194,17 @@ export default function Page() {
     }
     else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        stageForAPI = "Clôture";      etapeForAPI = 8;
+        // 🔒 Clôture immédiate côté client — pas d'appel API
+        setRows(r => [...r, {
+          who: "bot",
+          text:
+            "Étape 8 — Merci pour le travail fourni. Félicitations pour votre avancée. " +
+            "Prenez un moment pour vous hydrater et vous reposer. " +
+            "Rappelez-vous que ce guide est éducatif et ne remplace pas un avis médical."
+        }]);
+        setStage("Clôture");
+        setEtape(8);
+        return;
       } else if (updated.sud > 0) {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
@@ -188,7 +213,7 @@ export default function Page() {
       }
     }
 
-    // Appel API
+    // Appel API (Étapes hors clôture locale)
     const transcriptShort = rows
       .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
       .slice(-10)
@@ -283,7 +308,7 @@ export default function Page() {
 
       {/* CTA + Note */}
       <div className="text-center mt-6">
-        <a href="https://ecole-eft-france.fr/pages/formations-eft.html" target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors durée-200">
+        <a href="https://ecole-eft-france.fr/pages/formations-eft.html" target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200">
           Découvrir nos formations
         </a>
         <p className="text-sm text-gray-600 mt-2">Pour aller plus loin dans la pratique et la transmission de l’EFT, découvrez les formations proposées par l’École EFT France.</p>
