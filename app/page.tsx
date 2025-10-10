@@ -13,8 +13,6 @@ type Stage =
   | "Réévaluation"
   | "Clôture";
 
-type SudQualifier = "" | "très présente" | "encore présente" | "reste encore un peu" | "disparue";
-
 type Slots = {
   intake?: string;
   duration?: string;
@@ -22,7 +20,6 @@ type Slots = {
   sud?: number;
   round?: number;
   aspect?: string;
-  sud_qualifier?: SudQualifier;
 };
 
 type ApiResponse = { answer?: string; error?: string; detail?: string };
@@ -33,7 +30,7 @@ function shortContext(s: string): string {
   if (!t) return "";
   return t.split(" ").slice(0, 14).join(" ");
 }
-function sudQualifier(sud?: number): SudQualifier {
+function sudQualifier(sud?: number): string {
   if (typeof sud !== "number") return "";
   if (sud === 0) return "disparue";
   if (sud >= 7) return "très présente";
@@ -83,17 +80,25 @@ export default function Page() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const userText = text.trim();
+    let userText = text.trim();
     if (!userText) return;
+
+    // 🔄 Si on est en Clôture et que l'utilisateur tape un nouveau sujet,
+    // on REINITIALISE la session (nouvelle demande).
+    if (stage === "Clôture") {
+      setStage("Intake");
+      setEtape(1);
+      setSlots({ round: 1 });
+    }
 
     setRows(r => [...r, { who: "user", text: userText }]);
     setText("");
 
-    // Met à jour les slots selon l'étape
-    const updated: Slots = { ...slots };
+    // Met à jour les slots selon l'étape courante (après éventuel reset ci-dessus)
+    const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
-    if (stage === "Intake") {
-      updated.intake = userText;                 // libellé / qualité + localisation
+    if (stage === "Intake" || (stage === "Clôture" && userText)) {
+      updated.intake = userText;                 // libellé précis (douleur/peur…)
     } else if (stage === "Durée") {
       updated.duration = userText;               // depuis quand
     } else if (stage === "Contexte") {
@@ -106,14 +111,12 @@ export default function Page() {
       if (sud !== null) updated.sud = sud;       // SUD après ronde
     }
 
-    // Construit aspect + qualifier (avec contexte “liée à …”)
+    // Construit aspect (avec contexte “liée à …”, si présent)
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
     const aspect = ctxShort ? `${intakeText}, liée à ${ctxShort}` : intakeText;
-    const q = sudQualifier(updated.sud);
     updated.aspect = aspect;
-    updated.sud_qualifier = q;
 
     setSlots(updated);
 
@@ -124,23 +127,26 @@ export default function Page() {
     // Détecte "prêt"
     const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
 
-    if (stage === "Évaluation" && typeof updated.sud === "number") {
-      stageForAPI = "Setup";       etapeForAPI = 5;
+    if (stage === "Intake")           { stageForAPI = "Durée";        etapeForAPI = 2; }
+    else if (stage === "Durée")       { stageForAPI = "Contexte";     etapeForAPI = 3; }
+    else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
+    else if (stage === "Évaluation" && typeof updated.sud === "number") {
+      stageForAPI = "Setup";          etapeForAPI = 5;
     } else if (stage === "Setup" && ready) {
-      stageForAPI = "Tapping";     etapeForAPI = 6;
+      stageForAPI = "Tapping";        etapeForAPI = 6;
+    } else if (stage === "Tapping")   {
+      stageForAPI = "Réévaluation";   etapeForAPI = 7;
     } else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        stageForAPI = "Clôture";   etapeForAPI = 8;
+        stageForAPI = "Clôture";      etapeForAPI = 8;
       } else if (updated.sud > 0) {
-        stageForAPI = "Tapping";   etapeForAPI = 6;
+        // nouvelle ronde
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
         setSlots(s => ({ ...s, round: nextRound }));
+        stageForAPI = "Tapping";      etapeForAPI = 6;
       }
-    } else if (stage === "Intake")       { stageForAPI = "Durée";        etapeForAPI = 2; }
-      else if (stage === "Durée")        { stageForAPI = "Contexte";     etapeForAPI = 3; }
-      else if (stage === "Contexte")     { stageForAPI = "Évaluation";   etapeForAPI = 4; }
-      else if (stage === "Tapping")      { stageForAPI = "Réévaluation"; etapeForAPI = 7; }
+    }
 
     // Appel API
     const transcriptShort = rows
