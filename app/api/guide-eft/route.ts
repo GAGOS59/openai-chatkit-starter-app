@@ -118,21 +118,18 @@ const SYSTEM = `
 Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
 
-FLUX (verrouillé)
+FLUX
 1) Intake — qualité + localisation (ou libellé précis si émotion).
 2) Durée — depuis quand.
 3) Contexte — circonstances/événements/émotions.
 4) Évaluation — SUD (0–10) pour la première fois.
-5) Setup — Point Karaté ×3 : « Même si j’ai cette {aspect}, je m’accepte profondément et complètement. »
-   Puis attendre que la personne écrive « prêt ».
+5) Setup — Phrase de préparation (PK ×3) puis attendre un message de l'utilisateur (sans insister).
 7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
-8) Clôture — remercie, félicite le travail fourni, propose une pause/hydratation, rappelle la note de prudence.
+8) Clôture — remercier, féliciter, pause/hydratation, note de prudence.
 
 LANGAGE
-- Pas de fillers. Utiliser uniquement les mots fournis.
+- Pas de fillers. Utiliser uniquement les mots fournis (slots).
 - Une seule consigne par message (sauf Setup: 2 lignes max).
-
-FORMAT
 - Commencer par "Étape {N} — ".
 `;
 
@@ -154,7 +151,17 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    // Étape 6 : rendu déterministe côté serveur
+    // Étape 5 : Setup déterministe (une fois, sans boucle)
+    if (etape === 5) {
+      const aspect = clean(slots.aspect ?? slots.intake ?? "");
+      const txt =
+`Étape 5 — Setup : « Même si j’ai ce ${aspect}, je m’accepte profondément et complètement. »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un message et nous passerons à la ronde.`;
+      return NextResponse.json({ answer: txt });
+    }
+
+    // Étape 6 : Ronde déterministe
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -172,7 +179,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 : clôture stable
+    // Étape 8 : Clôture stable
     if (etape === 8) {
       const txt =
 "Étape 8 — Merci pour le travail fourni. Félicitations pour votre avancée. Prenez un moment pour vous hydrater et vous reposer. Rappelez-vous que ce guide est éducatif et ne remplace pas un avis médical.";
