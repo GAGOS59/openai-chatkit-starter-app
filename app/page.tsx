@@ -52,17 +52,16 @@ function normalizeIntake(input: string): string {
 function isMasculine(intake: string): boolean {
   return /^mal\b/i.test(intake);
 }
-/** Nettoie le contexte pour éviter "lié à je …" → "lié à être …" / "lié à ..." */
+/** Nettoie le contexte pour éviter "lié à je …" et les virgules parasites */
 function normalizeContextForAspect(ctx: string): string {
   let c = ctx.trim();
-  // supprime "je " / "j'ai " / "j’étais " en tête
   c = c.replace(/^je\s+/i, "");
   c = c.replace(/^j['’]ai\s+/i, "");
   c = c.replace(/^j['’](?:étais|etais)\s+/i, "être ");
-  // si commence par un verbe conjugué "suis", "ai", "étais" → infinitif approximatif
   c = c.replace(/^suis\b/i, "être ");
   c = c.replace(/^ai\b/i, "avoir ");
   c = c.replace(/^étais\b/i, "être ");
+  c = c.replace(/,\s+/g, " "); // supprime la virgule "toute seule, le..."
   return c;
 }
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
@@ -153,11 +152,9 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // --- Étape pour l'API (et short-circuit 0) ---
+    // --- Étape pour l'API (avec court-circuit SUD=0 & avance auto après Setup) ---
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
-
-    const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
 
     if (stage === "Intake")           { stageForAPI = "Durée";        etapeForAPI = 2; }
     else if (stage === "Durée")       { stageForAPI = "Contexte";     etapeForAPI = 3; }
@@ -165,7 +162,8 @@ export default function Page() {
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
       stageForAPI = "Setup";          etapeForAPI = 5;
     }
-    else if (stage === "Setup" && ready) {
+    else if (stage === "Setup") {
+      // ✅ on avance à la ronde dès qu’un message arrive après le Setup
       stageForAPI = "Tapping";        etapeForAPI = 6;
     }
     else if (stage === "Tapping") {
@@ -194,7 +192,6 @@ export default function Page() {
     }
     else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        // 🔒 Clôture immédiate côté client — pas d'appel API
         setRows(r => [...r, {
           who: "bot",
           text:
