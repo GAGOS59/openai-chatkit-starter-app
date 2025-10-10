@@ -4,20 +4,56 @@ import React, { useRef, useState, useEffect, FormEvent } from "react";
 type Row = { who: "bot" | "user"; text: string };
 
 export default function Page() {
-  // Message initial sans apostrophe dans la chaîne JS
+  // Message initial
   const [rows, setRows] = useState<Row[]>([
     { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" },
   ]);
   const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  function onSubmit(e: FormEvent) {
+  // Envoi + appel API interne (sécurisé)
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!text.trim()) return;
-    setRows((r) => [...r, { who: "user", text }]);
+    const input = text.trim();
+    if (!input || loading) return;
+
+    // Affiche le message de l'utilisateur
+    setRows((r) => [...r, { who: "user", text: input }]);
     setText("");
+    setLoading(true);
+
+    try {
+      const resp = await fetch("/api/guide-eft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input }),
+      });
+
+      const data = await resp.json();
+      if (!resp.ok || !data?.answer) {
+        throw new Error(data?.error || "Réponse indisponible");
+      }
+
+      // Affiche la réponse du guide
+      setRows((r) => [...r, { who: "bot", text: data.answer as string }]);
+    } catch (err) {
+      setRows((r) => [
+        ...r,
+        {
+          who: "bot",
+          text:
+            "Je rencontre un souci technique pour répondre maintenant. " +
+            "Réessayez dans un instant ou rafraîchissez la page.",
+        },
+      ]);
+      // Optionnel : console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }
 
+  // Auto-scroll vers le bas à chaque nouveau message
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [rows]);
@@ -61,8 +97,6 @@ export default function Page() {
               Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
             </p>
           </div>
-
-          {/* Logo fourni */}
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
             alt="Logo École EFT France"
@@ -97,6 +131,14 @@ export default function Page() {
               </div>
             </div>
           ))}
+
+          {loading && (
+            <div className="flex">
+              <div className="bg-gray-50 text-gray-500 border border-gray-200 max-w-[80%] rounded-2xl px-4 py-3 shadow-sm italic">
+                L&apos;outil réfléchit…
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -107,27 +149,31 @@ export default function Page() {
           onChange={(e) => setText(e.target.value)}
           className="flex-1 rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
           placeholder="Indiquez votre situation ici..."
+          disabled={loading}
         />
-        <button type="submit" className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99]">
-          Envoyer
+        <button
+          type="submit"
+          className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99] disabled:opacity-50"
+          disabled={loading}
+        >
+          {loading ? "Envoi…" : "Envoyer"}
         </button>
       </form>
 
- 
-<div className="text-center mt-6">
-  <a
-    href="https://ecole-eft-france.fr/pages/formations-eft.html"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200"
-  >
-    Découvrir nos formations
-  </a>
-  <p className="text-sm text-gray-600 mt-2">
-    Pour aller plus loin dans la pratique et la transmission de l’EFT, <br></br>découvrez les formations proposées par l’École EFT France.
-  </p>
-</div>
-
+      {/* CTA formations */}
+      <div className="text-center mt-6">
+        <a
+          href="https://ecole-eft-france.fr/pages/formations-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200"
+        >
+          Découvrir nos formations
+        </a>
+        <p className="text-sm text-gray-600 mt-2">
+          Pour aller plus loin dans la pratique et la transmission de l’EFT, <br />découvrez les formations proposées par l’École EFT France.
+        </p>
+      </div>
 
       {/* Note de prudence + signature */}
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
