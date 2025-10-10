@@ -35,6 +35,16 @@ function parseSUD(s: string): number | null {
   if (Number.isFinite(v) && v >= 0 && v <= 10) return v;
   return null;
 }
+function isMasculine(intake: string): boolean {
+  return intake.trim().toLowerCase().startsWith("mal ");
+}
+function buildAspect(intakeText: string, ctxShort: string): string {
+  if (!ctxShort) return intakeText;
+  const masculine = isMasculine(intakeText);
+  const liaison = masculine ? "lié à" : "liée à";
+  // pas de virgule avant "lié(e) à"
+  return `${intakeText} ${liaison} ${ctxShort}`;
+}
 function renderPretty(s: string) {
   const paragraphs = s.split(/\n\s*\n/);
   return (
@@ -101,11 +111,11 @@ export default function Page() {
       if (sud !== null) updated.sud = sud;       // SUD après ronde
     }
 
-    // Construit aspect (avec contexte “liée à …”, si présent)
+    // Construit aspect (avec contexte “lié(e) à …”, si présent, accordé)
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
-    const aspect = ctxShort ? `${intakeText}, liée à ${ctxShort}` : intakeText;
+    const aspect = buildAspect(intakeText, ctxShort);
     updated.aspect = aspect;
 
     setSlots(updated);
@@ -122,15 +132,31 @@ export default function Page() {
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
       stageForAPI = "Setup";          etapeForAPI = 5;
-    } else if (stage === "Setup" && ready) {
+    }
+    else if (stage === "Setup" && ready) {
       stageForAPI = "Tapping";        etapeForAPI = 6;
-    } else if (stage === "Tapping")   {
-      stageForAPI = "Réévaluation";   etapeForAPI = 7;
-    } else if (stage === "Réévaluation" && typeof updated.sud === "number") {
+    }
+    else if (stage === "Tapping") {
+      // ⚠️ Si l’utilisateur saisit un chiffre ici, on l’interprète comme un SUD de réévaluation
+      const sudHere = parseSUD(userText);
+      if (sudHere !== null) {
+        updated.sud = sudHere;
+        if (sudHere === 0) {
+          stageForAPI = "Clôture";    etapeForAPI = 8;
+        } else {
+          const nextRound = (updated.round ?? 1) + 1;
+          updated.round = nextRound;
+          setSlots(s => ({ ...s, round: nextRound }));
+          stageForAPI = "Tapping";    etapeForAPI = 6; // on enchaîne une nouvelle ronde
+        }
+      } else {
+        stageForAPI = "Réévaluation"; etapeForAPI = 7;
+      }
+    }
+    else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
         stageForAPI = "Clôture";      etapeForAPI = 8;
       } else if (updated.sud > 0) {
-        // nouvelle ronde
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
         setSlots(s => ({ ...s, round: nextRound }));
