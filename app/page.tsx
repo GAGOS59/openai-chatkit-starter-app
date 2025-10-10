@@ -31,7 +31,7 @@ type ApiResponse = { answer?: string; error?: string; detail?: string };
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
-  return t.split(" ").slice(0, 12).join(" ");
+  return t.split(" ").slice(0, 14).join(" ");
 }
 function sudQualifier(sud?: number): SudQualifier {
   if (typeof sud !== "number") return "";
@@ -93,7 +93,7 @@ export default function Page() {
     const updated: Slots = { ...slots };
 
     if (stage === "Intake") {
-      updated.intake = userText;                 // qualité + localisation
+      updated.intake = userText;                 // qualité + localisation ou libellé du problème
     } else if (stage === "Durée") {
       updated.duration = userText;               // depuis quand
     } else if (stage === "Contexte") {
@@ -106,15 +106,54 @@ export default function Page() {
       if (sud !== null) updated.sud = sud;       // SUD après ronde
     }
 
-    // Construit aspect + qualifier
-    const intakeText = updated.intake ?? slots.intake ?? "";
-    const ctx = (updated.context ?? slots.context) ? shortContext(updated.context ?? (slots.context as string)) : "";
-    const aspect = ctx ? `${intakeText}, ${ctx}` : intakeText;
+    // Construit aspect + qualifier (avec contexte “liée à …”)
+    const intakeText = (updated.intake ?? slots.intake ?? "").trim();
+    const ctxRaw = (updated.context ?? slots.context ?? "").trim();
+    const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
+    const aspect = ctxShort ? `${intakeText}, liée à ${ctxShort}` : intakeText;
     const q = sudQualifier(updated.sud);
     updated.aspect = aspect;
     updated.sud_qualifier = q;
 
     setSlots(updated);
+
+    // --- Décision d'étape à envoyer à l'API (anti-répétitions) ---
+    let stageForAPI: Stage = stage;
+    let etapeForAPI = etape;
+
+    // Détecte "prêt" pour l'étape Setup
+    const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
+
+    // 4) Si on vient de saisir un SUD valide → passer directement au Setup
+    if (stage === "Évaluation" && typeof updated.sud === "number") {
+      stageForAPI = "Setup";
+      etapeForAPI = 5;
+    }
+    // 5) Si l’utilisateur dit "prêt" pendant le Setup → passer directement au Tapping
+    else if (stage === "Setup" && ready) {
+      stageForAPI = "Tapping";
+      etapeForAPI = 6;
+    }
+    // 7) Pendant la réévaluation : si SUD=0 → Clôture ; si SUD>0 → Tapping
+    else if (stage === "Réévaluation" && typeof updated.sud === "number") {
+      if (updated.sud === 0) {
+        stageForAPI = "Clôture";
+        etapeForAPI = 8;
+      } else if (updated.sud > 0) {
+        stageForAPI = "Tapping";
+        etapeForAPI = 6;
+        // incrémente la ronde pour que la suivante adapte “encore/toujours…”
+        const nextRound = (updated.round ?? 1) + 1;
+        updated.round = nextRound;
+        setSlots(s => ({ ...s, round: nextRound }));
+      }
+    }
+    // Sinon : linéaire
+    else if (stage === "Intake")       { stageForAPI = "Durée";       etapeForAPI = 2; }
+    else if (stage === "Durée")        { stageForAPI = "Contexte";    etapeForAPI = 3; }
+    else if (stage === "Contexte")     { stageForAPI = "Évaluation";  etapeForAPI = 4; }
+    else if (stage === "Tapping")      { stageForAPI = "Réévaluation";etapeForAPI = 7; }
+    // si Évaluation sans SUD ou Réévaluation sans SUD, on reste où on est
 
     // Appel API
     const transcriptShort = rows
@@ -127,14 +166,14 @@ export default function Page() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt: userText,
-        stage,
-        etape,
+        stage: stageForAPI,
+        etape: etapeForAPI,
         transcript: transcriptShort,
         slots: updated,
       }),
     });
 
-    // ⇩⇩⇩ pas de "any" : on valide le shape à la main
+    // Pas de any : on vérifie la forme
     const raw = await res.json().catch(() => ({}));
     let answer = "";
     if (raw && typeof raw === "object" && "answer" in raw) {
@@ -144,37 +183,15 @@ export default function Page() {
 
     setRows(r => [...r, { who: "bot", text: answer }]);
 
-    // Avancement d'étape
-    if (stage === "Intake")       { setStage("Durée");        setEtape(2); return; }
-    if (stage === "Durée")        { setStage("Contexte");     setEtape(3); return; }
-    if (stage === "Contexte")     { setStage("Évaluation");   setEtape(4); return; }
-    if (stage === "Évaluation")   {
-      if (typeof updated.sud === "number") { setStage("Setup"); setEtape(5); }
-      else { setStage("Évaluation"); setEtape(4); } // tant que SUD pas compris
-      return;
-    }
-    if (stage === "Setup")        {
-      // Avancer seulement si l'utilisateur a écrit "prêt/ok/c'est fait/go/terminé"
-      const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
-      if (ready) { setStage("Tapping"); setEtape(6); } else { setStage("Setup"); setEtape(5); }
-      return;
-    }
-    if (stage === "Tapping")      { setStage("Réévaluation"); setEtape(7); return; }
-    if (stage === "Réévaluation") {
-      if (updated.sud === 0) {
-        setStage("Clôture"); setEtape(8);
-      } else if (typeof updated.sud === "number" && updated.sud > 0) {
-        const nextRound = (updated.round ?? 1) + 1;
-        setSlots(s => ({ ...s, round: nextRound }));
-        setStage("Tapping"); setEtape(6);
-      } else {
-        setStage("Réévaluation"); setEtape(7); // redemande SUD
-      }
-      return;
-    }
-    if (stage === "Clôture") {
-      // Fin de cycle → réinitialisation douce pour un nouveau sujet
-      setStage("Intake"); setEtape(1); setSlots({ round: 1 }); return;
+    // --- Avancement local (synchronisé avec stageForAPI) ---
+    setStage(stageForAPI);
+    setEtape(etapeForAPI);
+
+    // Réinitialisation douce après Clôture (au message suivant)
+    if (stageForAPI === "Clôture") {
+      // on laisse afficher la clôture, et au prochain message on redémarre
+      // (si tu préfères reset immédiat, décommente ci-dessous)
+      // setStage("Intake"); setEtape(1); setSlots({ round: 1 });
     }
   }
 
