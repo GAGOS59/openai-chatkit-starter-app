@@ -4,7 +4,6 @@ import React, { useRef, useState, useEffect, FormEvent } from "react";
 type Row = { who: "bot" | "user"; text: string };
 
 export default function Page() {
-  // Message initial
   const [rows, setRows] = useState<Row[]>([
     { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" },
   ]);
@@ -12,13 +11,11 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Envoi + appel API interne (sécurisé)
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const input = text.trim();
     if (!input || loading) return;
 
-    // Affiche le message de l'utilisateur
     setRows((r) => [...r, { who: "user", text: input }]);
     setText("");
     setLoading(true);
@@ -29,15 +26,11 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input }),
       });
-
       const data = await resp.json();
-      if (!resp.ok || !data?.answer) {
-        throw new Error(data?.error || "Réponse indisponible");
-      }
-
-      // Affiche la réponse du guide
-      setRows((r) => [...r, { who: "bot", text: data.answer as string }]);
+      if (!resp.ok || !data?.answer) throw new Error(data?.error || "Réponse indisponible");
+      setRows((r) => [...r, { who: "bot", text: String(data.answer) }]);
     } catch (err) {
+      console.error("[page] front error:", err); // évite no-unused-vars
       setRows((r) => [
         ...r,
         {
@@ -47,18 +40,15 @@ export default function Page() {
             "Réessayez dans un instant ou rafraîchissez la page.",
         },
       ]);
-      // Optionnel : console.error(err);
     } finally {
       setLoading(false);
     }
   }
 
-  // Auto-scroll vers le bas à chaque nouveau message
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [rows]);
 
-  // Conserver les retours à la ligne et convertir de simples listes en <ul>
   function renderPretty(s: string) {
     const paragraphs = s.split(/\n\s*\n/);
     return (
@@ -97,6 +87,7 @@ export default function Page() {
               Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
             </p>
           </div>
+          {/* Avertissement Next.js: <img> est un warning, pas bloquant */}
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
             alt="Logo École EFT France"
@@ -135,7 +126,7 @@ export default function Page() {
           {loading && (
             <div className="flex">
               <div className="bg-gray-50 text-gray-500 border border-gray-200 max-w-[80%] rounded-2xl px-4 py-3 shadow-sm italic">
-                L&apos;outil réfléchit…
+                L&apos;outil réfléchit...
               </div>
             </div>
           )}
@@ -156,7 +147,7 @@ export default function Page() {
           className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99] disabled:opacity-50"
           disabled={loading}
         >
-          {loading ? "Envoi…" : "Envoyer"}
+          {loading ? "Envoi..." : "Envoyer"}
         </button>
       </form>
 
@@ -171,7 +162,7 @@ export default function Page() {
           Découvrir nos formations
         </a>
         <p className="text-sm text-gray-600 mt-2">
-          Pour aller plus loin dans la pratique et la transmission de l’EFT, <br />découvrez les formations proposées par l’École EFT France.
+          Pour aller plus loin dans la pratique et la transmission de l&apos;EFT, <br />découvrez les formations proposées par l&apos;École EFT France.
         </p>
       </div>
 
