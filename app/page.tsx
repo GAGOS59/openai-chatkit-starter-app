@@ -134,8 +134,13 @@ export default function Page() {
       }),
     });
 
-    const json = (await res.json().catch(() => ({ answer: "" }))) as ApiResponse;
-    const answer: string = json.answer ?? "";
+    // ⇩⇩⇩ pas de "any" : on valide le shape à la main
+    const raw = await res.json().catch(() => ({}));
+    let answer = "";
+    if (raw && typeof raw === "object" && "answer" in raw) {
+      const maybe = (raw as Record<string, unknown>).answer;
+      if (typeof maybe === "string") answer = maybe;
+    }
 
     setRows(r => [...r, { who: "bot", text: answer }]);
 
