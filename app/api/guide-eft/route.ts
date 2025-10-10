@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 
+type GuideRequest = {
+  prompt?: string;
+  stage?: string;
+  etape?: number;
+  transcript?: string;
+};
+
 const SYSTEM = `[ROLE/SYSTEM]
 Tu es l'assistante EFT officielle de l'École EFT France, dans la lignée de Gary Craig.
 Style: chaleureux, professionnel, rassurant, concis, sans jargon.
@@ -12,7 +19,7 @@ RÈGLES STRICTES (OBLIGATOIRES) :
 - Ne donne pas de diagnostic ; oriente si nécessaire vers un professionnel de santé.
 - Si tu n'es pas sûre, dis-le simplement ("Je ne dispose pas de cette information avec certitude") et propose l'étape suivante.
 - Ne PAS adoucir, ni reformuler en positif les phrases.
-- Phrase d’acceptation complète au point karaté : "Même si j’ai [ressenti précis], je m’aime et je m’accepte profondément et complètement."
+- Phrase d’acceptation complète au point karaté : "Même si j’ai [ressenti rpécis], je m’aime et je m’accepte profondément et complètement."
 - Phrases de rappel centrées sur le ressenti dans la situation.
 - Vérifier l’intensité AVANT et APRÈS (0–10), proposer un nouveau tour si > 0.
 - Si réponse vague ("ça va"), demander : "Et si tu devais mettre une valeur entre 0 et 10, ce serait combien ?"
@@ -21,6 +28,8 @@ RÈGLES STRICTES (OBLIGATOIRES) :
 - Ton : neutre, bienveillant, rigoureux, tutoiement par défaut.
 Réponds en français, sans emojis.
 - Ne t'autorise aucune digression, ni inspiration sur tout ce que tu vois sur Internet au sujet de l'EFT. Tu dois impérativement suivre mes indications et elles seules. Par exemple : pas de retour au point karaté en fin de ronde.
+- Toujours rappeler le cadre : l’EFT ne remplace pas un avis médical ; consulter si douleur persistante/alarmante.
+
 
 MÉCANISME EN ÉTAPES :
 - Tu reçois un "stade" (Intake, Durée, Contexte, Setup, Tapping, Réévaluation, Clôture).
@@ -34,14 +43,16 @@ FORMAT EXACT :
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({} as any));
-    const prompt: string = body?.prompt ? String(body.prompt) : "";
-    const stage: string = body?.stage ? String(body.stage) : "Intake";
-    const etape: number =
-      typeof body?.etape === "number" && Number.isFinite(body.etape)
-        ? Number(body.etape)
-        : 1;
-    const transcript: string = body?.transcript ? String(body.transcript) : "";
+    // Par défaut: objet vide typé sans any
+    const fallbackBody: GuideRequest = {};
+    const raw = await req.json().catch(() => fallbackBody) as unknown;
+
+    // Validation minimale et extraction sans any
+    const body: GuideRequest = (raw && typeof raw === "object") ? (raw as GuideRequest) : fallbackBody;
+    const prompt = typeof body.prompt === "string" ? body.prompt : "";
+    const stage = typeof body.stage === "string" ? body.stage : "Intake";
+    const etape = Number.isFinite(body.etape) ? Number(body.etape) : 1;
+    const transcript = typeof body.transcript === "string" ? body.transcript : "";
 
     const USER_BLOCK = `
 [CONTEXTE]
@@ -88,10 +99,8 @@ Si la réponse précédente ne permet pas d'avancer, reformule en 1 phrase puis 
       "";
 
     return NextResponse.json({ answer });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: "Server error", detail: String(err?.message ?? err) },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "Server error", detail: message }, { status: 500 });
   }
 }
