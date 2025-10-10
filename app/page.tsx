@@ -260,24 +260,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Carte des points */}
-      <section className="rounded-xl border bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-[#0f3d69] mb-2">Carte des points EFT</h2>
-        <ul className="list-disc pl-5 space-y-1 text-sm text-gray-800">
-          <li><strong>Point Karaté (PK)</strong> : tranche de la main — phrase de préparation (×3).</li>
-          <li><strong>Sommet de la tête (ST)</strong> : haut du crâne</li>
-          <li><strong>Début du sourcil (DS)</strong> : base du sourcil côté nez</li>
-          <li><strong>Coin de l’œil (CO)</strong> : os de l’orbite côté externe</li>
-          <li><strong>Sous l’œil (SO)</strong> : os sous l’orbite</li>
-          <li><strong>Sous le nez (SN)</strong> : entre nez et lèvre</li>
-          <li><strong>Menton (MT)</strong> : creux du menton</li>
-          <li><strong>Clavicule (CL)</strong> : sous la clavicule, zone tendre</li>
-          <li><strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle</li>
-        </ul>
-        <p className="text-xs text-gray-600 mt-3">
-          Objectif des rondes : ramener le SUD à <strong>0</strong>.
-        </p>
-      </section>
+      
 
       {/* Chat */}
       <div ref={chatRef} className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm">
