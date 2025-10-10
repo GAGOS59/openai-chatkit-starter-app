@@ -16,48 +16,28 @@ type Stage =
 type SudQualifier = "" | "très présente" | "encore présente" | "reste encore un peu" | "disparue";
 
 type Slots = {
-  intake?: string;        // qualité + localisation
+  intake?: string;
   duration?: string;
   context?: string;
-  sud?: number;           // 0..10
-  round?: number;         // 1,2,3…
-  aspect?: string;        // intake + (", " + contexte court si présent)
-  sud_qualifier?: SudQualifier; // d’après SUD ; vide si inconnu
+  sud?: number;
+  round?: number;
+  aspect?: string;
+  sud_qualifier?: SudQualifier;
 };
 
-// --------- Helpers ---------
+// -------- Helpers --------
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
-  const words = t.split(" ");
-  return words.slice(0, 10).join(" "); // court et compréhensible
+  return t.split(" ").slice(0, 12).join(" ");
 }
-
 function sudQualifier(sud?: number): SudQualifier {
-  if (typeof sud !== "number") return ""; // rien si SUD inconnu
+  if (typeof sud !== "number") return "";
   if (sud === 0) return "disparue";
   if (sud >= 7) return "très présente";
   if (sud >= 4) return "encore présente";
   return "reste encore un peu";
 }
-
-function isConfusion(s: string) {
-  const t = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  return /je ne comprends pas|je comprends pas|pas compris|pas comprendre|reformule|reexpliquer|c est quoi|c'est quoi/.test(t) || t === "?";
-}
-
-function isReadyAfterSetup(s: string) {
-  const t = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  return /(pret|ok|cest fait|c est fait|fini|termine|terminé|go)/.test(t);
-}
-
-function advanceLinear(stageNow: Stage): { nextStage: Stage; nextEtape: number } {
-  const order: Stage[] = ["Intake","Durée","Contexte","Évaluation","Setup","Tapping","Réévaluation","Clôture"];
-  const idx = order.indexOf(stageNow);
-  if (idx < order.length - 1) return { nextStage: order[idx + 1], nextEtape: idx + 2 };
-  return { nextStage: "Clôture", nextEtape: 8 };
-}
-
 function parseSUD(s: string): number | null {
   const m = s.match(/(^|[^0-9])(10|[0-9])([^0-9]|$)/);
   if (!m) return null;
@@ -65,14 +45,31 @@ function parseSUD(s: string): number | null {
   if (Number.isFinite(v) && v >= 0 && v <= 10) return v;
   return null;
 }
+function renderPretty(s: string) {
+  const paragraphs = s.split(/\n\s*\n/);
+  return (
+    <div className="space-y-3">
+      {paragraphs.map((p, i) => {
+        if (/^(?:- |\u2022 |\* )/m.test(p)) {
+          const items = p.split(/\n/).filter(Boolean).map(t => t.replace(/^(- |\u2022 |\* )/, ""));
+          return (
+            <ul key={i} className="list-disc pl-5 space-y-1">
+              {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
+            </ul>
+          );
+        }
+        return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
+      })}
+    </div>
+  );
+}
 
-// --------- Component ----------
+// -------- Component --------
 export default function Page() {
   // Session
   const [stage, setStage] = useState<Stage>("Intake");
   const [etape, setEtape] = useState<number>(1);
   const [round, setRound] = useState<number>(1);
-  const [transcript, setTranscript] = useState<string>("");
   const [slots, setSlots] = useState<Slots>({ round: 1 });
 
   // UI
@@ -81,29 +78,7 @@ export default function Page() {
   ]);
   const [text, setText] = useState("");
   const chatRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
-  }, [rows]);
-
-  // Rendu propre (paragraphes + listes "- ")
-  function renderPretty(s: string) {
-    const paragraphs = s.split(/\n\s*\n/);
-    return (
-      <div className="space-y-3">
-        {paragraphs.map((p, i) => {
-          if (/^(?:- |\u2022 |\* )/m.test(p)) {
-            const items = p.split(/\n/).filter(Boolean).map(t => t.replace(/^(- |\u2022 |\* )/, ""));
-            return (
-              <ul key={i} className="list-disc pl-5 space-y-1">
-                {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
-              </ul>
-            );
-          }
-          return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
-        })}
-      </div>
-    );
-  }
+  useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; }, [rows]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -111,124 +86,83 @@ export default function Page() {
     if (!userText) return;
 
     setRows(r => [...r, { who: "user", text: userText }]);
-    setTranscript(t => t + `\nUtilisateur: ${userText}`);
     setText("");
 
-    // Met à jour les slots selon l'étape courante
+    // Met à jour les slots selon l'étape (pas d'interprétation du SUD hors Évaluation / Réévaluation)
     const updated: Slots = { ...slots };
-    if (stage === "Intake") updated.intake = userText;
-    if (stage === "Durée") updated.duration = userText;
-    if (stage === "Contexte") updated.context = userText;
 
-    // Gestion SUD à la réévaluation (objectif strict 0)
-    let forceStage: Stage | null = null;
-    let forceEtape: number | null = null;
-    const confused = isConfusion(userText);
-
-    if (stage === "Réévaluation" && !confused) {
+    if (stage === "Intake") {
+      updated.intake = userText;                 // qualité + localisation
+    } else if (stage === "Durée") {
+      updated.duration = userText;               // depuis quand
+    } else if (stage === "Contexte") {
+      updated.context = userText;                // contexte
+    } else if (stage === "Évaluation") {
       const sud = parseSUD(userText);
-      if (sud === null) {
-        updated.sud = undefined;
-        forceStage = "Réévaluation";
-        forceEtape = 7;
-      } else {
-        updated.sud = sud;
-        if (sud > 0) {
-          const nextRound = (round || 1) + 1;
-          updated.round = nextRound; // prépare la prochaine ronde
-          setRound(nextRound);
-          forceStage = "Tapping"; // relancer une ronde
-          forceEtape = 6;
-        } else {
-          updated.round = round;   // conserve la ronde atteinte à 0
-          forceStage = "Clôture";  // SUD = 0 → clôture
-          forceEtape = 8;
-        }
-      }
+      if (sud !== null) updated.sud = sud;       // SUD initial
+    } else if (stage === "Réévaluation") {
+      const sud = parseSUD(userText);
+      if (sud !== null) updated.sud = sud;       // SUD après ronde
     }
 
-    // Construire aspect + sud_qualifier
-    const intakeText = updated.intake ?? "";
-    const ctxShort = updated.context ? shortContext(updated.context) : "";
-    const aspect = ctxShort ? `${intakeText}, ${ctxShort}` : intakeText;
-    const q = sudQualifier(updated.sud); // "" si SUD inconnu
+    // Construit aspect + qualifier (toujours avant l'appel API)
+    const intakeText = updated.intake ?? slots.intake ?? "";
+    const ctx = (updated.context ?? slots.context) ? shortContext(updated.context ?? (slots.context as string)) : "";
+    const aspect = ctx ? `${intakeText}, ${ctx}` : intakeText;
+    const q = sudQualifier(updated.sud);
     updated.aspect = aspect;
     updated.sud_qualifier = q;
+
     setSlots(updated);
 
-    // GARDE-FOU : ne pas lancer Tapping si SUD inconnu → forcer l’Évaluation initiale (étape 4)
-    if ((stage === "Tapping" || etape === 6) && (updated.sud === undefined || updated.sud === null)) {
-      const shortTranscript = (transcript + `\nUtilisateur: ${userText}`).split("\n").slice(-10).join("\n");
-      const resEval = await fetch("/api/guide-eft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: userText,
-          stage: "Évaluation",
-          etape: 4,
-          transcript: shortTranscript,
-          confused: false,
-          slots: { ...updated, round },
-        }),
-      });
-      const answerEval = (await resEval.json().catch(() => ({ answer: "" })))?.answer ?? "";
-      setRows(r => [...r, { who: "bot", text: answerEval }]);
-      setTranscript(t => t + `\nAssistant: ${answerEval}`);
-      setStage("Évaluation");
-      setEtape(4);
-      return;
-    }
-
-    // Appel API normal
-    const shortTranscript = (transcript + `\nUtilisateur: ${userText}`).split("\n").slice(-10).join("\n");
+    // Appel API (l'API applique les règles : zéro fillers, et n'accepte la ronde que si SUD connu)
     const res = await fetch("/api/guide-eft", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         prompt: userText,
-        stage: forceStage ?? stage,
-        etape: forceEtape ?? etape,
-        transcript: shortTranscript,
-        confused,
-        slots: updated, // slots à jour
+        stage,
+        etape,
+        transcript: rows.map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`)).slice(-10).join("\n"),
+        slots: updated,
       }),
     });
 
     const json = await res.json().catch(() => ({ answer: "" }));
-    const answer: string = json?.answer ?? "";
+    const answer: string = (json as any)?.answer ?? "";
 
     setRows(r => [...r, { who: "bot", text: answer }]);
-    setTranscript(t => t + `\nAssistant: ${answer}`);
 
-    // Progression d'étape côté front
-    if (forceStage) {
-      // Après une ronde, on passe tout de suite en Réévaluation pour capter le SUD suivant.
-      if (forceStage === "Tapping") {
-        setStage("Réévaluation");
-        setEtape(7);
+    // Avancement d'étape (simple et prévisible)
+    if (stage === "Intake")       { setStage("Durée");        setEtape(2); return; }
+    if (stage === "Durée")        { setStage("Contexte");     setEtape(3); return; }
+    if (stage === "Contexte")     { setStage("Évaluation");   setEtape(4); return; }
+    if (stage === "Évaluation")   {
+      if (typeof updated.sud === "number") { setStage("Setup"); setEtape(5); }
+      else { setStage("Évaluation"); setEtape(4); } // tant que SUD pas compris
+      return;
+    }
+    if (stage === "Setup")        {
+      // On avance seulement si l'utilisateur a écrit "prêt/ok/c'est fait/go/terminé"
+      const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
+      if (ready) { setStage("Tapping"); setEtape(6); } else { setStage("Setup"); setEtape(5); }
+      return;
+    }
+    if (stage === "Tapping")      { setStage("Réévaluation"); setEtape(7); return; }
+    if (stage === "Réévaluation") {
+      if (updated.sud === 0) { setStage("Clôture"); setEtape(8); }
+      else if (typeof updated.sud === "number" && updated.sud > 0) {
+        const nextRound = (updated.round ?? round) + 1;
+        setSlots(s => ({ ...s, round: nextRound }));
+        setStage("Tapping"); setEtape(6);
       } else {
-        setStage(forceStage);
-        setEtape(forceEtape ?? (forceStage === "Clôture" ? 8 : etape));
+        setStage("Réévaluation"); setEtape(7); // redemande SUD
       }
       return;
     }
-
-    // 🔒 Rester en SETUP tant qu'on n'a pas la confirmation utilisateur ("prêt", "ok", "c'est fait", etc.)
-    if (stage === "Setup" && !confused) {
-      if (isReadyAfterSetup(userText)) {
-        setStage("Tapping");
-        setEtape(6);
-      } else {
-        setStage("Setup");
-        setEtape(5);
-      }
-      return;
-    }
-
-    if (!confused) {
-      const { nextStage, nextEtape } = advanceLinear(stage);
-      setStage(nextStage);
-      setEtape(nextEtape);
+    if (stage === "Clôture")      {
+      // Fin de cycle → réinitialisation douce pour un nouveau sujet
+      setStage("Intake"); setEtape(1); setSlots({ round: 1 }); return;
     }
   }
 
@@ -267,7 +201,7 @@ export default function Page() {
           <li><strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle</li>
         </ul>
         <p className="text-xs text-gray-600 mt-3">
-          Objectif des rondes : ramener le SUD à <strong>0</strong>, en douceur et à votre rythme.
+          Objectif des rondes : ramener le SUD à <strong>0</strong>.
         </p>
       </section>
 
