@@ -40,7 +40,7 @@ function parseSUD(s: string): number | null {
  *      "j'ai une douleur à l'épaule" -> "douleur à l'épaule" (fem)
  */
 function normalizeIntake(input: string): string {
-  let s = input.trim().replace(/\s+/g, " ");
+  const s = input.trim().replace(/\s+/g, " "); // FIX: let → const
   // j'ai mal à ...
   const m1 = s.match(/^j['’]ai\s+mal\s+à\s+(.+)$/i);
   if (m1) return `mal à ${m1[1]}`;
@@ -121,7 +121,6 @@ export default function Page() {
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
-      // normaliser l'intake (évite "Cette j'ai mal...")
       updated.intake = normalizeIntake(userText);
     } else if (stage === "Durée") {
       updated.duration = userText;
@@ -135,13 +134,13 @@ export default function Page() {
       if (sud !== null) updated.sud = sud;
     }
 
-    // — Lire un SUD si l’utilisateur le tape juste après l’étape 6 (le message “Veuillez évaluer…”)
+    // SUD saisi juste après l’étape 6
     if (stage === "Tapping") {
       const sudInline = parseSUD(userText);
       if (sudInline !== null) updated.sud = sudInline;
     }
 
-    // Aspect (accord + pas de virgule avant "lié(e) à")
+    // Aspect
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
@@ -149,11 +148,10 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // --- Étape pour l'API (anti-boucles) ---
+    // Étape pour l'API
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
-    // prêt ?
     const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
 
     if (stage === "Intake")           { stageForAPI = "Durée";        etapeForAPI = 2; }
@@ -166,7 +164,6 @@ export default function Page() {
       stageForAPI = "Tapping";        etapeForAPI = 6;
     }
     else if (stage === "Tapping") {
-      // si un SUD vient d'être tapé, on agit immédiatement
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
           stageForAPI = "Clôture";    etapeForAPI = 8;
@@ -174,7 +171,7 @@ export default function Page() {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots(s => ({ ...s, round: nextRound }));
-          stageForAPI = "Tapping";    etapeForAPI = 6; // nouvelle ronde
+          stageForAPI = "Tapping";    etapeForAPI = 6;
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -286,7 +283,7 @@ export default function Page() {
 
       {/* CTA + Note */}
       <div className="text-center mt-6">
-        <a href="https://ecole-eft-france.fr/pages/formations-eft.html" target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200">
+        <a href="https://ecole-eft-france.fr/pages/formations-eft.html" target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors durée-200">
           Découvrir nos formations
         </a>
         <p className="text-sm text-gray-600 mt-2">Pour aller plus loin dans la pratique et la transmission de l’EFT, découvrez les formations proposées par l’École EFT France.</p>
