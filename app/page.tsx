@@ -11,11 +11,18 @@ type Stage =
   | "Réévaluation"
   | "Clôture";
 
+type Slots = {
+  intake?: string;
+  duration?: string;
+  context?: string;
+};
+
 export default function Page() {
-  // États de session (clé pour éviter les boucles)
+  // États de session
   const [stage, setStage] = useState<Stage>("Intake");
   const [etape, setEtape] = useState<number>(1);
   const [transcript, setTranscript] = useState<string>("");
+  const [slots, setSlots] = useState<Slots>({});
 
   // Messages UI
   const [rows, setRows] = useState<Row[]>([
@@ -24,12 +31,11 @@ export default function Page() {
   const [text, setText] = useState("");
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Scroll auto après ajout de messages
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [rows]);
 
-  // Rendu joli : conserve retours à la ligne + transforme listes simples
+  // Mise en forme (retours à la ligne & listes -)
   function renderPretty(s: string) {
     const paragraphs = s.split(/\n\s*\n/);
     return (
@@ -60,7 +66,7 @@ export default function Page() {
     );
   }
 
-  // Progression linéaire stricte (1 → 7, sans retour en arrière)
+  // Progression linéaire stricte (1→7, sans retour)
   function advanceLinear(stageNow: Stage): { nextStage: Stage; nextEtape: number } {
     const order: Stage[] = [
       "Intake",
@@ -73,9 +79,22 @@ export default function Page() {
     ];
     const idx = order.indexOf(stageNow);
     if (idx < order.length - 1) {
-      return { nextStage: order[idx + 1], nextEtape: idx + 2 }; // Étape = index+1
+      return { nextStage: order[idx + 1], nextEtape: idx + 2 };
     }
     return { nextStage: "Clôture", nextEtape: 7 };
+  }
+
+  // Détection simple d’incompréhension
+  function isConfusion(s: string) {
+    const t = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return (
+      /je ne comprends pas|je comprends pas|pas compris|pas comprendre|je ne pige pas|je pige pas|je ne vois pas|je ne sais pas/.test(t) ||
+      t.trim() === "?" ||
+      t.includes("reformule") ||
+      t.includes("reexpliquer") ||
+      t.includes("c est quoi") ||
+      t.includes("c'est quoi")
+    );
   }
 
   async function onSubmit(e: FormEvent) {
@@ -83,22 +102,38 @@ export default function Page() {
     const userText = text.trim();
     if (!userText) return;
 
-    // Affiche la saisie
+    // Affichage utilisateur
     setRows((r) => [...r, { who: "user", text: userText }]);
     setTranscript((t) => t + `\nUtilisateur: ${userText}`);
     setText("");
 
-    // Mémoire courte envoyée à l'API
+    // Alimente les slots selon l’étape
+    const updatedSlots: Slots = { ...slots };
+    if (stage === "Intake") updatedSlots.intake = userText;
+    if (stage === "Durée") updatedSlots.duration = userText;
+    if (stage === "Contexte") updatedSlots.context = userText;
+    setSlots(updatedSlots);
+
+    const confused = isConfusion(userText);
+
+    // Mémoire courte
     const shortTranscript = (transcript + `\nUtilisateur: ${userText}`)
       .split("\n")
       .slice(-10)
       .join("\n");
 
-    // Appel API avec contexte de session
+    // Appel API
     const res = await fetch("/api/guide-eft", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: userText, stage, etape, transcript: shortTranscript }),
+      body: JSON.stringify({
+        prompt: userText,
+        stage,
+        etape,
+        transcript: shortTranscript,
+        confused,
+        slots: updatedSlots,
+      }),
     });
 
     const json = await res.json().catch(() => ({ answer: "" }));
@@ -108,15 +143,17 @@ export default function Page() {
     setRows((r) => [...r, { who: "bot", text: answer }]);
     setTranscript((t) => t + `\nAssistant: ${answer}`);
 
-    // Avancer d'un cran de façon linéaire
-    const { nextStage, nextEtape } = advanceLinear(stage);
-    setStage(nextStage);
-    setEtape(nextEtape);
+    // Avancer seulement si pas de confusion
+    if (!confused) {
+      const { nextStage, nextEtape } = advanceLinear(stage);
+      setStage(nextStage);
+      setEtape(nextEtape);
+    }
   }
 
   return (
     <main className="mx-auto max-w-3xl p-6 space-y-6">
-      {/* Bandeau commémoratif */}
+      {/* Bandeau 30 ans */}
       <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -141,6 +178,22 @@ export default function Page() {
           fondée par Gary Craig et transmise en France par Geneviève Gagos. Posez vos questions, suivez les
           étapes proposées, et avancez à votre rythme.
         </p>
+      </section>
+
+      {/* Carte des points EFT (panneau d’aide fixe) */}
+      <section className="rounded-xl border bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-[#0f3d69] mb-2">Carte des points EFT</h2>
+        <ul className="list-disc pl-5 space-y-1 text-sm text-gray-800">
+          <li><strong>Sommet de la tête (ST)</strong> : haut du crâne</li>
+          <li><strong>Début du sourcil (DS)</strong> : base du sourcil côté nez</li>
+          <li><strong>Coin de l’œil (CO)</strong> : os de l’orbite côté externe</li>
+          <li><strong>Sous l’œil (SO)</strong> : os sous l’orbite</li>
+          <li><strong>Sous le nez (SN)</strong> : entre nez et lèvre</li>
+          <li><strong>Menton (MT)</strong> : creux du menton</li>
+          <li><strong>Clavicule (CL)</strong> : sous la clavicule, zone tendre</li>
+          <li><strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle</li>
+        </ul>
+        <p className="text-xs text-gray-600 mt-3">Astuce : ~7 tapotements par point, respiration douce.</p>
       </section>
 
       {/* Zone de conversation */}
@@ -191,7 +244,7 @@ export default function Page() {
         </p>
       </div>
 
-      {/* Note de prudence + signature */}
+      {/* Note de prudence */}
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">⚖️ Note de prudence</strong>
         <p className="text-sm leading-relaxed">
