@@ -290,7 +290,7 @@ export default function Page() {
           <li><strong>Coin de l’œil (CO)</strong> : os de l’orbite côté externe</li>
           <li><strong>Sous l’œil (SO)</strong> : os sous l’orbite</li>
           <li><strong>Sous le nez (SN)</strong> : entre nez et lèvre</li>
-          <li><strong>Menton (MT)</strong> : creux du menton</li>
+          <li><strong>Creux du menton (CM)</strong> : creux du menton</li>
           <li><strong>Clavicule (CL)</strong> : sous la clavicule, zone tendre</li>
           <li><strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle</li>
         </ul>
