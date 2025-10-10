@@ -56,45 +56,44 @@ function splitContext(ctx: string): string[] {
     .filter((p) => p.length > 0)
     .slice(0, 6);
 }
-function sudQualifierFromNumber(sud?: number): string {
-  if (typeof sud !== "number") return "";
-  if (sud === 0) return ""; // en ronde, si 0 on ne qualifie pas
-  if (sud >= 7) return " très présente";
-  if (sud >= 4) return " encore présente";
-  return " qui reste encore un peu";
+function detectGender(intakeRaw: string): "m" | "f" {
+  const s = clean(intakeRaw).toLowerCase();
+  if (s.startsWith("mal ")) return "m";
+  if (s.startsWith("douleur")) return "f";
+  if (s.startsWith("peur")) return "f";
+  if (s.startsWith("gêne") || s.startsWith("gene")) return "f";
+  if (s.startsWith("tension")) return "f";
+  if (s.startsWith("colère") || s.startsWith("colere")) return "f";
+  if (s.startsWith("tristesse")) return "f";
+  // défaut: féminin (plus courant)
+  return "f";
 }
-function baseFromIntake(intakeRaw: string): { generic: string; short: string } {
-  const intake = clean(intakeRaw).toLowerCase();
-
-  // Quelques règles simples de genre
-  const starts = (w: string) => intake.startsWith(w);
-
-  // cas fréquents
-  if (starts("mal ")) {
-    return { generic: "Ce " + clean(intakeRaw), short: "Ce " + clean(intakeRaw) };
+function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
+  if (typeof sud !== "number" || sud === 0) return "";
+  if (sud >= 7) return g === "m" ? " très présent" : " très présente";
+  if (sud >= 4) return g === "m" ? " encore présent" : " encore présente";
+  return " qui reste encore un peu"; // neutre
+}
+function baseFromIntake(intakeRaw: string): { generic: string; short: string; g: "m" | "f" } {
+  const intake = clean(intakeRaw);
+  const g = detectGender(intakeRaw);
+  if (g === "m" && /^mal\b/i.test(intake)) {
+    return { generic: "Ce " + intake, short: "Ce " + intake, g };
   }
-  if (starts("douleur")) {
-    return { generic: "Cette " + clean(intakeRaw), short: "Cette " + clean(intakeRaw) };
+  if (g === "f") {
+    return { generic: "Cette " + intake, short: "Cette " + intake, g };
   }
-  if (starts("peur")) {
-    return { generic: "Cette " + clean(intakeRaw), short: "Cette " + clean(intakeRaw) };
-  }
-  if (starts("gêne") || starts("gene") || starts("tension") || starts("colère") || starts("colere") || starts("tristesse")) {
-    return { generic: "Cette " + clean(intakeRaw), short: "Cette " + clean(intakeRaw) };
-  }
-
-  // fallback neutre
-  return { generic: "Ce problème", short: "Ce problème" };
+  return { generic: "Ce problème", short: "Ce problème", g: "m" };
 }
 
 /* ---- Génération déterministe des 8 phrases de rappel pour l'étape 6 ---- */
 function buildRappelPhrases(slots: Slots): string[] {
   const intake = clean(slots.intake ?? "");
   const ctx = clean(slots.context ?? "");
-  const sudQ = sudQualifierFromNumber(slots.sud);
+  const { generic, short, g } = baseFromIntake(intake);
+  const sudQ = sudQualifierFromNumber(slots.sud, g);
   const round = slots.round ?? 1;
 
-  const { generic, short } = baseFromIntake(intake);
   const contextParts = ctx ? splitContext(ctx) : [];
 
   // Si ronde >1 et SUD>0, on renforce un peu la sensation
@@ -170,19 +169,17 @@ FLUX (verrouillé)
 2) Durée — depuis quand.
 3) Contexte — circonstances/événements/émotions.
 4) Évaluation — SUD (0–10) pour la première fois.
-5) Setup — Point Karaté ×3 avec la phrase, puis attendre que la personne écrive "prêt".
-6) Tapping — ronde point par point.
+5) Setup — Point Karaté ×3 : « Même si j’ai cette {aspect}, je m’accepte profondément et complètement. »
+   Puis attendre que la personne écrive « prêt ».
+6) Tapping — ronde point par point (ST→SB).
 7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
-8) Clôture — bref + prudence. Ne relance pas.
+8) Clôture — remercie, félicite le travail fourni, propose une pause/hydratation, rappelle la note de prudence.
+   N’ouvre pas un nouveau sujet, ne relance pas.
 
 LANGAGE
 - AUCUN filler (“respire”, “doucement”, etc.).
-- N’utiliser que les mots de l’utilisateur via les slots fournis.
+- Utiliser les mots de l’utilisateur via les slots fournis.
 - Une seule consigne par message (sauf Setup: 2 lignes max, impératif clair).
-
-ÉTAPE 5 — EXACTEMENT 2 LIGNES
-1) Tapote sur le Point Karaté (tranche de la main) en répétant 3 fois : « Même si j’ai cette {aspect (minuscule initiale)}, je m’accepte profondément et complètement. »
-2) Quand c’est fait, écris « prêt » et je te guide pour la ronde.
 
 ÉTAPE 6 — IMPORTANT
 - Des phrases P1..P8 sont fournies par le serveur (rappel point par point).
