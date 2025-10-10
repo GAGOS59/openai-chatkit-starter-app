@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const runtime = "nodejs"; // exécution serveur
+export const runtime = "nodejs"; // exécution serveur uniquement
 
 type Stage =
   | "Intake"
@@ -17,12 +17,12 @@ type Stage =
 type SudQualifier = "" | "très présente" | "encore présente" | "reste encore un peu" | "disparue";
 
 type Slots = {
-  intake?: string;
-  duration?: string;
-  context?: string;
-  sud?: number;
-  round?: number;
-  aspect?: string;
+  intake?: string;       // ex. "douleur lancinante à la jointure de l'épaule" / "peur de l'orage"
+  duration?: string;     // ex. "une semaine"
+  context?: string;      // ex. "je me suis retrouvée seule pour ranger le bazar de mon mari"
+  sud?: number;          // 0..10
+  round?: number;        // 1,2,3…
+  aspect?: string;       // construit coté front
   sud_qualifier?: SudQualifier;
 };
 
@@ -112,7 +112,7 @@ function buildRappelPhrases(slots: Slots): string[] {
   return phrases.slice(0, 8);
 }
 
-/* ---------- extraction réponse OpenAI sans any ---------- */
+/* ---------- extraction réponse OpenAI (sans any) ---------- */
 function extractAnswer(json: unknown): string {
   if (!json || typeof json !== "object") return "";
   const j = json as Record<string, unknown>;
