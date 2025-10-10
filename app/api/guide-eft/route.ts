@@ -3,6 +3,27 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// Types minimaux pour lire la réponse OpenAI
+type OAChatMessage = { content: string };
+type OAChatChoice = { message: OAChatMessage };
+type OAResponse = { choices: OAChatChoice[] };
+
+// Petits helpers de garde de type (sans `any`)
+function isRecord(u: unknown): u is Record<string, unknown> {
+  return typeof u === "object" && u !== null;
+}
+function isOAResponse(u: unknown): u is OAResponse {
+  if (!isRecord(u)) return false;
+  const choicesUnknown = (u as { choices?: unknown }).choices;
+  if (!Array.isArray(choicesUnknown) || choicesUnknown.length === 0) return false;
+  const first = choicesUnknown[0];
+  if (!isRecord(first)) return false;
+  const msgUnknown = (first as { message?: unknown }).message;
+  if (!isRecord(msgUnknown)) return false;
+  const contentUnknown = (msgUnknown as { content?: unknown }).content;
+  return typeof contentUnknown === "string";
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -49,25 +70,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const data: unknown = await upstream.json();
-    // extraction défensive sans any
-    const answer =
-      (typeof data === "object" &&
-        data !== null &&
-        Array.isArray((data as any).choices) &&
-        (data as any).choices[0] &&
-        (data as any).choices[0].message &&
-        typeof (data as any).choices[0].message.content === "string" &&
-        (data as any).choices[0].message.content.trim()) ||
-      "";
+    const raw: unknown = await upstream.json();
+    if (!isOAResponse(raw)) {
+      return NextResponse.json({ error: "Format de réponse inattendu." }, { status: 502 });
+    }
 
+    const answer = raw.choices[0].message.content.trim();
     if (!answer) {
       return NextResponse.json({ error: "Réponse vide du modèle." }, { status: 502 });
     }
 
     return NextResponse.json({ ok: true, answer });
   } catch (error: unknown) {
-    // on utilise la variable pour éviter no-unused-vars
     console.error("[guide-eft] route error:", error);
     return NextResponse.json({ error: "Erreur serveur." }, { status: 500 });
   }
