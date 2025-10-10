@@ -25,6 +25,8 @@ type Slots = {
   sud_qualifier?: SudQualifier;
 };
 
+type ApiResponse = { answer?: string; error?: string; detail?: string };
+
 // -------- Helpers --------
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
@@ -69,7 +71,6 @@ export default function Page() {
   // Session
   const [stage, setStage] = useState<Stage>("Intake");
   const [etape, setEtape] = useState<number>(1);
-  const [round, setRound] = useState<number>(1);
   const [slots, setSlots] = useState<Slots>({ round: 1 });
 
   // UI
@@ -88,7 +89,7 @@ export default function Page() {
     setRows(r => [...r, { who: "user", text: userText }]);
     setText("");
 
-    // Met à jour les slots selon l'étape (pas d'interprétation du SUD hors Évaluation / Réévaluation)
+    // Met à jour les slots selon l'étape
     const updated: Slots = { ...slots };
 
     if (stage === "Intake") {
@@ -105,7 +106,7 @@ export default function Page() {
       if (sud !== null) updated.sud = sud;       // SUD après ronde
     }
 
-    // Construit aspect + qualifier (toujours avant l'appel API)
+    // Construit aspect + qualifier
     const intakeText = updated.intake ?? slots.intake ?? "";
     const ctx = (updated.context ?? slots.context) ? shortContext(updated.context ?? (slots.context as string)) : "";
     const aspect = ctx ? `${intakeText}, ${ctx}` : intakeText;
@@ -115,7 +116,12 @@ export default function Page() {
 
     setSlots(updated);
 
-    // Appel API (l'API applique les règles : zéro fillers, et n'accepte la ronde que si SUD connu)
+    // Appel API
+    const transcriptShort = rows
+      .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+      .slice(-10)
+      .join("\n");
+
     const res = await fetch("/api/guide-eft", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -123,17 +129,17 @@ export default function Page() {
         prompt: userText,
         stage,
         etape,
-        transcript: rows.map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`)).slice(-10).join("\n"),
+        transcript: transcriptShort,
         slots: updated,
       }),
     });
 
-    const json = await res.json().catch(() => ({ answer: "" }));
-    const answer: string = (json as any)?.answer ?? "";
+    const json = (await res.json().catch(() => ({ answer: "" }))) as ApiResponse;
+    const answer: string = json.answer ?? "";
 
     setRows(r => [...r, { who: "bot", text: answer }]);
 
-    // Avancement d'étape (simple et prévisible)
+    // Avancement d'étape
     if (stage === "Intake")       { setStage("Durée");        setEtape(2); return; }
     if (stage === "Durée")        { setStage("Contexte");     setEtape(3); return; }
     if (stage === "Contexte")     { setStage("Évaluation");   setEtape(4); return; }
@@ -143,16 +149,17 @@ export default function Page() {
       return;
     }
     if (stage === "Setup")        {
-      // On avance seulement si l'utilisateur a écrit "prêt/ok/c'est fait/go/terminé"
+      // Avancer seulement si l'utilisateur a écrit "prêt/ok/c'est fait/go/terminé"
       const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
       if (ready) { setStage("Tapping"); setEtape(6); } else { setStage("Setup"); setEtape(5); }
       return;
     }
     if (stage === "Tapping")      { setStage("Réévaluation"); setEtape(7); return; }
     if (stage === "Réévaluation") {
-      if (updated.sud === 0) { setStage("Clôture"); setEtape(8); }
-      else if (typeof updated.sud === "number" && updated.sud > 0) {
-        const nextRound = (updated.round ?? round) + 1;
+      if (updated.sud === 0) {
+        setStage("Clôture"); setEtape(8);
+      } else if (typeof updated.sud === "number" && updated.sud > 0) {
+        const nextRound = (updated.round ?? 1) + 1;
         setSlots(s => ({ ...s, round: nextRound }));
         setStage("Tapping"); setEtape(6);
       } else {
@@ -160,7 +167,7 @@ export default function Page() {
       }
       return;
     }
-    if (stage === "Clôture")      {
+    if (stage === "Clôture") {
       // Fin de cycle → réinitialisation douce pour un nouveau sujet
       setStage("Intake"); setEtape(1); setSlots({ round: 1 }); return;
     }
