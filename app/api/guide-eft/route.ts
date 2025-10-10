@@ -83,12 +83,11 @@ RÈGLES SPÉCIALES — ÉTAPE 5 (OBLIGATOIRE, GUIDAGE COMPLET)
 - Si slots.sud_qualifier = "disparue" (SUD = 0) → NE PAS lancer de nouvelle ronde : passer à la clôture (étape 7).
 - Si slots.round est présent, afficher "Ronde {round}".
 - Utiliser STRICTEMENT les champs fournis :
-  • {slots.aspect} = qualité + localisation + (contexte court si présent)
+  • {slots.aspect} = qualité (uniquement pour les douleurs) + localisation + (contexte court si présent)
   • {slots.sud_qualifier} ∈ {"très présente","encore présente","reste encore un peu"}
 - Liste complète des points, CHAQUE LIGNE commence par "- " et DOIT contenir :
   - le nom du point,
   - une PHRASE DE RAPPEL personnalisée qui inclut {slots.aspect} et, si SUD>0, {slots.sud_qualifier},
-  - un micro-guidage doux ("doucement", "respire calmement", "tu fais bien").
   Exemple de style :
   - Sommet de la tête (ST) — Cette {slots.aspect} {slots.sud_qualifier}. Doucement.
   - Début du sourcil (DS) — Cette {slots.aspect} {slots.sud_qualifier}. Reste présent·e à ta respiration.
