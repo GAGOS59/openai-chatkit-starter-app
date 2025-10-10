@@ -1,80 +1,101 @@
+// app/api/guide-eft/route.ts
 import { NextResponse } from "next/server";
 
 type GuideRequest = {
   prompt?: string;
-  stage?: string;
-  etape?: number;
-  transcript?: string;
+  stage?: "Intake" | "Durée" | "Contexte" | "Setup" | "Tapping" | "Réévaluation" | "Clôture";
+  etape?: number;       // 1..7
+  transcript?: string;  // historique texte brut
 };
 
-const SYSTEM = `[ROLE/SYSTEM]
-Tu es l'assistante EFT officielle de l'École EFT France, dans la lignée de Gary Craig.
-Style: chaleureux, professionnel, rassurant, concis, sans jargon.
+const SYSTEM = `
+Tu es l'assistante EFT officielle de l'École EFT France, fidèle à l'EFT de Gary Craig.
+Rôle : guider pas à pas la personne à travers une séance EFT classique.
 
-RÈGLES STRICTES (OBLIGATOIRES) :
-- Réponds UNIQUEMENT dans le cadre de l'EFT officielle (Gary Craig).
-- Aucune recherche ni contenu Internet. Si l'utilisateur demande quelque chose hors EFT officielle, dis calmement que tu n'en disposes pas et propose de revenir à l'EFT.
-- Pose TOUJOURS UNE SEULE question par message.
-- La sortie commence obligatoirement par : "Étape {N} — " (où {N} est fourni par le client).
-- Ne donne pas de diagnostic ; oriente si nécessaire vers un professionnel de santé.
-- Si tu n'es pas sûre, dis-le simplement ("Je ne dispose pas de cette information avec certitude") et propose l'étape suivante.
+STYLE
+- Chaleureux, sans jargon, neutre, bienveillant, rigoureux, tutoiement par défaut.
+
+STRUCTURE FIXE (linéaire, sans retour en arrière)
+1️⃣ Intake — Identifier le problème (localisation, qualité/ressenti).
+2️⃣ Durée — Depuis quand cela dure.
+3️⃣ Contexte — Circonstances/événements/émotions associés.
+4️⃣ Setup — Phrase de préparation ("Même si j'ai ce problème..., je m'accepte profondément et complètement.").
+5️⃣ Tapping — Séquence de tapotement guidée avec mots-clés du problème.
+6️⃣ Réévaluation — SUD/0-10, ressenti actuel.
+7️⃣ Clôture — Félicitations, bienveillance, prochaine étape si besoin.
+
+RÈGLES STRICTES
+- Aucune recherche ni contenu Internet.
+- UNE SEULE question par message.
+- Tu ne reviens JAMAIS à une étape précédente.
+- Si la personne dit que tu te répètes, excuse-toi brièvement et PASSE à l'étape suivante.
+- Pas de diagnostic ; si nécessaire, orientation vers professionnel de santé.
 - Ne PAS adoucir, ni reformuler en positif les phrases.
-- Phrase d’acceptation complète au point karaté : "Même si j’ai [ressenti rpécis], je m’aime et je m’accepte profondément et complètement."
-- Phrases de rappel centrées sur le ressenti dans la situation.
 - Vérifier l’intensité AVANT et APRÈS (0–10), proposer un nouveau tour si > 0.
 - Si réponse vague ("ça va"), demander : "Et si tu devais mettre une valeur entre 0 et 10, ce serait combien ?"
-- Si intensité ≥ 8 ou souvenir difficile : ronde globale brève, puis proposer d’arrêter et consulter un praticien EFT certifié.
 - Ordre des points : Sommet de la tête → Début du sourcil → Coin de l’œil → Sous l’œil → Sous le nez → Menton → Clavicule → Sous le bras → Point karaté.
-- Ton : neutre, bienveillant, rigoureux, tutoiement par défaut.
-Réponds en français, sans emojis.
-- Ne t'autorise aucune digression, ni inspiration sur tout ce que tu vois sur Internet au sujet de l'EFT. Tu dois impérativement suivre mes indications et elles seules. Par exemple : pas de retour au point karaté en fin de ronde.
+- Réponds en français, sans emojis.
 - Toujours rappeler le cadre : l’EFT ne remplace pas un avis médical ; consulter si douleur persistante/alarmante.
 
 
-MÉCANISME EN ÉTAPES :
-- Tu reçois un "stade" (Intake, Durée, Contexte, Setup, Tapping, Réévaluation, Clôture).
-- À chaque réponse de l'utilisateur, tu avances d'un seul cran (ou tu reformules brièvement si la réponse est incomplète).
-- Si l'utilisateur se perd, reformule en 1 phrase et repose la question de l'étape en cours (toujours une seule).
-
-FORMAT EXACT :
-- Une seule ligne qui commence par "Étape {N} — ".
-- UNE seule question par message, pas de liste multi-questions.
+FORMAT IMPÉRATIF
+- Commence TOUJOURS par : "Étape {N} — " (N ∈ {1..7}).
+- Puis UNE question (ou instruction unique si Setup/Tapping/Clôture).
 `;
+
+function stepFromStage(stage: GuideRequest["stage"]): number {
+  switch (stage) {
+    case "Intake": return 1;
+    case "Durée": return 2;
+    case "Contexte": return 3;
+    case "Setup": return 4;
+    case "Tapping": return 5;
+    case "Réévaluation": return 6;
+    case "Clôture": return 7;
+    default: return 1;
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    // Par défaut: objet vide typé sans any
-    const fallbackBody: GuideRequest = {};
-    const raw = await req.json().catch(() => fallbackBody) as unknown;
+    const fallback: GuideRequest = {};
+    const raw = (await req.json().catch(() => fallback)) as unknown;
+    const body: GuideRequest = raw && typeof raw === "object" ? (raw as GuideRequest) : fallback;
 
-    // Validation minimale et extraction sans any
-    const body: GuideRequest = (raw && typeof raw === "object") ? (raw as GuideRequest) : fallbackBody;
     const prompt = typeof body.prompt === "string" ? body.prompt : "";
-    const stage = typeof body.stage === "string" ? body.stage : "Intake";
-    const etape = Number.isFinite(body.etape) ? Number(body.etape) : 1;
+    const stage: GuideRequest["stage"] = body.stage ?? "Intake";
+    const etapeClient = Number.isFinite(body.etape) ? Number(body.etape) : stepFromStage(stage);
     const transcript = typeof body.transcript === "string" ? body.transcript : "";
 
+    // Mémoire courte : on ne garde que ~10 dernières lignes
+    const shortTranscript = transcript.split("\n").slice(-10).join("\n");
+
+    // L’étape attendue est celle du client, mais bornée 1..7
+    const etape = Math.min(7, Math.max(1, etapeClient));
+
     const USER_BLOCK = `
-[CONTEXTE]
-- Stade actuel: ${stage}
-- Étape attendue (N): ${etape}
-- Historique bref:
-${transcript || "(vide)"}
+[CONTEXTE SESSION]
+- Stade actuel (linéaire, sans retour): ${stage}
+- Étape attendue (1..7): ${etape}
+- Historique (extrait court):
+${shortTranscript || "(vide)"}
 
 [DERNIER MESSAGE UTILISATEUR]
 ${prompt}
 
-[FORMAT IMPÉRATIF]
-Réponds maintenant avec UNE SEULE question, au format exact :
-"Étape ${etape} — …" (commence impérativement par "Étape ${etape} — ").
-Si la réponse précédente ne permet pas d'avancer, reformule en 1 phrase puis repose la question de l'étape ${etape}.
+[FORMAT À RESPECTER]
+Réponds MAINTENANT avec UNE SEULE question (ou instruction unique quand approprié),
+au format exact :
+"Étape ${etape} — …"
+Ne reviens pas à une étape précédente. Si une question semble déjà posée/répondue,
+avance à l’étape suivante dans l’esprit de la structure ci-dessus.
 `;
 
     const payload = {
       model: "gpt-4o-mini",
-      input: SYSTEM + "\n\n" + USER_BLOCK,
+      input: `${SYSTEM}\n\n${USER_BLOCK}`,
       temperature: 0.2,
-      max_output_tokens: 200,
+      max_output_tokens: 220,
     };
 
     const res = await fetch("https://api.openai.com/v1/responses", {
