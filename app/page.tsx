@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
@@ -96,18 +97,19 @@ export default function Page() {
     // Étape Réévaluation : extraire SUD et décider de la boucle
     let forceStage: Stage | null = null;
     let forceEtape: number | null = null;
-    let confused = isConfusion(userText);
+    const confused = isConfusion(userText); // ← FIX: const (pas let)
+
     if (stage === "Réévaluation" && !confused) {
       const sud = parseSUD(userText);
       if (sud === null) {
-        // pas compris ⇒ on reste à 6 et on redemande
+        // on reste à 6 et on redemande
         updated.sud = undefined;
         forceStage = "Réévaluation";
         forceEtape = 6;
       } else {
         updated.sud = sud;
         if (sud > 0) {
-          //  on refait une ronde sur le même aspect (objectif strict : 0)
+          // nouvelle ronde sur le même aspect (objectif strict : 0)
           const nextRound = (round || 1) + 1;
           updated.round = nextRound;
           setRound(nextRound);
@@ -188,11 +190,13 @@ export default function Page() {
           <li><strong>Coin de l’œil (CO)</strong> : os de l’orbite côté externe</li>
           <li><strong>Sous l’œil (SO)</strong> : os sous l’orbite</li>
           <li><strong>Sous le nez (SN)</strong> : entre nez et lèvre</li>
-          <li><strong>Menton (MT)</strong> : creux du menton</li>
+          <li><strong>Creux du menton (CM)</strong> : creux du menton</li>
           <li><strong>Clavicule (CL)</strong> : sous la clavicule, zone tendre</li>
           <li><strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle</li>
         </ul>
-        <p className="text-xs text-gray-600 mt-3">Astuce : ~7 tapotements par point, respiration douce.</p>
+        <p className="text-xs text-gray-600 mt-3">
+          Objectif des rondes : ramener le SUD à <strong>0</strong>, en douceur et à votre rythme.
+        </p>
       </section>
 
       {/* Chat */}
@@ -219,7 +223,7 @@ export default function Page() {
         <button type="submit" className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99]">Envoyer</button>
       </form>
 
-      {/* CTA + Note (inchangés) */}
+      {/* CTA + Note */}
       <div className="text-center mt-6">
         <a href="https://ecole-eft-france.fr/pages/formations-eft.html" target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 text-sm font-medium hover:bg-[#0f3d69] hover:text-[#F3EEE6] transition-colors duration-200">
           Découvrir nos formations
