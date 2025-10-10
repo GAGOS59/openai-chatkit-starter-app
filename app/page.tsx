@@ -12,7 +12,7 @@ type Stage =
   | "Clôture";
 
 export default function Page() {
-  // États de session
+  // États de session (clé pour éviter les boucles)
   const [stage, setStage] = useState<Stage>("Intake");
   const [etape, setEtape] = useState<number>(1);
   const [transcript, setTranscript] = useState<string>("");
@@ -24,10 +24,12 @@ export default function Page() {
   const [text, setText] = useState("");
   const chatRef = useRef<HTMLDivElement>(null);
 
+  // Scroll auto après ajout de messages
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [rows]);
 
+  // Rendu joli : conserve retours à la ligne + transforme listes simples
   function renderPretty(s: string) {
     const paragraphs = s.split(/\n\s*\n/);
     return (
@@ -58,33 +60,22 @@ export default function Page() {
     );
   }
 
-  // Enchaînement simple (tu pourras affiner)
-  function advance(stageNow: Stage, etapeNow: number) {
-    let nextStage: Stage = stageNow;
-    let nextEtape: number = etapeNow + 1;
-
-    if (stageNow === "Intake" && etapeNow >= 3) {
-      nextStage = "Durée";
-      nextEtape = 1;
-    } else if (stageNow === "Durée" && etapeNow >= 2) {
-      nextStage = "Contexte";
-      nextEtape = 1;
-    } else if (stageNow === "Contexte" && etapeNow >= 2) {
-      nextStage = "Setup";
-      nextEtape = 1;
-    } else if (stageNow === "Setup" && etapeNow >= 1) {
-      nextStage = "Tapping";
-      nextEtape = 1;
-    } else if (stageNow === "Tapping" && etapeNow >= 3) {
-      nextStage = "Réévaluation";
-      nextEtape = 1;
-    } else if (stageNow === "Réévaluation" && etapeNow >= 1) {
-      nextStage = "Clôture";
-      nextEtape = 1;
+  // Progression linéaire stricte (1 → 7, sans retour en arrière)
+  function advanceLinear(stageNow: Stage): { nextStage: Stage; nextEtape: number } {
+    const order: Stage[] = [
+      "Intake",
+      "Durée",
+      "Contexte",
+      "Setup",
+      "Tapping",
+      "Réévaluation",
+      "Clôture",
+    ];
+    const idx = order.indexOf(stageNow);
+    if (idx < order.length - 1) {
+      return { nextStage: order[idx + 1], nextEtape: idx + 2 }; // Étape = index+1
     }
-
-    setStage(nextStage);
-    setEtape(nextEtape);
+    return { nextStage: "Clôture", nextEtape: 7 };
   }
 
   async function onSubmit(e: FormEvent) {
@@ -92,24 +83,35 @@ export default function Page() {
     const userText = text.trim();
     if (!userText) return;
 
+    // Affiche la saisie
     setRows((r) => [...r, { who: "user", text: userText }]);
     setTranscript((t) => t + `\nUtilisateur: ${userText}`);
     setText("");
 
+    // Mémoire courte envoyée à l'API
+    const shortTranscript = (transcript + `\nUtilisateur: ${userText}`)
+      .split("\n")
+      .slice(-10)
+      .join("\n");
+
+    // Appel API avec contexte de session
     const res = await fetch("/api/guide-eft", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: userText, stage, etape, transcript }),
+      body: JSON.stringify({ prompt: userText, stage, etape, transcript: shortTranscript }),
     });
 
     const json = await res.json().catch(() => ({ answer: "" }));
     const answer: string = json?.answer ?? "";
 
+    // Affiche la réponse du bot
     setRows((r) => [...r, { who: "bot", text: answer }]);
     setTranscript((t) => t + `\nAssistant: ${answer}`);
 
-    // Avancer d'un cran (paramètre inutilisé retiré)
-    advance(stage, etape);
+    // Avancer d'un cran de façon linéaire
+    const { nextStage, nextEtape } = advanceLinear(stage);
+    setStage(nextStage);
+    setEtape(nextEtape);
   }
 
   return (
@@ -124,8 +126,6 @@ export default function Page() {
               Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
             </p>
           </div>
-          {/* NOTE: l'avertissement Next sur <img> est un warning (pas bloquant). 
-              Tu peux le laisser, ou migrer vers next/image plus tard. */}
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
             alt="Logo École EFT France"
