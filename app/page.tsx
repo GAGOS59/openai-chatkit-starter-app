@@ -12,7 +12,7 @@ type Stage =
   | "Clôture";
 
 export default function Page() {
-  // États de session (clé pour éviter les boucles)
+  // États de session
   const [stage, setStage] = useState<Stage>("Intake");
   const [etape, setEtape] = useState<number>(1);
   const [transcript, setTranscript] = useState<string>("");
@@ -24,12 +24,10 @@ export default function Page() {
   const [text, setText] = useState("");
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Scroll auto
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [rows]);
 
-  // Rendu joli des retours à la ligne et listes simples
   function renderPretty(s: string) {
     const paragraphs = s.split(/\n\s*\n/);
     return (
@@ -60,14 +58,11 @@ export default function Page() {
     );
   }
 
-  // Règle simple d'enchaînement (ajuste à ta pédagogie)
-  function advance(stageNow: Stage, etapeNow: number, userAnswer: string) {
-    // Par défaut : on incrémente l'étape
+  // Enchaînement simple (tu pourras affiner)
+  function advance(stageNow: Stage, etapeNow: number) {
     let nextStage: Stage = stageNow;
     let nextEtape: number = etapeNow + 1;
 
-    // Exemple d'enchaînement basique :
-    // Intake: 1→3, puis Durée (1→2), puis Contexte (1→2), puis Setup (1), Tapping (1→3), Réévaluation (1), Clôture (1)
     if (stageNow === "Intake" && etapeNow >= 3) {
       nextStage = "Durée";
       nextEtape = 1;
@@ -92,18 +87,15 @@ export default function Page() {
     setEtape(nextEtape);
   }
 
-  // Envoi
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const userText = text.trim();
     if (!userText) return;
 
-    // Afficher la saisie utilisateur
     setRows((r) => [...r, { who: "user", text: userText }]);
     setTranscript((t) => t + `\nUtilisateur: ${userText}`);
     setText("");
 
-    // Appel API avec le contexte de session
     const res = await fetch("/api/guide-eft", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -113,12 +105,11 @@ export default function Page() {
     const json = await res.json().catch(() => ({ answer: "" }));
     const answer: string = json?.answer ?? "";
 
-    // Afficher la réponse du bot
     setRows((r) => [...r, { who: "bot", text: answer }]);
     setTranscript((t) => t + `\nAssistant: ${answer}`);
 
-    // 🚀 Avancer d'un cran (clé pour éviter le blocage Étape 1)
-    advance(stage, etape, userText);
+    // Avancer d'un cran (paramètre inutilisé retiré)
+    advance(stage, etape);
   }
 
   return (
@@ -133,6 +124,8 @@ export default function Page() {
               Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
             </p>
           </div>
+          {/* NOTE: l'avertissement Next sur <img> est un warning (pas bloquant). 
+              Tu peux le laisser, ou migrer vers next/image plus tard. */}
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
             alt="Logo École EFT France"
