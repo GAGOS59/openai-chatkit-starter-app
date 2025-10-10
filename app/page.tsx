@@ -93,7 +93,7 @@ export default function Page() {
     const updated: Slots = { ...slots };
 
     if (stage === "Intake") {
-      updated.intake = userText;                 // qualité + localisation ou libellé du problème
+      updated.intake = userText;                 // libellé / qualité + localisation
     } else if (stage === "Durée") {
       updated.duration = userText;               // depuis quand
     } else if (stage === "Contexte") {
@@ -121,39 +121,26 @@ export default function Page() {
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
-    // Détecte "prêt" pour l'étape Setup
+    // Détecte "prêt"
     const ready = /(?:\bpr[eé]t\b|\bok\b|c['’]est fait|cest fait|\bgo\b|termin[ée])/.test(userText.toLowerCase());
 
-    // 4) Si on vient de saisir un SUD valide → passer directement au Setup
     if (stage === "Évaluation" && typeof updated.sud === "number") {
-      stageForAPI = "Setup";
-      etapeForAPI = 5;
-    }
-    // 5) Si l’utilisateur dit "prêt" pendant le Setup → passer directement au Tapping
-    else if (stage === "Setup" && ready) {
-      stageForAPI = "Tapping";
-      etapeForAPI = 6;
-    }
-    // 7) Pendant la réévaluation : si SUD=0 → Clôture ; si SUD>0 → Tapping
-    else if (stage === "Réévaluation" && typeof updated.sud === "number") {
+      stageForAPI = "Setup";       etapeForAPI = 5;
+    } else if (stage === "Setup" && ready) {
+      stageForAPI = "Tapping";     etapeForAPI = 6;
+    } else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        stageForAPI = "Clôture";
-        etapeForAPI = 8;
+        stageForAPI = "Clôture";   etapeForAPI = 8;
       } else if (updated.sud > 0) {
-        stageForAPI = "Tapping";
-        etapeForAPI = 6;
-        // incrémente la ronde pour que la suivante adapte “encore/toujours…”
+        stageForAPI = "Tapping";   etapeForAPI = 6;
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
         setSlots(s => ({ ...s, round: nextRound }));
       }
-    }
-    // Sinon : linéaire
-    else if (stage === "Intake")       { stageForAPI = "Durée";       etapeForAPI = 2; }
-    else if (stage === "Durée")        { stageForAPI = "Contexte";    etapeForAPI = 3; }
-    else if (stage === "Contexte")     { stageForAPI = "Évaluation";  etapeForAPI = 4; }
-    else if (stage === "Tapping")      { stageForAPI = "Réévaluation";etapeForAPI = 7; }
-    // si Évaluation sans SUD ou Réévaluation sans SUD, on reste où on est
+    } else if (stage === "Intake")       { stageForAPI = "Durée";        etapeForAPI = 2; }
+      else if (stage === "Durée")        { stageForAPI = "Contexte";     etapeForAPI = 3; }
+      else if (stage === "Contexte")     { stageForAPI = "Évaluation";   etapeForAPI = 4; }
+      else if (stage === "Tapping")      { stageForAPI = "Réévaluation"; etapeForAPI = 7; }
 
     // Appel API
     const transcriptShort = rows
@@ -173,7 +160,6 @@ export default function Page() {
       }),
     });
 
-    // Pas de any : on vérifie la forme
     const raw = await res.json().catch(() => ({}));
     let answer = "";
     if (raw && typeof raw === "object" && "answer" in raw) {
@@ -182,17 +168,8 @@ export default function Page() {
     }
 
     setRows(r => [...r, { who: "bot", text: answer }]);
-
-    // --- Avancement local (synchronisé avec stageForAPI) ---
     setStage(stageForAPI);
     setEtape(etapeForAPI);
-
-    // Réinitialisation douce après Clôture (au message suivant)
-    if (stageForAPI === "Clôture") {
-      // on laisse afficher la clôture, et au prochain message on redémarre
-      // (si tu préfères reset immédiat, décommente ci-dessous)
-      // setStage("Intake"); setEtape(1); setSlots({ round: 1 });
-    }
   }
 
   return (
