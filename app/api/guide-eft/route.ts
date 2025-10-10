@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-export const runtime = "nodejs"; // force l'exécution serveur (jamais côté client)
+export const runtime = "nodejs"; // force exécution serveur
 
 type Stage =
   | "Intake"
@@ -17,19 +17,19 @@ type Stage =
 type SudQualifier = "" | "très présente" | "encore présente" | "reste encore un peu" | "disparue";
 
 type Slots = {
-  intake?: string;
-  duration?: string;
-  context?: string;
-  sud?: number;
-  round?: number;
-  aspect?: string;
+  intake?: string;       // ex. "douleur lancinante à la jointure de l'épaule"
+  duration?: string;     // ex. "une semaine"
+  context?: string;      // ex. "je me suis retrouvée seule pour ranger le bazar de mon mari"
+  sud?: number;          // 0..10
+  round?: number;        // 1,2,3…
+  aspect?: string;       // construit côté client (intake + contexte court)
   sud_qualifier?: SudQualifier;
 };
 
 type GuideRequest = {
   prompt?: string;
   stage?: Stage;
-  etape?: number; // 1..8
+  etape?: number;   // 1..8
   transcript?: string;
   slots?: Slots;
 };
@@ -48,62 +48,98 @@ function stepFromStage(stage?: Stage): number {
   }
 }
 
-const SYSTEM = `
-Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
-Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
+/* ---------- Utilitaires pour fabriquer des phrases de rappel ---------- */
 
-FLUX (verrouillé)
-1) Intake — qualité + localisation.
-2) Durée — depuis quand.
-3) Contexte — circonstances/événements/émotions.
-4) Évaluation — SUD (0–10) pour la première fois.
-5) Setup — PK ×3 avec la phrase, puis attendre "prêt".
-6) Tapping — ronde point par point.
-7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
-8) Clôture — bref + prudence. Ne relance pas.
+function lowerFirst(s: string): string {
+  if (!s) return s;
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
 
-LANGAGE
-- Aucun filler (pas de « respire », « doucement », etc.).
-- N’utiliser que les mots de l’utilisateur via les slots (intake/context).
-- Une seule consigne par message (sauf Setup: 2 lignes max).
+function clean(s: string): string {
+  return s
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,;:.!?])/g, "$1")
+    .trim();
+}
 
-PERSONNALISATION
-- {aspect} = {intake} + (", " + {context} si présent).
-- {sud_qualifier} ∈ {"très présente","encore présente","reste encore un peu","disparue",""} ; seulement si SUD défini.
+function splitContext(ctx: string): string[] {
+  // Découper le contexte en fragments courts et parlants
+  // séparateurs: ponctuation, " et ", " quand ", " lorsque "
+  const parts = ctx
+    .split(/[,.;]|(?:\s(?:et|quand|lorsque)\s)/gi)
+    .map((p) => clean(p))
+    .filter((p) => p.length > 0)
+    .slice(0, 6); // max 6 morceaux pour éviter le blabla
+  return parts;
+}
 
-ÉTAPE 4 — Évaluation
-- "Peux-tu me donner ton SUD entre 0 et 10, maintenant ?"
-- Tant que SUD manquant/illisible → rester en 4.
+function qualifierFromSud(q: SudQualifier): string {
+  if (q === "très présente") return " très présente";
+  if (q === "encore présente") return " encore présente";
+  if (q === "reste encore un peu") return " qui reste encore un peu";
+  // "disparue" ou "" → pas de qualif en ronde
+  return "";
+}
 
-ÉTAPE 5 — Setup (exactement 2 lignes)
-1) "Tapote sur le Point Karaté (tranche de la main) en répétant 3 fois : « Même si j’ai cette {aspect (minuscule initiale)}, je m’accepte profondément et complètement. »"
-2) "Quand c’est fait, écris « prêt » et je te guide pour la ronde."
+function buildRappelPhrases(slots: Slots): string[] {
+  const intake = clean(slots.intake ?? "");
+  const ctx = clean(slots.context ?? "");
+  const q = qualifierFromSud(slots.sud_qualifier ?? "");
+  const round = slots.round ?? 1;
 
-ÉTAPE 6 — Tapping
-- Lancer une ronde seulement si SUD défini (>0 possible, 0 → Clôture).
-- Liste stricte (chaque ligne commence par "- "):
-  - Sommet de la tête (ST) — Cette {aspect}{QUALIF}.
-  - Début du sourcil (DS) — Cette {aspect}{QUALIF}.
-  - Coin de l’œil (CO) — Cette {aspect}{QUALIF}.
-  - Sous l’œil (SO) — Cette {aspect}{QUALIF}.
-  - Sous le nez (SN) — Cette {aspect}{QUALIF}.
-  - Menton (MT) — Cette {aspect}{QUALIF}.
-  - Clavicule (CL) — Cette {aspect}{QUALIF}.
-  - Sous le bras (SB) — Cette {aspect}{QUALIF}.
-  où {QUALIF} = " " + {sud_qualifier} UNIQUEMENT si SUD>0, sinon vide.
-- Finir par : "Quand tu as terminé cette ronde, dis-moi ton SUD (0–10). Objectif : 0."
+  // Base d’intitulés
+  const baseGeneric = intake ? `Cette ${lowerFirst(intake)}` : "Ce problème";
+  const baseShort =
+    intake && /douleur|gêne|tension|peur|col[èe]re|tristesse/i.test(intake)
+      ? `Cette ${lowerFirst(intake.replace(/^une |un /i, ""))}`
+      : baseGeneric;
 
-ÉTAPE 7 — Réévaluation
-- SUD manquant → redemander.
-- SUD > 0 → proposer nouvelle ronde (retour 6).
-- SUD = 0 → Clôture.
+  const contextParts = ctx ? splitContext(ctx) : [];
 
-FORMAT
-- Commencer par "Étape {N} — ".
-- Étapes 1–4 & 7–8 : 1 ligne (2 max pour 5).
-- Étape 6 : liste de 8 puces + phrase SUD.
-`;
+  // Modificateur selon la ronde (>1 = encore/toujours…)
+  const roundMod =
+    typeof slots.sud === "number" && slots.sud > 0 && round > 1
+      ? (slots.sud >= 7 ? " toujours" : " encore")
+      : "";
 
+  // Tissage des 8 phrases : on alterne générique / qualité-localisation / fragments de contexte
+  const phrases: string[] = [];
+
+  // 1) générique (ex. "Cette douleur lancinante à la jointure [encore présente]")
+  phrases.push(`${baseGeneric}${q || roundMod}.`);
+
+  // 2) version courte (ex. "Cette douleur lancinante à la jointure.")
+  phrases.push(`${baseShort}.`);
+
+  // 3..6) insérer 3 à 4 morceaux de contexte si disponibles
+  for (let i = 0; i < 4; i++) {
+    if (contextParts[i]) {
+      // Ex. "Depuis que je me suis retrouvée seule pour ranger le bazar."
+      const prefix = i === 0 ? "" : "";
+      phrases.push(`${prefix}${contextParts[i][0].toUpperCase()}${contextParts[i].slice(1)}.`);
+    } else {
+      // Si pas assez de contexte, répéter en variant légèrement
+      if (i % 2 === 0) {
+        phrases.push(`${baseGeneric}${roundMod ? roundMod : q}.`);
+      } else {
+        phrases.push(`${baseShort}${roundMod ? roundMod : ""}.`);
+      }
+    }
+  }
+
+  // 7–8) conclure avec deux rappels cohérents (mix générique + 1er contexte si dispo)
+  if (contextParts[0]) {
+    phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
+  } else {
+    phrases.push(`${baseShort}.`);
+  }
+  phrases.push(`${baseGeneric}.`);
+
+  // S’assurer de 8 éléments exactement
+  return phrases.slice(0, 8);
+}
+
+/* ---------- Extraction de la réponse OpenAI sans any ---------- */
 function extractAnswer(json: unknown): string {
   if (!json || typeof json !== "object") return "";
   const j = json as Record<string, unknown>;
@@ -135,6 +171,38 @@ function extractAnswer(json: unknown): string {
   return "";
 }
 
+/* ---------- Prompt système (étape 6 = phrases imposées) ---------- */
+const SYSTEM = `
+Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
+Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
+
+FLUX (verrouillé)
+1) Intake — qualité + localisation.
+2) Durée — depuis quand.
+3) Contexte — circonstances/événements/émotions.
+4) Évaluation — SUD (0–10) pour la première fois.
+5) Setup — PK ×3 avec la phrase, puis attendre "prêt".
+6) Tapping — ronde point par point.
+7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
+8) Clôture — bref + prudence. Ne relance pas.
+
+LANGAGE
+- AUCUN filler (“respire”, “doucement”, etc.).
+- N’utiliser que les mots de l’utilisateur via les slots fournis.
+- Une seule consigne par message (sauf Setup: 2 lignes max).
+
+ÉTAPE 6 — IMPORTANT
+- Des phrases P1..P8 sont fournies par le serveur (rappel point par point).
+- TU DOIS les utiliser EXACTEMENT, dans l’ordre, une par point (ST, DS, CO, SO, SN, MT, CL, SB).
+- Ne modifie pas ces phrases, ne les réécris pas, ne les enrichis pas.
+
+FORMAT
+- Commencer par "Étape {N} — ".
+- Étapes 1–4 & 7–8 : 1 ligne (2 max pour 5).
+- Étape 6 : liste de 8 puces (ST→SB) + phrase finale demandant le SUD.
+`;
+
+/* --------------------------- Handler --------------------------- */
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -142,7 +210,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
 
-    // URL non codée en dur (variable d'environnement)
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/,"")}/v1/responses`;
 
@@ -154,6 +221,9 @@ export async function POST(req: Request) {
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
+
+    // Fabrique les 8 phrases de rappel (serveur)
+    const phrases = buildRappelPhrases(slots);
 
     const USER_BLOCK =
 `[CONTEXTE]
@@ -167,6 +237,16 @@ export async function POST(req: Request) {
   • aspect="${slots.aspect ?? ""}"
   • sud_qualifier="${slots.sud_qualifier ?? ""}"
 
+[PHRASES_POUR_ETAPE_6]
+P1="${phrases[0]}"
+P2="${phrases[1]}"
+P3="${phrases[2]}"
+P4="${phrases[3]}"
+P5="${phrases[4]}"
+P6="${phrases[5]}"
+P7="${phrases[6]}"
+P8="${phrases[7]}"
+
 [DERNIER MESSAGE UTILISATEUR]
 ${prompt}
 
@@ -175,6 +255,7 @@ ${transcript}
 
 [INSTRUCTIONS]
 - Génère la sortie de l'étape ${etape} en respectant STRICTEMENT le SYSTEM ci-dessus.
+- Si étape 6 : utilise P1..P8 telles quelles (sans reformulation), point par point.
 `;
 
     // Timeout côté serveur
@@ -185,7 +266,7 @@ ${transcript}
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`, // la clé ne quitte jamais le serveur
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
