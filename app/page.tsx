@@ -12,35 +12,36 @@ type Stage =
   | "Réévaluation"
   | "Clôture";
 
-type SudQualifier = "très présente" | "encore présente" | "reste encore un peu" | "disparue";
+type SudQualifier = "" | "très présente" | "encore présente" | "reste encore un peu" | "disparue";
 
 type Slots = {
-  intake?: string;
+  intake?: string;        // qualité + localisation (ex. "lancinante dans la jointure de l'épaule")
   duration?: string;
   context?: string;
-  sud?: number;
-  round?: number;
-  aspect?: string;
-  sud_qualifier?: SudQualifier;
+  sud?: number;           // 0..10
+  round?: number;         // 1,2,3…
+  aspect?: string;        // construit côté front (intake + contexte court si présent)
+  sud_qualifier?: SudQualifier; // d’après SUD
 };
 
 // --------- Helpers personnalisation ---------
 function shortContext(s: string): string {
-  // Simplifie en "en + ..." si ça commence par un verbe d'action fréquent
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
-  // Coupe court mais informatif
   const words = t.split(" ");
   const cut = words.slice(0, 10).join(" ");
+  // Si ça ressemble à un verbe d'action fréquent, on préfixe "en "
   const lc = cut.toLowerCase();
-  // quelques verbes usuels
-  const startWithVerb = /^(ranger|porter|soulever|tenir|travailler|conduire|écrire|taper|cuisiner|nettoyer)/i.test(lc);
+  const startWithVerb = /^(ranger|porter|soulever|tenir|travailler|conduire|écrire|taper|cuisiner|nettoyer|installer|déplacer)/i.test(
+    lc
+  );
   return startWithVerb ? "en " + cut : cut;
 }
 
 function sudQualifier(sud?: number): SudQualifier {
+  if (typeof sud !== "number") return ""; // ← rien si SUD inconnu (demande le SUD et évite "très présente" par défaut)
   if (sud === 0) return "disparue";
-  if (typeof sud !== "number" || sud >= 7) return "très présente";
+  if (sud >= 7) return "très présente";
   if (sud >= 4) return "encore présente";
   return "reste encore un peu";
 }
@@ -71,14 +72,25 @@ export default function Page() {
       <div className="space-y-3">
         {paragraphs.map((p, i) => {
           if (/^(?:- |\u2022 |\* )/m.test(p)) {
-            const items = p.split(/\n/).filter(Boolean).map(t => t.replace(/^(- |\u2022 |\* )/, ""));
+            const items = p
+              .split(/\n/)
+              .filter(Boolean)
+              .map((t) => t.replace(/^(- |\u2022 |\* )/, ""));
             return (
               <ul key={i} className="list-disc pl-5 space-y-1">
-                {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
+                {items.map((li, j) => (
+                  <li key={j} className="whitespace-pre-wrap">
+                    {li}
+                  </li>
+                ))}
               </ul>
             );
           }
-          return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
+          return (
+            <p key={i} className="whitespace-pre-line leading-relaxed">
+              {p}
+            </p>
+          );
         })}
       </div>
     );
@@ -87,12 +99,24 @@ export default function Page() {
   // Confusion
   function isConfusion(s: string) {
     const t = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return /je ne comprends pas|je comprends pas|pas compris|pas comprendre|reformule|reexpliquer|c est quoi|c'est quoi/.test(t) || t.trim() === "?";
+    return (
+      /je ne comprends pas|je comprends pas|pas compris|pas comprendre|reformule|reexpliquer|c est quoi|c'est quoi/.test(
+        t
+      ) || t.trim() === "?"
+    );
   }
 
   // Avance linéaire (hors boucle SUD)
   function advanceLinear(stageNow: Stage): { nextStage: Stage; nextEtape: number } {
-    const order: Stage[] = ["Intake","Durée","Contexte","Setup","Tapping","Réévaluation","Clôture"];
+    const order: Stage[] = [
+      "Intake",
+      "Durée",
+      "Contexte",
+      "Setup",
+      "Tapping",
+      "Réévaluation",
+      "Clôture",
+    ];
     const idx = order.indexOf(stageNow);
     if (idx < order.length - 1) return { nextStage: order[idx + 1], nextEtape: idx + 2 };
     return { nextStage: "Clôture", nextEtape: 7 };
@@ -112,8 +136,8 @@ export default function Page() {
     const userText = text.trim();
     if (!userText) return;
 
-    setRows(r => [...r, { who: "user", text: userText }]);
-    setTranscript(t => t + `\nUtilisateur: ${userText}`);
+    setRows((r) => [...r, { who: "user", text: userText }]);
+    setTranscript((t) => t + `\nUtilisateur: ${userText}`);
     setText("");
 
     // Met à jour les slots selon l'étape courante
@@ -122,7 +146,7 @@ export default function Page() {
     if (stage === "Durée") updated.duration = userText;
     if (stage === "Contexte") updated.context = userText;
 
-    // Étape 6 : extraire SUD et décider
+    // Étape 7 (Réévaluation) : extraire SUD et décider (objectif strict 0)
     let forceStage: Stage | null = null;
     let forceEtape: number | null = null;
     const confused = isConfusion(userText);
@@ -137,30 +161,64 @@ export default function Page() {
         updated.sud = sud;
         if (sud > 0) {
           const nextRound = (round || 1) + 1;
-          updated.round = nextRound;                 // prépare la prochaine ronde
+          updated.round = nextRound; // prépare la prochaine ronde
           setRound(nextRound);
-          forceStage = "Tapping";                    // on relance une ronde
+          forceStage = "Tapping"; // relancer une ronde
           forceEtape = 5;
         } else {
-          updated.round = round;                     // conserve la ronde atteinte à 0
-          forceStage = "Clôture";                    // SUD = 0 → clôture
+          updated.round = round; // conserve la ronde atteinte à 0
+          forceStage = "Clôture"; // SUD = 0 → clôture
           forceEtape = 7;
         }
       }
     }
 
     // --- Construire aspect + sud_qualifier à partir des réponses ---
-    const intakeText = updated.intake ?? "";               // "lancinante dans la jointure…"
+    const intakeText = updated.intake ?? ""; // "lancinante dans la jointure de l'épaule"
     const ctx = updated.context ? shortContext(updated.context) : "";
     const aspect = ctx ? `${intakeText}, ${ctx}` : intakeText;
-    const q = sudQualifier(updated.sud);
-    updated.aspect = aspect;            // fourni à l'API
-    updated.sud_qualifier = q;          // fourni à l'API
+    const q = sudQualifier(updated.sud); // "" si SUD inconnu
+    updated.aspect = aspect;
+    updated.sud_qualifier = q;
+
+    // ⚠️ GARDE-FOU : ne pas lancer Tapping si SUD inconnu (exige une évaluation initiale)
+    if ((stage === "Tapping" || etape === 6) && (updated.sud === undefined || updated.sud === null)) {
+      const shortTranscript = (transcript + `\nUtilisateur: ${userText}`)
+        .split("\n")
+        .slice(-10)
+        .join("\n");
+
+      const resEval = await fetch("/api/guide-eft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: userText,
+          stage: "Intake", // label sans importance ; on force l’étape par "etape"
+          etape: 4,        // ← l’API demandera le SUD initial
+          transcript: shortTranscript,
+          confused: false,
+          slots: { ...updated, round },
+        }),
+      });
+
+      const jsonEval = await resEval.json().catch(() => ({ answer: "" }));
+      const answerEval: string = jsonEval?.answer ?? "";
+      setRows((r) => [...r, { who: "bot", text: answerEval }]);
+      setTranscript((t) => t + `\nAssistant: ${answerEval}`);
+      // On reste sur "évaluation initiale" côté UX
+      setStage("Setup"); // prochaine étape naturelle après SUD
+      setEtape(4);
+      setSlots(updated);
+      return;
+    }
 
     setSlots(updated);
 
     // Mémoire courte
-    const shortTranscript = (transcript + `\nUtilisateur: ${userText}`).split("\n").slice(-10).join("\n");
+    const shortTranscript = (transcript + `\nUtilisateur: ${userText}`)
+      .split("\n")
+      .slice(-10)
+      .join("\n");
 
     // Appel API
     const res = await fetch("/api/guide-eft", {
@@ -172,19 +230,19 @@ export default function Page() {
         etape: forceEtape ?? etape,
         transcript: shortTranscript,
         confused,
-        slots: updated,       // IMPORTANT : on envoie les slots à jour (round/sud/aspect/qualifier)
+        slots: updated, // IMPORTANT : slots à jour (round/sud/aspect/qualifier)
       }),
     });
 
     const json = await res.json().catch(() => ({ answer: "" }));
     const answer: string = json?.answer ?? "";
 
-    setRows(r => [...r, { who: "bot", text: answer }]);
-    setTranscript(t => t + `\nAssistant: ${answer}`);
+    setRows((r) => [...r, { who: "bot", text: answer }]);
+    setTranscript((t) => t + `\nAssistant: ${answer}`);
 
     // Progression d'étape côté front
     if (forceStage) {
-      // Si on vient de (re)lancer une ronde → basculer immédiatement en Réévaluation pour capter le SUD suivant
+      // Après une ronde, on passe tout de suite en Réévaluation pour capter le SUD suivant.
       if (forceStage === "Tapping") {
         setStage("Réévaluation");
         setEtape(6);
@@ -210,7 +268,9 @@ export default function Page() {
           <div>
             <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
             <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
-            <p className="text-sm mt-1 opacity-90">Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.</p>
+            <p className="text-sm mt-1 opacity-90">
+              Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
+            </p>
           </div>
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
@@ -230,7 +290,7 @@ export default function Page() {
           <li><strong>Coin de l’œil (CO)</strong> : os de l’orbite côté externe</li>
           <li><strong>Sous l’œil (SO)</strong> : os sous l’orbite</li>
           <li><strong>Sous le nez (SN)</strong> : entre nez et lèvre</li>
-          <li><strong>Creux du menton (CM)</strong> : creux du menton</li>
+          <li><strong>Menton (MT)</strong> : creux du menton</li>
           <li><strong>Clavicule (CL)</strong> : sous la clavicule, zone tendre</li>
           <li><strong>Sous le bras (SB)</strong> : ~10 cm sous l’aisselle</li>
         </ul>
