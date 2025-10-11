@@ -177,26 +177,30 @@ export default function Page() {
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
    } else if (stage === "Durée") {
-  // Si l’intake initial ressemblait à une SITUATION (pas une douleur/émotion)
-  // et que la réponse actuelle ressemble à un RESSENTI (émotion/sensation),
-  // on promeut cette réponse en "intake" (le vrai sujet EFT) au lieu de la stocker comme "durée".
   const prevIntake = (slots.intake ?? "").trim().toLowerCase();
 
-  // Heuristique : si l’intake ne commence pas par des marqueurs de douleur/émotion,
-  // on le considère comme "situation".
-  const looksLikeSituation = !/^(mal|douleur|tension|gêne|gene|peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude|boule|serrement|pression|chaleur|vide)\b/.test(prevIntake);
+  // Heuristique : l’intake initial ressemble-t-il à une SITUATION (et pas douleur/émotion) ?
+  const looksLikeSituation =
+    !/^(mal|douleur|tension|gêne|gene|peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude|boule|serrement|pression|chaleur|vide)\b/i
+      .test(prevIntake);
 
-  // La réponse actuelle ressemble-t-elle à un ressenti/émotion ?
-  const looksLikeFeeling  = /^(je\s+suis\b|je\s+me\s+sens\b|je\s+ressens\b|peur\b|col[èe]re\b|tristesse\b|honte\b|culpabilit[eé]\b|stress\b|anxi[ée]t[ée]\b|angoisse\b|inqui[èe]tude\b|serrement\b|pression\b|chaleur\b|vide\b|boule\b)/i.test(userText);
+  // La nouvelle réponse ressemble-t-elle à un RESSENTI (émotion/sensation) ?
+  const looksLikeFeeling =
+    /^(je\s+suis|je\s+me\s+sens|je\s+ressens)\b/i.test(userText) ||                      // "je suis…"
+    /^j['’]\s*ai\s+de\s+la\s+\w+/i.test(userText) ||                                    // "j’ai de la tristesse…"
+    /^de\s+la\s+(peur|col[èe]re|tristesse|honte|culpabilit[eé]|anxi[ée]t[ée]|angoisse|inqui[èe]tude|tristesse|joie)\b/i
+      .test(userText) ||                                                                // "de la colère…"
+    /\b(peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)\b/i
+      .test(userText);                                                                  // contient une émotion claire
 
   if (looksLikeSituation && looksLikeFeeling) {
-    // On bascule l’intake vers le vrai ressenti (émotion/sensation)
+    // On promeut le ressenti en VRAI sujet EFT
     updated.intake = normalizeIntake(userText);
   } else {
-    // Sinon, c’est bien une durée
     updated.duration = userText;
   }
 }
+
  else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
