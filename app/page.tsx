@@ -300,7 +300,8 @@ export default function Page() {
           Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
           psychologique ou professionnel. L&apos;École EFT France et ses représentants déclinent toute
           responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
-          des informations ou protocoles présentés. Chaque utilisateur reste responsable de sa pratique et de ses choix.
+          des informations ou protocoles présentés. Chaque utilisateur reste responsable de sa pratique et de ses choix.<br>
+          L&apos;Ecole EFT France ou Geneviève Gagos ne voit pas et n'enregistre pas vos échanges réalisés dans ce chat.<br> Mais comme pour tout ce qui transite par Internet, je vous recommande de rester prudents dans vos discussions et à ne jamais divulguer d'éléments très personnels.
         </p>
         <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
       </div>
