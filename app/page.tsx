@@ -112,8 +112,8 @@ if (dangerWords.some(w => t.includes(w))) {
 Vous traversez peut-être une situation critique.
 Je ne suis pas un service d'urgence.
 
-— En France : appelez immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
-— En danger immédiat : appelez le 112.
+- En France : appelez immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
+- En danger immédiat : appelez le 112.
 
 Votre sécurité est la priorité.`
     }
