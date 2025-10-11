@@ -445,7 +445,9 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       // 3) Contexte lisible
       const ctxPretty = ctx ? readableContext(ctx) : "";
 
-      const aspectPretty = ctxPretty ? `${base} ${liaison}${ctxPretty}` : base;
+// Ancien : const aspectPretty = ctxPretty ? `${base} ${liaison}${ctxPretty}` : base;
+// Nouveau (on colle directement le contexte lisible) :
+const aspectPretty = ctxPretty ? `${base} ${ctxPretty}` : base;
 
       const article = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|colère)\b/i.test(base)
         ? "cette" : "ce";
