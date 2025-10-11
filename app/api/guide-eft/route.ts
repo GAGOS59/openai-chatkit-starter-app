@@ -257,7 +257,7 @@ export async function POST(req: Request) {
 
       if (kind === "physique") {
         const txt =
-"Étape 1 — Peux-tu préciser la localisation exacte de la douleur (épaule gauche, nuque, lombaires, etc.) et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?";
+"Étape 1 — Peux-tu préciser la localisation exacte de la douleur et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?";
         return NextResponse.json({ answer: txt });
       }
       if (kind === "emotion") {
