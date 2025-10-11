@@ -91,6 +91,36 @@ function renderPretty(s: string) {
   );
 }
 
+/* --- Détection locale de messages à risque (pré-API) --- */
+const CRISIS_PATTERNS: RegExp[] = [
+  /\bsuicide\b/i,
+  /\b(me\s+tuer|me\s+suicider)\b/i,
+  /\bje\s+veux\s+mourir\b/i,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
+  /\bj[’']en\s+ai\s+marre\s+de\s+la\s+vie\b/i,
+  /\bme\s+foutre\s+en\s+l[’']air\b/i,
+  /\bj[’']en\s+peux\s+plus\s+de\s+vivre\b/i,
+  /\bje\s+veux\s+dispara[iî]tre\b/i
+];
+function isCrisis(text: string): boolean {
+  const t = text.toLowerCase();
+  return CRISIS_PATTERNS.some(rx => rx.test(t));
+}
+function crisisMessage(): string {
+  return (
+`⚠️ **Message important :**
+Il semble que vous traversiez un moment très difficile.
+Je ne suis pas un service d’urgence, mais votre sécurité est prioritaire.
+
+👉 **Appelez immédiatement le 15** (urgences médicales en France),
+ou contactez le **3114**, le **numéro national de prévention du suicide**,
+gratuit et disponible 24h/24, 7j/7.
+
+Si vous êtes à l’étranger, composez le numéro d’urgence local.
+Vous n’êtes pas seul·e — il existe des personnes prêtes à vous aider. ❤️`
+  );
+}
+
 /* ---------------- Component ---------------- */
 export default function Page() {
   // Session
@@ -110,6 +140,19 @@ export default function Page() {
     e.preventDefault();
     const userText = text.trim();
     if (!userText) return;
+
+    // 🔒 Filtre "urgence suicidaire" côté client — interrompt le flux et n'appelle pas l'API
+    if (isCrisis(userText)) {
+      setRows(r => [
+        ...r,
+        { who: "user", text: userText },
+        { who: "bot", text: crisisMessage() }
+      ]);
+      setText("");
+      setStage("Clôture");
+      setEtape(8);
+      return;
+    }
 
     // Nouveau sujet après clôture → reset
     if (stage === "Clôture") {
@@ -174,7 +217,7 @@ export default function Page() {
             who: "bot",
             text:
               "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
-              "Maintenant accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moemnt ! " +
+              "Maintenant, accorde-toi un moment pour t’hydrater et te reposer un instant. Offre-toi ce moment ! " +
               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
           setStage("Clôture");
@@ -196,8 +239,8 @@ export default function Page() {
           who: "bot",
           text:
             "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
-              "Maintenant accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moemnt ! " +
-              "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+            "Maintenant, accorde-toi un moment pour t’hydrater et te reposer un instant. Offre-toi ce moment ! " +
+            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
         setStage("Clôture");
         setEtape(8);
@@ -260,8 +303,6 @@ export default function Page() {
         </div>
       </div>
 
-      
-
       {/* Chat */}
       <div ref={chatRef} className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm">
         <div className="space-y-3">
@@ -282,6 +323,7 @@ export default function Page() {
           onChange={(e) => setText(e.target.value)}
           className="flex-1 rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
           placeholder="Sur quoi souhaitez-vous essayer l&apos;EFT…"
+          aria-label="Saisissez votre message pour l’assistante EFT"
         />
         <button type="submit" className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99]">Envoyer</button>
       </form>
@@ -301,8 +343,9 @@ export default function Page() {
           psychologique ou professionnel. L&apos;École EFT France et ses représentants déclinent toute
           responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
           des informations ou protocoles présentés. Chaque utilisateur reste responsable de sa pratique et de ses choix.
-          
-          L&apos;Ecole EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat. Mais comme pour tout ce qui transite par Internet, je vous recommande de rester prudents dans vos discussions et à ne jamais divulguer d&apos;éléments très personnels.
+          <br />
+          L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
+          Comme pour tout ce qui transite par Internet, restez prudents et évitez de divulguer des éléments très personnels.
         </p>
         <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
       </div>
