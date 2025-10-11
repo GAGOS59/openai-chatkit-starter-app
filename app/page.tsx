@@ -37,16 +37,16 @@ function parseSUD(s: string): number | null {
 }
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
-  const m1 = s.match(/^j['’]ai\s+mal\s+à\s+(.+)$/i);
-  if (m1) return `mal à ${m1[1]}`;
-  const m2 = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
-  if (m2) return `douleur ${m2[1].trim()}`;
-  const m3 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
-  if (m3) return `peur ${m3[1].trim()}`;
-  const m4 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
-  if (m4) return `peur ${m4[1].trim()}`;
-  const m5 = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
-  if (m5) return `${m5[1]} ${m5[2].trim()}`;
+  const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  if (mMal) return `mal ${mMal[1].trim()}`;
+  const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
+  if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
+  const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
+  if (mPeur1) return `peur ${mPeur1[1].trim()}`;
+  const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
+  if (mPeur2) return `peur ${mPeur2[1].trim()}`;
+  const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
+  if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
   return s;
 }
 function isMasculine(intake: string): boolean {
@@ -147,7 +147,7 @@ export default function Page() {
     const userText = text.trim();
     if (!userText) return;
 
-    // 🔒 Filtre "crise" local — coupe et clôture
+    // 🔒 crise → coupe et clôture
     if (isCrisis(userText)) {
       const now = new Date().toISOString();
       console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
@@ -201,11 +201,15 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // Étape suivante (logique locale)
+    // Étape suivante (nouvelle logique : on RENVOIE bien l'Étape 1 d'abord)
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
-    if (stage === "Intake")           { stageForAPI = "Durée";        etapeForAPI = 2; }
+    if (stage === "Intake") {
+      // ➜ on pose d'abord les questions d'Étape 1 (localisation/qualité OU "où dans le corps" OU "que ressens-tu...")
+      stageForAPI = "Intake";
+      etapeForAPI = 1;
+    }
     else if (stage === "Durée")       { stageForAPI = "Contexte";     etapeForAPI = 3; }
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
@@ -294,8 +298,16 @@ export default function Page() {
     }
 
     setRows(r => [...r, { who: "bot", text: answer }]);
-    setStage(stageForAPI);
-    setEtape(etapeForAPI);
+
+    // 🔁 Avancer localement la machine d'état :
+    // après avoir posé l'Étape 1, on passe à "Durée"
+    if (stageForAPI === "Intake" && etapeForAPI === 1) {
+      setStage("Durée");
+      setEtape(2);
+    } else {
+      setStage(stageForAPI);
+      setEtape(etapeForAPI);
+    }
   }
 
   return (
