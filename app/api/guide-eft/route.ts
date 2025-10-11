@@ -229,12 +229,9 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
 }
 
 function buildRappelPhrases(slots: Slots): string[] {
-  // Normalise d'abord l'intake : douleur / émotion / situation
+  // Normalise l’intake (douleur/émotion/situation)
   let intake = clean(normalizeIntake(slots.intake ?? ""));
-
-  // 🧠 Correction émotionnelle :
-  // si la personne dit "je suis en colère", "je me sens triste"...
-  // → on le convertit en nom : "colère", "tristesse", etc.
+  // Si c’est une émotion de type “je suis …”, on convertit en nom (“colère”, “tristesse”…)
   intake = clean(normalizeEmotionNoun(intake));
 
   const ctx = clean(slots.context ?? "");
@@ -242,9 +239,6 @@ function buildRappelPhrases(slots: Slots): string[] {
   const sudQ = sudQualifierFromNumber(slots.sud, g);
   const round = slots.round ?? 1;
   const contextParts = ctx ? splitContext(ctx) : [];
-  ...
-}
-
 
   const roundMod =
     typeof slots.sud === "number" && slots.sud > 0 && round > 1
@@ -256,6 +250,7 @@ function buildRappelPhrases(slots: Slots): string[] {
   const phrases: string[] = [];
   phrases.push(`${generic}${qOrRound}.`);
   phrases.push(`${short}.`);
+
   for (let i = 0; i < 4; i++) {
     if (contextParts[i]) {
       const s = contextParts[i];
@@ -265,11 +260,18 @@ function buildRappelPhrases(slots: Slots): string[] {
       phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
     }
   }
-  if (contextParts[0]) phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
-  else phrases.push(`${short}.`);
+
+  if (contextParts[0]) {
+    phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
+  } else {
+    phrases.push(`${short}.`);
+  }
+
   phrases.push(`${generic}.`);
+
   return phrases.slice(0, 8);
 }
+
 
 /* ---------- Classification Intake ---------- */
 type IntakeKind = "physique" | "emotion" | "situation";
