@@ -229,9 +229,11 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
 }
 
 function buildRappelPhrases(slots: Slots): string[] {
-  // Normalise l’intake (douleur/émotion/situation)
+  // 1) Normaliser
   let intake = clean(normalizeIntake(slots.intake ?? ""));
-  // Si c’est une émotion de type “je suis …”, on convertit en nom (“colère”, “tristesse”…)
+  // 2) Enlever les démarreurs de phrase s'ils traînent encore
+  intake = intake.replace(/^(?:je\s+suis|je\s+me\s+sens|je\s+ressens|j['’]ai)\s+/i, "");
+  // 3) Si c’est une émotion adjectivale, la convertir en nom (“colère”, “tristesse”…)
   intake = clean(normalizeEmotionNoun(intake));
 
   const ctx = clean(slots.context ?? "");
@@ -250,27 +252,20 @@ function buildRappelPhrases(slots: Slots): string[] {
   const phrases: string[] = [];
   phrases.push(`${generic}${qOrRound}.`);
   phrases.push(`${short}.`);
-
   for (let i = 0; i < 4; i++) {
     if (contextParts[i]) {
       const s = contextParts[i];
-      const sentence = s[0].toUpperCase() + s.slice(1) + ".";
-      phrases.push(sentence);
+      phrases.push(s[0].toUpperCase() + s.slice(1) + ".");
     } else {
       phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
     }
   }
-
-  if (contextParts[0]) {
-    phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
-  } else {
-    phrases.push(`${short}.`);
-  }
-
+  if (contextParts[0]) phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
+  else phrases.push(`${short}.`);
   phrases.push(`${generic}.`);
-
   return phrases.slice(0, 8);
 }
+
 
 
 /* ---------- Classification Intake ---------- */
