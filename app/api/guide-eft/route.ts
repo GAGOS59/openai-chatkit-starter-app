@@ -146,13 +146,37 @@ export async function POST(req: Request) {
 
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
+
+    /* 🛑 Bloc de sécurité : prévention suicide */
+    const risque = [
+      "suicide", "me tuer", "je veux mourir", "je veux me tuer",
+      "j'en ai marre de la vie", "je veux me foutre en l'air",
+      "je n'en peux plus de vivre", "je veux disparaître", "je ne veux plus vivre"
+    ];
+    const texte = prompt.toLowerCase();
+    if (risque.some(mot => texte.includes(mot))) {
+      return NextResponse.json({
+        answer: `⚠️ **Message important :**
+Il semble que vous traversiez un moment très difficile.  
+Je ne suis pas un service d’urgence, mais votre sécurité est prioritaire.  
+
+👉 **Appelez immédiatement le 15** (urgences médicales en France),  
+ou contactez le **3114**, le **numéro national de prévention du suicide**,  
+gratuit et disponible 24h/24, 7j/7.  
+
+Si vous êtes à l’étranger, composez le numéro d’urgence local.  
+Vous n’êtes pas seul·e — il existe des personnes prêtes à vous aider. ❤️`
+      });
+    }
+    /* Fin du bloc sécurité */
+
     const stage = (raw.stage as Stage) ?? "Intake";
     const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage);
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    // Étape 5 : Setup déterministe (une fois, sans boucle)
+    // Étape 5 : Setup déterministe
     if (etape === 5) {
       const aspect = clean(slots.aspect ?? slots.intake ?? "");
       const txt =
@@ -162,7 +186,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 6 : Ronde déterministe
+    // Étape 6 : Ronde
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -180,14 +204,14 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 : Clôture stable
+    // Étape 8 : Clôture
     if (etape === 8) {
       const txt =
 "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
-    // Autres étapes : modèle avec SYSTEM strict
+    // Étapes intermédiaires
     const USER_BLOCK =
 `[CONTEXTE]
 Étape demandée: ${etape}
