@@ -51,6 +51,32 @@ function clean(s: string): string {
   return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
 }
 
+/** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) */
+function normalizeIntake(input: string): string {
+  const s = input.trim().replace(/\s+/g, " ");
+
+  // j'ai mal à/au/aux/à la/à l'...
+  const mMal =
+    s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  if (mMal) return `mal ${mMal[1].trim()}`;
+
+  // j'ai une/la douleur ...
+  const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
+  if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
+
+  // j'ai (une/la) peur ..., j'ai peur ...
+  const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
+  if (mPeur1) return `peur ${mPeur1[1].trim()}`;
+  const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
+  if (mPeur2) return `peur ${mPeur2[1].trim()}`;
+
+  // j'ai (une/la) tension|gêne|gene ...
+  const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
+  if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
+
+  return s;
+}
+
 function splitContext(ctx: string): string[] {
   return ctx
     .split(/[,.;]|(?:\s(?:et|quand|parce que|lorsque|depuis|depuis que)\s)/gi)
@@ -78,9 +104,9 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   return " qui reste encore un peu";
 }
 
-function baseFromIntake(intakeRaw: string): { generic: string; short: string; g: "m" | "f" } {
-  const intake = clean(intakeRaw);
-  const g = detectGender(intakeRaw);
+function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
+  const intake = clean(normalizeIntake(_raw)); // <— normalisation sûre
+  const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) {
     return { generic: "Ce " + intake, short: "Ce " + intake, g };
   }
@@ -91,7 +117,7 @@ function baseFromIntake(intakeRaw: string): { generic: string; short: string; g:
 }
 
 function buildRappelPhrases(slots: Slots): string[] {
-  const intake = clean(slots.intake ?? "");
+  const intake = clean(normalizeIntake(slots.intake ?? ""));
   const ctx = clean(slots.context ?? "");
   const { generic, short, g } = baseFromIntake(intake);
   const sudQ = sudQualifierFromNumber(slots.sud, g);
@@ -123,7 +149,26 @@ function buildRappelPhrases(slots: Slots): string[] {
   return phrases.slice(0, 8);
 }
 
-/* ---------- Safety patterns (in / out) ---------- */
+/* ---------- Classification Intake ---------- */
+type IntakeKind = "physique" | "emotion" | "situation";
+
+function classifyIntake(raw: string): IntakeKind {
+  const s = clean(normalizeIntake(raw)).toLowerCase();
+
+  // Douleur / sensation physique:
+  if (
+    /\bmal\b|\bdouleur\b|\btension\b|\bgêne\b|\bgene\b|\bcrispation\b|\bbrûlure\b|\bbrulure\b|\bpiqûre\b|\baguille\b/.test(s)
+  ) return "physique";
+
+  // Émotions courantes:
+  if (/\bpeur\b|\bcol[èe]re\b|\btristesse\b|\bhonte\b|\bculpabilit[ée]\b|\bstress\b|\banxi[ée]t[ée]\b|\binqui[ée]tude\b/.test(s))
+    return "emotion";
+
+  // Par défaut: situation/événement
+  return "situation";
+}
+
+/* ---------- Safety patterns (in/out) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
   /\bsu[cs]sid[ea]\b/i,
@@ -160,17 +205,17 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
-/* ---------- SYSTEM prompt ---------- */
+/* ---------- SYSTEM (pour les étapes non déterministes) ---------- */
 const SYSTEM = `
 Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
 
 FLUX
-1) Intake — qualité + localisation (ou libellé précis si émotion).
+1) Intake — qualité/localisation (si douleur) OU "où dans le corps ?" (si émotion) OU "que ressens-tu quand tu penses à … ?" (si situation).
 2) Durée — depuis quand.
-3) Contexte — circonstances/événements/émotions.
+3) Contexte — circonstances/événements (pas "émotions" si l'intake est déjà une émotion).
 4) Évaluation — SUD (0–10) pour la première fois.
-5) Setup — Phrase de préparation (PK ×3) puis attendre un message de l'utilisateur (sans insister).
+5) Setup — Phrase de préparation (PK ×3) puis attendre un message de l'utilisateur.
 7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
 8) Clôture — remercier, féliciter, pause/hydratation, note de prudence.
 
@@ -203,6 +248,28 @@ export async function POST(req: Request) {
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
+
+    /* ---------- Étape 1 : déterministe et contextualisée ---------- */
+    if (etape === 1) {
+      const intakeRaw = slots.intake ?? prompt ?? "";
+      const intake = clean(normalizeIntake(intakeRaw));
+      const kind = classifyIntake(intake);
+
+      if (kind === "physique") {
+        const txt =
+"Étape 1 — Peux-tu préciser la localisation exacte de la douleur (épaule gauche, nuque, lombaires, etc.) et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?";
+        return NextResponse.json({ answer: txt });
+      }
+      if (kind === "emotion") {
+        const txt =
+"Étape 1 — Où ressens-tu cette émotion dans ton corps (poitrine, gorge, ventre, tête…) ? Donne aussi quelques mots pour la décrire (serrement, pression, chaleur, vide, etc.).";
+        return NextResponse.json({ answer: txt });
+      }
+      // situation par défaut
+      const txt =
+"Étape 1 — Quand tu penses à cette situation, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?";
+      return NextResponse.json({ answer: txt });
+    }
 
     // Étape 5 — setup déterministe
     if (etape === 5) {
@@ -239,7 +306,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Autres étapes — modèle
+    /* ---------- Autres étapes : modèle (SYSTEM) ---------- */
     const USER_BLOCK =
 `[CONTEXTE]
 Étape demandée: ${etape}
