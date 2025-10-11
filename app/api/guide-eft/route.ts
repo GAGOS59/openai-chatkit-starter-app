@@ -207,11 +207,13 @@ function buildRappelPhrases(slots: Slots): string[] {
 /* ---------- Classification Intake ---------- */
 type IntakeKind = "physique" | "emotion" | "situation";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function classifyIntake(/* … */) { /* ... */ }
 
-function classifyIntake(raw: string): IntakeKind {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function classifyIntake(raw: string) {
   const s = clean(normalizeIntake(raw)).toLowerCase();
+  // … corps existant …
+}
+
 
   // Douleur / sensation physique:
   if (
