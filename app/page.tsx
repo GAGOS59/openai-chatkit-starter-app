@@ -104,7 +104,11 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\b(foutre|jeter)\s+en\s+l[’']?air\b/i,
   /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/i,
   /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/i,
-  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i
+  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
+  /\bje\s+suis\s+de\s+trop\b/i,
+  /\bje\s+me\s+sens\s+de\s+trop\b/i,   // (optionnel mais utile)
+  /\bid[ée]es?\s+noires?\b/i,
+
 ];
 function isCrisis(text: string): boolean {
   const t = text.toLowerCase();
