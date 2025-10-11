@@ -263,6 +263,29 @@ Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
       (json?.choices?.[0]?.message?.content) ??
       (json?.content?.[0]?.text) ??
       "";
+
+    // --- Garde-fou sortie modèle (ban mots/expressions sensibles) ---
+const FORBIDDEN_OUTPUT: RegExp[] = [
+  ...CRISIS_PATTERNS,                    // réutilise la liste de crise
+  /\bsuicid\w*/i,                        // filet large
+  /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i
+];
+
+const unsafeOut = answer && FORBIDDEN_OUTPUT.some(rx => rx.test(answer));
+if (unsafeOut) {
+  return NextResponse.json({
+    answer:
+`⚠️ Message important
+Un contenu sensible a été détecté.
+Je ne suis pas un service d'urgence.
+
+➡️ En France : appelez immédiatement le 15 (SAMU) ou le 3114 (24/7).
+➡️ En danger immédiat : appelez le 112.
+
+Votre sécurité est la priorité.`
+  });
+}
+
     return NextResponse.json({ answer });
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
