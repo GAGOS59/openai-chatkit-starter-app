@@ -2,6 +2,7 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
+/* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
 type Stage =
   | "Intake"
@@ -22,7 +23,7 @@ type Slots = {
   aspect?: string;
 };
 
-/* ---------------- Helpers ---------------- */
+/* ---------- Helpers ---------- */
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
@@ -34,7 +35,6 @@ function parseSUD(s: string): number | null {
   const v = Number(m[2]);
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
-/** "j'ai mal à l'épaule" -> "mal à l'épaule"; "j'ai une douleur ..." -> "douleur ..." */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
   const m1 = s.match(/^j['’]ai\s+mal\s+à\s+(.+)$/i);
@@ -52,7 +52,6 @@ function normalizeIntake(input: string): string {
 function isMasculine(intake: string): boolean {
   return /^mal\b/i.test(intake);
 }
-/** Nettoie le contexte pour éviter "lié à je …" et les virgules parasites */
 function normalizeContextForAspect(ctx: string): string {
   let c = ctx.trim();
   c = c.replace(/^je\s+/i, "");
@@ -61,7 +60,7 @@ function normalizeContextForAspect(ctx: string): string {
   c = c.replace(/^suis\b/i, "être ");
   c = c.replace(/^ai\b/i, "avoir ");
   c = c.replace(/^étais\b/i, "être ");
-  c = c.replace(/,\s+/g, " "); // supprime la virgule "toute seule, le..."
+  c = c.replace(/,\s+/g, " ");
   return c;
 }
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
@@ -91,11 +90,11 @@ function renderPretty(s: string) {
   );
 }
 
-/* --- Détection locale de messages à risque (pré-API) --- */
+/* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
-  /\bsuicid(e|er|aire|al|ale|aux|erai)?\b/i,
+  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
   /\bsu[cs]sid[ea]\b/i,
-  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ir[eé])\b/i,
+  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/i,
   /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
   /j['’]?en\s+peux?\s+plus\s+de\s+vivre\b/i,
   /j['’]?en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/i,
@@ -106,9 +105,8 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/i,
   /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
   /\bje\s+suis\s+de\s+trop\b/i,
-  /\bje\s+me\s+sens\s+de\s+trop\b/i,   // (optionnel mais utile)
+  /\bje\s+me\s+sens\s+de\s+trop\b/i,
   /\bid[ée]es?\s+noires?\b/i,
-
 ];
 function isCrisis(text: string): boolean {
   const t = text.toLowerCase();
@@ -116,20 +114,18 @@ function isCrisis(text: string): boolean {
 }
 function crisisMessage(): string {
   return (
-`⚠️ **Message important :**
+`Message important
 Il semble que vous traversiez un moment très difficile.
-Je ne suis pas un service d’urgence, mais votre sécurité est prioritaire.
+Je ne suis pas un service d'urgence, mais votre sécurité est prioritaire.
 
-**Appelez immédiatement le 15** (urgences médicales en France),
-ou contactez le **3114**, le **numéro national de prévention du suicide**,
-gratuit et disponible 24h/24, 7j/7.
+En France : appelez immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
+En danger immédiat : appelez le 112.
 
-Si vous êtes à l’étranger, composez le numéro d’urgence local.
-Vous n’êtes pas seul·e — ces services sont à votre écoute et peuvent vous aider dès maintenant.`
+Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
-/* ---------------- Component ---------------- */
+/* ---------- Component ---------- */
 export default function Page() {
   // Session
   const [stage, setStage] = useState<Stage>("Intake");
@@ -142,18 +138,19 @@ export default function Page() {
   ]);
   const [text, setText] = useState("");
   const chatRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight; }, [rows]);
+  useEffect(() => {
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+  }, [rows]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const userText = text.trim();
     if (!userText) return;
 
-    // 🔒 Filtre "urgence suicidaire" côté client — interrompt le flux et n'appelle pas l'API
+    // 🔒 Filtre "crise" local — coupe et clôture
     if (isCrisis(userText)) {
       const now = new Date().toISOString();
       console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
-
       setRows(r => [
         ...r,
         { who: "user", text: userText },
@@ -175,7 +172,7 @@ export default function Page() {
     setRows(r => [...r, { who: "user", text: userText }]);
     setText("");
 
-    // MàJ slots (après éventuel reset)
+    // MàJ slots
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
@@ -185,20 +182,18 @@ export default function Page() {
     } else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
-      const sud = parseSUD(userText);
-      if (sud !== null) updated.sud = sud;
+      const sud0 = parseSUD(userText);
+      if (sud0 !== null) updated.sud = sud0;
     } else if (stage === "Réévaluation") {
-      const sud = parseSUD(userText);
-      if (sud !== null) updated.sud = sud;
+      const sud2 = parseSUD(userText);
+      if (sud2 !== null) updated.sud = sud2;
     }
 
-    // SUD saisi juste après l’étape 6 (réponse directe à la consigne)
     if (stage === "Tapping") {
       const sudInline = parseSUD(userText);
       if (sudInline !== null) updated.sud = sudInline;
     }
 
-    // Aspect (accord + pas de virgule avant "lié(e) à"), contexte nettoyé
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
@@ -206,7 +201,7 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // --- Étape pour l'API (avec court-circuit SUD=0 & avance auto après Setup) ---
+    // Étape suivante (logique locale)
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
@@ -217,18 +212,16 @@ export default function Page() {
       stageForAPI = "Setup";          etapeForAPI = 5;
     }
     else if (stage === "Setup") {
-      // ✅ on avance à la ronde dès qu’un message arrive après le Setup
       stageForAPI = "Tapping";        etapeForAPI = 6;
     }
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
-          // 🔒 Clôture immédiate côté client — pas d'appel API
           setRows(r => [...r, {
             who: "bot",
             text:
               "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
-              "Maintenant, accorde-toi un moment pour t’hydrater et te reposer un instant. Offre-toi ce moment ! " +
+              "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment ! " +
               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
           setStage("Clôture");
@@ -238,7 +231,7 @@ export default function Page() {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots(s => ({ ...s, round: nextRound }));
-          stageForAPI = "Tapping";    etapeForAPI = 6; // nouvelle ronde (phrases recalculées serveur)
+          stageForAPI = "Tapping";    etapeForAPI = 6;
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -250,7 +243,7 @@ export default function Page() {
           who: "bot",
           text:
             "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
-            "Maintenant, accorde-toi un moment pour t’hydrater et te reposer un instant. Offre-toi ce moment ! " +
+            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment ! " +
             "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
         setStage("Clôture");
@@ -264,46 +257,42 @@ export default function Page() {
       }
     }
 
-    // Appel API (Étapes hors clôture locale)
-const transcriptShort = rows
-  .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
-  .slice(-10)
-  .join("\n");
+    // Appel API
+    const transcriptShort = rows
+      .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+      .slice(-10)
+      .join("\n");
 
-const res = await fetch("/api/guide-eft", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    prompt: userText,
-    stage: stageForAPI,
-    etape: etapeForAPI,
-    transcript: transcriptShort,
-    slots: updated,
-  }),
-});
+    const res = await fetch("/api/guide-eft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: userText,
+        stage: stageForAPI,
+        etape: etapeForAPI,
+        transcript: transcriptShort,
+        slots: updated,
+      }),
+    });
 
-// ⬇️ Garder UN SEUL bloc de parsing (pas de doublon)
-const raw = await res.json().catch(() => ({}));
-let answer = "";
-if (raw && typeof raw === "object" && "answer" in raw) {
-  const maybe = (raw as Record<string, unknown>).answer;
-  if (typeof maybe === "string") answer = maybe;
-}
+    const raw = await res.json().catch(() => ({}));
+    let answer = "";
+    if (raw && typeof raw === "object" && "answer" in raw) {
+      const maybe = (raw as Record<string, unknown>).answer;
+      if (typeof maybe === "string") answer = maybe;
+    }
 
-// 🔒 Garde-fou sortie serveur côté client
-if (isCrisis(answer)) {
-  const now = new Date().toISOString();
-  console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
-  setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
-  setStage("Clôture");
-  setEtape(8);
-  setText("");
-  return;
-}
+    // 🔒 Garde sortie côté client
+    if (isCrisis(answer)) {
+      const now = new Date().toISOString();
+      console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
+      setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
+      setStage("Clôture");
+      setEtape(8);
+      setText("");
+      return;
+    }
 
-
-
-    
     setRows(r => [...r, { who: "bot", text: answer }]);
     setStage(stageForAPI);
     setEtape(etapeForAPI);
