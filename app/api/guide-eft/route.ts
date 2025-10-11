@@ -141,15 +141,31 @@ function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, ar
 
 /** Normalise une tournure émotionnelle vers un nom : "je suis en colère" → "colère", "je me sens coupable" → "culpabilité" */
 function normalizeEmotionNoun(s: string): string {
-  const t = clean(s).toLowerCase();
+  const raw = clean(s);
+  const t = raw.toLowerCase();
 
+  // 1️⃣ Garder les expressions spécifiques (ne pas les tronquer)
+  // Ex. peur de parler en public → on garde tout
+  const mPeurComp = t.match(/\bpeur\s+(de|du|des|d’|d')\s+.+/i);
+  if (mPeurComp) return raw;
+
+  // colère contre/envers/à propos de …
+  const mColereComp = t.match(/\bcol[eè]re\s+(contre|envers|à\s+propos\s+de)\s+.+/i);
+  if (mColereComp) return raw;
+
+  // honte ou culpabilité de …
+  const mHonteCulp = t.match(/\b(honte|culpabilit[eé])\s+(de|d’|d')\s+.+/i);
+  if (mHonteCulp) return raw;
+
+  // 2️⃣ Nettoyer le début s’il y a un verbe
   const x = t
-    .replace(/^j['’]?\s*eprouve\s+/i, "")
-    .replace(/^je\s+me\s+sens\s+/i, "")
-    .replace(/^je\s+ressens\s+/i, "")
-    .replace(/^je\s+suis\s+en\s+/i, "")
-    .replace(/^je\s+suis\s+/i, "");
+    .replace(/^j['’]?\s*eprouve\s+/, "")
+    .replace(/^je\s+me\s+sens\s+/, "")
+    .replace(/^je\s+ressens\s+/, "")
+    .replace(/^je\s+suis\s+en\s+/, "")
+    .replace(/^je\s+suis\s+/, "");
 
+  // 3️⃣ Transformer les adjectifs en noms d’émotions
   const map: Array<[RegExp, string]> = [
     [/col[eè]re/, "colère"],
     [/triste(sse)?/, "tristesse"],
@@ -162,13 +178,10 @@ function normalizeEmotionNoun(s: string): string {
   ];
   for (const [rx, noun] of map) if (rx.test(x)) return noun;
 
-  // Si on trouve "peur de/peur du", on garde "peur ..."
-  const m = t.match(/peur\s+(de|du|des|d’|d')\s+.+/i);
-  if (m) return clean(t);
-
-  // Sinon on renvoie proprement la chaîne initiale nettoyée
-  return clean(s);
+  // 4️⃣ Par défaut, renvoyer la phrase nettoyée
+  return raw;
 }
+
 
 /** Rend un contexte lisible après "lié(e) à".
  *  - si kind==="physique" et que le contexte commence par "je/j’/j'ai/je me/je suis…",
