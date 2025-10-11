@@ -96,6 +96,49 @@ function detectGender(intakeRaw: string): "m" | "f" {
   return "f";
 }
 
+/** Détecte si l’intake est une émotion (forme adjectivale « je suis … » ou nom : tristesse, colère…) */
+function isEmotionIntake(raw: string): boolean {
+  const t = clean(raw).toLowerCase();
+  if (/^je\s+suis\b/i.test(t)) return true; // forme adjectivale "je suis ..."
+  return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
+}
+
+/** Choisit « ce » ou « cette » selon le nom d’émotion */
+function emotionArticle(noun: string): "ce" | "cette" {
+  const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
+  const fem = new Set([
+    "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude"
+  ]);
+  return fem.has(n) ? "cette" : "ce"; // « stress » / « dégoût » → masculin
+}
+
+/**
+ * Extrait une forme exploitable pour le setup à partir d’un intake émotionnel.
+ * - "je suis triste"        → {mode:"adj",  text:"triste"}
+ * - "tristesse"/"de la ..." → {mode:"noun", text:"tristesse", article:"cette"}
+ * - "peur de parler"        → {mode:"noun", text:"peur de parler", article:"cette"}
+ */
+function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, article?: "ce"|"cette" } {
+  const t = clean(raw);
+
+  // Cas adjectival direct : "je suis ..."
+  const mAdj = t.match(/^je\s+suis\s+(.+)$/i);
+  if (mAdj) {
+    return { mode: "adj", text: clean(mAdj[1]) };
+  }
+
+  // Cas "de la tristesse"
+  const mDeLa = t.match(/^de\s+la\s+(.+)$/i);
+  if (mDeLa) {
+    const noun = clean(mDeLa[1]);
+    return { mode: "noun", text: noun, article: emotionArticle(noun) };
+  }
+
+  // Cas nominal : « tristesse », « peur de … », etc. (on passe par ta normalisation)
+  const noun = clean(normalizeEmotionNoun(t));
+  return { mode: "noun", text: noun, article: emotionArticle(noun) };
+}
+
 /** Normalise une tournure émotionnelle vers un nom : "je suis en colère" → "colère", "je me sens coupable" → "culpabilité" */
 function normalizeEmotionNoun(s: string): string {
   const t = clean(s).toLowerCase();
@@ -119,22 +162,26 @@ function normalizeEmotionNoun(s: string): string {
   ];
   for (const [rx, noun] of map) if (rx.test(x)) return noun;
 
+  // Si on trouve "peur de/peur du", on garde "peur ..."
   const m = t.match(/peur\s+(de|du|des|d’|d')\s+.+/i);
   if (m) return clean(t);
 
+  // Sinon on renvoie proprement la chaîne initiale nettoyée
   return clean(s);
 }
 
-/** Rend un contexte lisible après "lié(e) à" */
+/** Rend un contexte lisible après "lié(e) à" : ajoute "au fait que" si besoin et corrige "le/la/les/il/elle..." */
 function readableContext(ctx: string): string {
   let c = clean(ctx);
   if (!c) return "";
 
+  // Si le contexte commence par un pronom/article/que, on insère "au fait que "
   const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
   if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
     c = "au fait que " + c;
   }
 
+  // harmoniser "au fait que il" -> "au fait qu'il"
   c = c
     .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
     .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
@@ -153,7 +200,7 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
 }
 
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
-  const intake = clean(normalizeIntake(_raw));
+  const intake = clean(normalizeIntake(_raw)); // normalisation sûre
   const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) {
     return { generic: "Ce " + intake, short: "Ce " + intake, g };
@@ -349,8 +396,32 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
 
     /* ---------- Étape 5 : Setup (accord "lié/liée", émotions, contexte lisible) ---------- */
     if (etape === 5) {
-      const aspectRaw = clean((slots.aspect ?? slots.intake ?? ""));
+      // On repart de l’intake/aspect tels que fournis par le client
+      const intakeOrig = clean(slots.intake ?? "");
+      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
 
+      // ——— Branche spéciale ÉMOTION (génère « je suis … » ou « j’ai cette … ») ———
+      if (isEmotionIntake(intakeOrig)) {
+        const emo = parseEmotionPhrase(intakeOrig);
+
+        let setupLine = "";
+        if (emo.mode === "adj") {
+          // ex. « Même si je suis triste … »
+          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
+        } else {
+          // ex. « Même si j’ai cette tristesse … » | « cette peur de parler … »
+          const art = emo.article ?? emotionArticle(emo.text);
+          setupLine = `Même si j’ai ${art} ${emo.text}, je m’accepte profondément et complètement.`;
+        }
+
+        const txt =
+`Étape 5 — Setup : « ${setupLine} »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
+        return NextResponse.json({ answer: txt });
+      }
+
+      // ——— Sinon : PHYSIQUE/SITUATION ———
       // Séparer base & contexte si un "lié(e) à" est déjà présent
       let base = aspectRaw;
       let ctx = "";
@@ -361,7 +432,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         ctx  = aspectRaw.slice(idx + m[0].length).trim();
       }
 
-      // 1) Normaliser les formes émotionnelles et nettoyer les débuts indésirables
+      // 1) Normaliser et nettoyer les débuts indésirables
       base = normalizeEmotionNoun(base)
         .replace(/^j['’]?\s*ai\s+/, "")
         .replace(/^je\s+/, "")
