@@ -322,15 +322,28 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
 }
 
 
-    // Étape 5 — setup déterministe
-    if (etape === 5) {
-      const aspect = clean(slots.aspect ?? slots.intake ?? "");
-      const txt =
+    /* ---------- Étape 5 : Setup (corrigé pour éviter les redondances) ---------- */
+if (etape === 5) {
+  let aspect = clean(slots.aspect ?? slots.intake ?? "");
+
+  // 🔹 Supprime les débuts du type "j’ai", "je", "j’ai ce"
+  aspect = aspect
+    .replace(/^j['’]?\s*ai\s+/i, "")
+    .replace(/^je\s+/i, "")
+    .replace(/^ce\s+/i, "")
+    .replace(/^cette\s+/i, "");
+
+  // 🔹 Supprime doublons "lié(e) à" inutiles
+  aspect = aspect.replace(/\b(j['’]ai\s+)?(ce\s+)?j['’]ai\s+/i, "");
+  aspect = aspect.replace(/\s+\blie[ée]\s+à\s+$/, "").trim();
+
+  const txt =
 `Étape 5 — Setup : « Même si j’ai ce ${aspect}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-      return NextResponse.json({ answer: txt });
-    }
+  return NextResponse.json({ answer: txt });
+}
+
 
     // Étape 6 — ronde déterministe (personnalisée)
     if (etape === 6) {
