@@ -150,8 +150,8 @@ export async function POST(req: Request) {
     /* 🛑 Bloc de sécurité : prévention suicide */
     const risque = [
       "suicide", "me tuer", "je veux mourir", "je veux me tuer",
-      "j'en ai marre de la vie", "je veux me foutre en l'air",
-      "je n'en peux plus de vivre", "je veux disparaître", "je ne veux plus vivre"
+      "marre de la vie", "me foutre en l'air",
+      "je n'en peux plus de vivre", "je veux disparaître", "je ne veux plus vivre", "plus vivre"
     ];
     const texte = prompt.toLowerCase();
     if (risque.some(mot => texte.includes(mot))) {
