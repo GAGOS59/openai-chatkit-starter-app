@@ -330,14 +330,14 @@ export async function POST(req: Request) {
       if (kind === "physique") {
         const hints = hintsForLocation(intakeNorm);
         const txt =
-`Étape 1 — Tu parles de « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
+`Étape 1 — Tu dis « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
 et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
         return NextResponse.json({ answer: txt });
       }
 
       if (kind === "emotion") {
         const txt =
-`Étape 1 — Tu parles de « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
+`Étape 1 — Tu dis « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
 Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         return NextResponse.json({ answer: txt });
       }
