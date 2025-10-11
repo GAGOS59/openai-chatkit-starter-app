@@ -170,23 +170,36 @@ function normalizeEmotionNoun(s: string): string {
   return clean(s);
 }
 
-/** Rend un contexte lisible après "lié(e) à" : ajoute "au fait que" si besoin et corrige "le/la/les/il/elle..." */
-function readableContext(ctx: string): string {
+/** Rend un contexte lisible après "lié(e) à".
+ *  - si kind==="physique" et que le contexte commence par "je/j’/j'ai/je me/je suis…",
+ *    on force "parce que …"
+ *  - sinon, on applique la règle "au fait que ..." pour les pronoms/articles.
+ */
+function readableContext(ctx: string, kind?: IntakeKind): string {
   let c = clean(ctx);
   if (!c) return "";
 
-  // Si le contexte commence par un pronom/article/que, on insère "au fait que "
-  const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
-  if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
-    c = "au fait que " + c;
+  // Cas douleur : préférer "parce que ..."
+  if (
+    kind === "physique" &&
+    !/^parce que\b/i.test(c) &&
+    /^(?:j['’]ai|j['’]étais|j['’]etais|je\s+me|je\s+suis|je\s+)/i.test(c)
+  ) {
+    c = "parce que " + c.replace(/^parce que\s+/i, "");
   }
 
-  // harmoniser "au fait que il" -> "au fait qu'il"
-  c = c
-    .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
-    .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
-    .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
-    .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
+  // Si on n'est pas en "parce que …", appliquer la règle "au fait que …"
+  if (!/^parce que\b/i.test(c)) {
+    const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
+    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
+      c = "au fait que " + c;
+    }
+    c = c
+      .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
+      .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
+      .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
+      .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
+  }
 
   return c;
 }
