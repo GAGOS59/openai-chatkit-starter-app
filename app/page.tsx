@@ -96,30 +96,35 @@ function renderPretty(s: string) {
 const dangerWords = [
   "suicide", "me suicider", "me tuer", "mourir", "je veux mourir",
   "j’en ai marre de la vie", "je veux me foutre en l’air", "plus envie de vivre",
-  "je vais me tuer", "je veux mourir", "marre de vivre"
+  "je vais me tuer", "marre de vivre"
 ];
-const lowerText = text.toLowerCase();
-if (dangerWords.some(w => lowerText.includes(w))) {
+const t = userText.toLowerCase();
+if (dangerWords.some(w => t.includes(w))) {
   const now = new Date().toISOString();
   console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
-  
-  setRows(r => [...r, {
-    who: "bot",
-    text:
-      "Message important : Il semble que vous traversiez un moment très difficile.
-Je ne suis pas un service d’urgence, mais votre sécurité est prioritaire.
 
-**Appelez immédiatement le 15** (urgences médicales en France),
-ou contactez le **3114**, le **numéro national de prévention du suicide**,
-gratuit et disponible 24h/24, 7j/7.
+  setRows(r => [
+    ...r,
+    { who: "user", text: userText },
+    {
+      who: "bot",
+      text: `Message important
+Vous traversez peut-être une situation critique.
+Je ne suis pas un service d'urgence.
 
-Si vous êtes à l’étranger, composez le numéro d’urgence local.
-Vous n’êtes pas seul·e — Ces services sont à votre écoute et peuvent vous aider dès maintenant."
-  }]);
-  
+— En France : appelez immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
+— En danger immédiat : appelez le 112.
+
+Votre sécurité est la priorité.`
+    }
+  ]);
+
   setText("");
-  return; // 🔒 on stoppe ici le reste du traitement
+  setStage("Clôture");
+  setEtape(8);
+  return; // on stoppe ici tout le flux normal
 }
+
 
 
 
