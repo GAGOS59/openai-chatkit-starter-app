@@ -177,9 +177,28 @@ export default function Page() {
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
-    } else if (stage === "Durée") {
-      updated.duration = userText;
-    } else if (stage === "Contexte") {
+   } else if (stage === "Durée") {
+  // Si l’intake initial ressemblait à une SITUATION (pas une douleur/émotion)
+  // et que la réponse actuelle ressemble à un RESSENTI (émotion/sensation),
+  // on promeut cette réponse en "intake" (le vrai sujet EFT) au lieu de la stocker comme "durée".
+  const prevIntake = (slots.intake ?? "").trim().toLowerCase();
+
+  // Heuristique : si l’intake ne commence pas par des marqueurs de douleur/émotion,
+  // on le considère comme "situation".
+  const looksLikeSituation = !/^(mal|douleur|tension|gêne|gene|peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude|boule|serrement|pression|chaleur|vide)\b/.test(prevIntake);
+
+  // La réponse actuelle ressemble-t-elle à un ressenti/émotion ?
+  const looksLikeFeeling  = /^(je\s+suis\b|je\s+me\s+sens\b|je\s+ressens\b|peur\b|col[èe]re\b|tristesse\b|honte\b|culpabilit[eé]\b|stress\b|anxi[ée]t[ée]\b|angoisse\b|inqui[èe]tude\b|serrement\b|pression\b|chaleur\b|vide\b|boule\b)/i.test(userText);
+
+  if (looksLikeSituation && looksLikeFeeling) {
+    // On bascule l’intake vers le vrai ressenti (émotion/sensation)
+    updated.intake = normalizeIntake(userText);
+  } else {
+    // Sinon, c’est bien une durée
+    updated.duration = userText;
+  }
+}
+ else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
       const sud0 = parseSUD(userText);
