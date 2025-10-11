@@ -173,9 +173,9 @@ export default function Page() {
           setRows(r => [...r, {
             who: "bot",
             text:
-              "Étape 8 — Merci pour le travail fourni. Félicitations pour votre avancée. " +
-              "Prenez un moment pour vous hydrater et vous reposer. " +
-              "Rappelez-vous que ce guide est éducatif et ne remplace pas un avis médical."
+              "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
+              "Maintenant accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moemnt ! " +
+              "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
           setStage("Clôture");
           setEtape(8);
@@ -195,9 +195,9 @@ export default function Page() {
         setRows(r => [...r, {
           who: "bot",
           text:
-            "Étape 8 — Merci pour le travail fourni. Félicitations pour votre avancée. " +
-            "Prenez un moment pour vous hydrater et vous reposer. " +
-            "Rappelez-vous que ce guide est éducatif et ne remplace pas un avis médical."
+            "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
+              "Maintenant accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moemnt ! " +
+              "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
         setStage("Clôture");
         setEtape(8);
