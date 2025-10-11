@@ -51,7 +51,7 @@ function clean(s: string): string {
 }
 function splitContext(ctx: string): string[] {
   return ctx
-    .split(/[,.;]|(?:\s(?:et|quand|lorsque|depuis que)\s)/gi)
+    .split(/[,.;]|(?:\s(?:et|quand|parce que|lorsque|depuis que)\s)/gi)
     .map((p) => clean(p))
     .filter((p) => p.length > 0)
     .slice(0, 6);
@@ -78,8 +78,6 @@ function baseFromIntake(intakeRaw: string): { generic: string; short: string; g:
   }
   if (g === "f") {
     return { generic: "Cette" + intake, short: "Cette" + intake, g };
-  }
-  return { generic: "Cette douleur" + intake, short: "Cette douleur" + intake, g : "f" };
   }
   return { generic: "Ce problème", short: "Ce problème", g: "m" };
 }
@@ -184,7 +182,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
     // Étape 8 : Clôture stable
     if (etape === 8) {
       const txt =
-"Étape 8 — Merci pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
+"Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
