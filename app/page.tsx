@@ -265,30 +265,24 @@ export default function Page() {
     }
 
     // Appel API (Étapes hors clôture locale)
-    const transcriptShort = rows
-      .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
-      .slice(-10)
-      .join("\n");
+const transcriptShort = rows
+  .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+  .slice(-10)
+  .join("\n");
 
-    const res = await fetch("/api/guide-eft", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: userText,
-        stage: stageForAPI,
-        etape: etapeForAPI,
-        transcript: transcriptShort,
-        slots: updated,
-      }),
-    });
+const res = await fetch("/api/guide-eft", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    prompt: userText,
+    stage: stageForAPI,
+    etape: etapeForAPI,
+    transcript: transcriptShort,
+    slots: updated,
+  }),
+});
 
-    const raw = await res.json().catch(() => ({}));
-    let answer = "";
-    if (raw && typeof raw === "object" && "answer" in raw) {
-      const maybe = (raw as Record<string, unknown>).answer;
-      if (typeof maybe === "string") answer = maybe;
-    }
-
+// ⬇️ Garder UN SEUL bloc de parsing (pas de doublon)
 const raw = await res.json().catch(() => ({}));
 let answer = "";
 if (raw && typeof raw === "object" && "answer" in raw) {
@@ -296,7 +290,7 @@ if (raw && typeof raw === "object" && "answer" in raw) {
   if (typeof maybe === "string") answer = maybe;
 }
 
-// --- Garde-fou sortie serveur côté client ---
+// 🔒 Garde-fou sortie serveur côté client
 if (isCrisis(answer)) {
   const now = new Date().toISOString();
   console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
@@ -306,6 +300,7 @@ if (isCrisis(answer)) {
   setText("");
   return;
 }
+
 
 
     
