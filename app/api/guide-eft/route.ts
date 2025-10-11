@@ -213,7 +213,11 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
 }
 
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
-  const intake = clean(normalizeIntake(_raw)); // normalisation sûre
+  // 1) normalise les tournures "j'ai mal..." etc.
+  const intakePrim = clean(normalizeIntake(_raw));
+  // 2) si émotion ("je suis en colère"…), transforme en nom ("colère")
+  const intake = clean(normalizeEmotionNoun(intakePrim));
+
   const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) {
     return { generic: "Ce " + intake, short: "Ce " + intake, g };
@@ -225,12 +229,22 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
 }
 
 function buildRappelPhrases(slots: Slots): string[] {
-  const intake = clean(normalizeIntake(slots.intake ?? ""));
+  // Normalise d'abord l'intake : douleur / émotion / situation
+  let intake = clean(normalizeIntake(slots.intake ?? ""));
+
+  // 🧠 Correction émotionnelle :
+  // si la personne dit "je suis en colère", "je me sens triste"...
+  // → on le convertit en nom : "colère", "tristesse", etc.
+  intake = clean(normalizeEmotionNoun(intake));
+
   const ctx = clean(slots.context ?? "");
   const { generic, short, g } = baseFromIntake(intake);
   const sudQ = sudQualifierFromNumber(slots.sud, g);
   const round = slots.round ?? 1;
   const contextParts = ctx ? splitContext(ctx) : [];
+  ...
+}
+
 
   const roundMod =
     typeof slots.sud === "number" && slots.sud > 0 && round > 1
@@ -451,13 +465,19 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
   // Contexte lisible avec la règle "parce que" (douleur -> "je...")
   const ctxPretty = ctx ? readableContext(ctx, kind) : "";
 
-  // Pour douleurs : si ctxPretty commence par "parce que", on ne met PAS "lié(e) à"
-  // Pour le reste : on garde "lié/liée à"
-  const g = detectGender(base);
-  const hasParceQue = /^parce que\b/i.test(ctxPretty);
-  const connector = ctxPretty ? (hasParceQue ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
+  // Pour douleurs : si ctxPretty commence par "parce que / car / puisque", on ne met PAS "lié(e) à"
+// Pour le reste : on garde "lié/liée à"
+const g = detectGender(base);
+const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
 
-  const aspectPretty = ctxPretty ? `${base}${connector}${ctxPretty}` : base;
+// Connecteur : soit rien (si "parce que/car/puisque"), soit "liée/lié à"
+const connector = ctxPretty
+  ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à "))
+  : "";
+
+// Assemblage propre (évite doubles espaces)
+const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
+
 
   // Article ce/cette : féminins émotionnels, sinon masculin
   const article = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re)\b/i.test(base)
