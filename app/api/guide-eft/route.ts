@@ -51,15 +51,15 @@ function clean(s: string): string {
 }
 function splitContext(ctx: string): string[] {
   return ctx
-    .split(/[,.;]|(?:\s(?:et|quand|lorsque)\s)/gi)
+    .split(/[,.;]|(?:\s(?:et|quand|lorsque|depuis que)\s)/gi)
     .map((p) => clean(p))
     .filter((p) => p.length > 0)
     .slice(0, 6);
 }
 function detectGender(intakeRaw: string): "m" | "f" {
   const s = clean(intakeRaw).toLowerCase();
-  if (s.startsWith("mal ")) return "m";
-  if (s.startsWith("douleur") || s.startsWith("peur") || s.startsWith("gêne") || s.startsWith("gene") || s.startsWith("tension") || s.startsWith("colère") || s.startsWith("colere") || s.startsWith("tristesse")) {
+  if (s.startsWith("mal")|| s.startsWith("serrement") || s.startsWith("truc") ) return "m";
+  if (s.startsWith("douleur") || s.startsWith("peur") || s.startsWith("gêne") || s.startsWith("boule") ||s.startsWith("gene") || s.startsWith("tension") || s.startsWith("colère") || s.startsWith("crispation") || s.startsWith("colere") || s.startsWith("tristesse")) {
     return "f";
   }
   return "f";
@@ -74,10 +74,12 @@ function baseFromIntake(intakeRaw: string): { generic: string; short: string; g:
   const intake = clean(intakeRaw);
   const g = detectGender(intakeRaw);
   if (g === "m" && /^mal\b/i.test(intake)) {
-    return { generic: "Ce " + intake, short: "Ce " + intake, g };
+    return { generic: "Ce" + intake, short: "Ce" + intake, g };
   }
   if (g === "f") {
-    return { generic: "Cette " + intake, short: "Cette " + intake, g };
+    return { generic: "Cette" + intake, short: "Cette" + intake, g };
+  }
+  return { generic: "Cette douleur" + intake, short: "Cette douleur" + intake, g : "f" };
   }
   return { generic: "Ce problème", short: "Ce problème", g: "m" };
 }
@@ -91,7 +93,7 @@ function buildRappelPhrases(slots: Slots): string[] {
 
   const roundMod =
     typeof slots.sud === "number" && slots.sud > 0 && round > 1
-      ? (slots.sud >= 7 ? " toujours" : " encore")
+      ? (slots.sud >= 7 ? "toujours" : "encore")
       : "";
 
   const qOrRound = sudQ || roundMod;
@@ -157,7 +159,7 @@ export async function POST(req: Request) {
       const txt =
 `Étape 5 — Setup : « Même si j’ai ce ${aspect}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoyez un message et nous passerons à la ronde.`;
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
     }
 
@@ -182,7 +184,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
     // Étape 8 : Clôture stable
     if (etape === 8) {
       const txt =
-"Étape 8 — Merci pour le travail fourni. Félicitations pour votre avancée. Prenez un moment pour vous hydrater et vous reposer. Rappelez-vous que ce guide est éducatif et ne remplace pas un avis médical.";
+"Étape 8 — Merci pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
