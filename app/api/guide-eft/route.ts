@@ -149,8 +149,8 @@ export async function POST(req: Request) {
 
     /* 🛑 Bloc de sécurité : prévention suicide */
     const risque = [
-      "suicide", "me tuer", "je veux mourir", "je veux me tuer",
-      "marre de la vie", "me foutre en l'air",
+      "suicide",  "suisside", "me tuer", "je veux mourir", "je veux me tuer",  "je vais en finir",  "mettre fin à ses jours", "mettre fin à mes jours", 
+      "marre de la vie", "me foutre en l'air",  "idées noires",  "idée noire",  "je veux en finir",  "suicider",  "suicidale", "kill myself", "i want to die",
       "je n'en peux plus de vivre", "je veux disparaître", "je ne veux plus vivre", "plus vivre"
     ];
     const texte = prompt.toLowerCase();
