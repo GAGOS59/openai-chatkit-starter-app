@@ -156,16 +156,16 @@ export async function POST(req: Request) {
     const texte = prompt.toLowerCase();
     if (risque.some(mot => texte.includes(mot))) {
       return NextResponse.json({
-        answer: `⚠️ **Message important :**
+        answer: `⚠️ **Message important :** ⚠️
 Il semble que vous traversiez un moment très difficile.  
 Je ne suis pas un service d’urgence, mais votre sécurité est prioritaire.  
 
-👉 **Appelez immédiatement le 15** (urgences médicales en France),  
+**Appelez immédiatement le 15** (urgences médicales en France),  
 ou contactez le **3114**, le **numéro national de prévention du suicide**,  
 gratuit et disponible 24h/24, 7j/7.  
 
 Si vous êtes à l’étranger, composez le numéro d’urgence local.  
-Vous n’êtes pas seul·e — il existe des personnes prêtes à vous aider. ❤️`
+Vous n’êtes pas seul·e — il existe des personnes prêtes à vous aider.`
       });
     }
     /* Fin du bloc sécurité */
