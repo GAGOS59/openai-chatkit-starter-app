@@ -53,16 +53,15 @@ function isMasculine(intake: string): boolean {
   return /^mal\b/i.test(intake);
 }
 function normalizeContextForAspect(ctx: string): string {
-  let c = ctx.trim();
-  c = c.replace(/^je\s+/i, "");
-  c = c.replace(/^j['’]ai\s+/i, "");
-  c = c.replace(/^j['’](?:étais|etais)\s+/i, "être ");
-  c = c.replace(/^suis\b/i, "être ");
-  c = c.replace(/^ai\b/i, "avoir ");
-  c = c.replace(/^étais\b/i, "être ");
-  c = c.replace(/,\s+/g, " ");
-  return c;
+  // Conserver le début "je / j’ai / je suis ..." pour que le serveur détecte le cas "parce que ..."
+  return ctx
+    .trim()
+    .replace(/^[,;\s]+/, "")   // virgules/espaces au début
+    .replace(/\s+,/g, ", ")    // espace avant virgule -> après virgule
+    .replace(/,\s+/g, ", ")    // normalise " , " en ", "
+    .replace(/\s{2,}/g, " ");  // espaces multiples
 }
+
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const intake = normalizeIntake(intakeTextRaw);
   if (!ctxShort) return intake;
