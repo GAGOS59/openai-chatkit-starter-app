@@ -51,7 +51,7 @@ function clean(s: string): string {
 }
 function splitContext(ctx: string): string[] {
   return ctx
-    .split(/[,.;]|(?:\s(?:et|quand|parce que|lorsque|depuis que)\s)/gi)
+    .split(/[,.;]|(?:\s(?:et|quand|parce que|lorsque|depuis|depuis que)\s)/gi)
     .map((p) => clean(p))
     .filter((p) => p.length > 0)
     .slice(0, 6);
@@ -66,6 +66,7 @@ function detectGender(intakeRaw: string): "m" | "f" {
 }
 function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   if (typeof sud !== "number" || sud === 0) return "";
+   if (sud >= 9) return g === "m" ? " vraiment très présent" : " vraiment très présente";
   if (sud >= 7) return g === "m" ? " très présent" : " très présente";
   if (sud >= 4) return g === "m" ? " encore présent" : " encore présente";
   return " qui reste encore un peu";
@@ -74,12 +75,12 @@ function baseFromIntake(intakeRaw: string): { generic: string; short: string; g:
   const intake = clean(intakeRaw);
   const g = detectGender(intakeRaw);
   if (g === "m" && /^mal\b/i.test(intake)) {
-    return { generic: "Ce" + intake, short: "Ce" + intake, g };
+    return { generic: " Ce " + intake, short: " Ce " + intake, g };
   }
   if (g === "f") {
-    return { generic: "Cette" + intake, short: "Cette" + intake, g };
+    return { generic: " Cette " + intake, short: " Cette " + intake, g };
   }
-  return { generic: "Ce problème", short: "Ce problème", g: "m" };
+  return { generic: " Ce problème", short: " Ce problème", g: "m" };
 }
 function buildRappelPhrases(slots: Slots): string[] {
   const intake = clean(slots.intake ?? "");
@@ -91,7 +92,7 @@ function buildRappelPhrases(slots: Slots): string[] {
 
   const roundMod =
     typeof slots.sud === "number" && slots.sud > 0 && round > 1
-      ? (slots.sud >= 7 ? "toujours" : "encore")
+      ? (slots.sud >= 7 ? " toujours" : " encore")
       : "";
 
   const qOrRound = sudQ || roundMod;
