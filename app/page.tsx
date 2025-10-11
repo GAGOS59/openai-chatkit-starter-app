@@ -289,6 +289,26 @@ export default function Page() {
       if (typeof maybe === "string") answer = maybe;
     }
 
+const raw = await res.json().catch(() => ({}));
+let answer = "";
+if (raw && typeof raw === "object" && "answer" in raw) {
+  const maybe = (raw as Record<string, unknown>).answer;
+  if (typeof maybe === "string") answer = maybe;
+}
+
+// --- Garde-fou sortie serveur côté client ---
+if (isCrisis(answer)) {
+  const now = new Date().toISOString();
+  console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
+  setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
+  setStage("Clôture");
+  setEtape(8);
+  setText("");
+  return;
+}
+
+
+    
     setRows(r => [...r, { who: "bot", text: answer }]);
     setStage(stageForAPI);
     setEtape(etapeForAPI);
