@@ -96,6 +96,61 @@ function detectGender(intakeRaw: string): "m" | "f" {
   return "f";
 }
 
+/** Normalise une tournure émotionnelle vers un nom : "je suis en colère" → "colère", "je me sens coupable" → "culpabilité" */
+function normalizeEmotionNoun(s: string): string {
+  const t = clean(s).toLowerCase();
+
+  // Formes verbales fréquentes -> enlever le "je suis / je me sens / je ressens / j'éprouve"
+  let x = t
+    .replace(/^j['’]?\s*eprouve\s+/i, "")   // j'éprouve
+    .replace(/^je\s+me\s+sens\s+/i, "")     // je me sens
+    .replace(/^je\s+ressens\s+/i, "")       // je ressens
+    .replace(/^je\s+suis\s+en\s+/i, "")     // je suis en + (colère, panique…)
+    .replace(/^je\s+suis\s+/i, "");         // je suis + (triste, anxieux…)
+
+  // Mappings adjectifs -> noms
+  const map: Array<[RegExp, string]> = [
+    [/col[eè]re/, "colère"],
+    [/triste(sse)?/, "tristesse"],
+    [/honte/, "honte"],
+    [/culpabl(e|it[eé])/, "culpabilité"],
+    [/stress[ée]?/, "stress"],
+    [/anxieux|anxieuse|anxi[eé]t[eé]/, "anxiété"],
+    [/angoiss[eé]/, "angoisse"],
+    [/peur/, "peur"],
+  ];
+  for (const [rx, noun] of map) if (rx.test(x)) return noun;
+
+  // Si on trouve "peur de/peur du", on garde "peur ..."
+  const m = t.match(/peur\s+(de|du|des|d’|d')\s+.+/i);
+  if (m) return clean(t);
+
+  // Sinon on renvoie proprement la chaîne initiale nettoyée
+  return clean(s);
+}
+
+/** Rend un contexte lisible après "lié(e) à" : ajoute "au fait que" si besoin et corrige "le/la/les/il/elle..." */
+function readableContext(ctx: string): string {
+  let c = clean(ctx);
+  if (!c) return "";
+
+  // Si le contexte commence par un pronom/article/que, on insère "au fait que "
+  const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
+  if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
+    c = "au fait que " + c;
+  }
+
+  // harmoniser "au fait que il" -> "au fait qu'il"
+  c = c
+    .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
+    .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
+    .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
+    .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
+
+  return c;
+}
+
+
 function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   if (typeof sud !== "number" || sud === 0) return "";
   if (sud >= 9) return g === "m" ? " vraiment très présent" : " vraiment très présente";
@@ -322,23 +377,38 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
 }
 
 
-    /* ---------- Étape 5 : Setup (corrigé pour éviter les redondances) ---------- */
+  /* ---------- Étape 5 : Setup (accord "lié/liée", émotions, contexte lisible) ---------- */
 if (etape === 5) {
-  let aspect = clean(slots.aspect ?? slots.intake ?? "");
+  // On part de ce que le client a calculé, mais on renormalise côté serveur pour fiabiliser
+  const aspectRaw = clean((slots.aspect ?? slots.intake ?? ""));
 
-  // 🔹 Supprime les débuts du type "j’ai", "je", "j’ai ce"
-  aspect = aspect
-    .replace(/^j['’]?\s*ai\s+/i, "")
-    .replace(/^je\s+/i, "")
-    .replace(/^ce\s+/i, "")
-    .replace(/^cette\s+/i, "");
+  // Séparer base & contexte si un "lié(e) à" est déjà présent
+  let base = aspectRaw;
+  let ctx = "";
+  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+  if (m) {
+    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+    base = aspectRaw.slice(0, idx).trim();
+    ctx  = aspectRaw.slice(idx + m[0].length).trim();
+  }
 
-  // 🔹 Supprime doublons "lié(e) à" inutiles
-  aspect = aspect.replace(/\b(j['’]ai\s+)?(ce\s+)?j['’]ai\s+/i, "");
-  aspect = aspect.replace(/\s+\blie[ée]\s+à\s+$/, "").trim();
+  // 1) Normaliser les formes "je suis en colère…" -> "colère …"
+  base = normalizeEmotionNoun(base)
+    .replace(/^j['’]?\s*ai\s+/, "")        // j'ai …
+    .replace(/^je\s+/, "")                 // je …
+    .replace(/^(ce|cette)\s+/i, "");       // ce / cette
+
+  // 2) Genre pour "lié/liée"
+  const g = detectGender(base);            // utilise ta fonction existante
+  const liaison = ctx ? (g === "f" ? "liée à " : "lié à ") : "";
+
+  // 3) Contexte lisible
+  const ctxPretty = ctx ? readableContext(ctx) : "";
+
+  const aspectPretty = ctxPretty ? `${base} ${liaison}${ctxPretty}` : base;
 
   const txt =
-`Étape 5 — Setup : « Même si j’ai ce ${aspect}, je m’accepte profondément et complètement. »
+`Étape 5 — Setup : « Même si j’ai ${/^(peur|honte|culpabilité|anxiété|angoisse|tristesse|colère)\b/i.test(base) ? "cette" : "ce"} ${aspectPretty}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
   return NextResponse.json({ answer: txt });
