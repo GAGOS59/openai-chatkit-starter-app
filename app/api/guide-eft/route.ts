@@ -249,27 +249,78 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    /* ---------- Étape 1 : déterministe et contextualisée ---------- */
-    if (etape === 1) {
-      const intakeRaw = slots.intake ?? prompt ?? "";
-      const intake = clean(normalizeIntake(intakeRaw));
-      const kind = classifyIntake(intake);
 
-      if (kind === "physique") {
-        const txt =
-"Étape 1 — Peux-tu préciser la localisation exacte de la douleur et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?";
-        return NextResponse.json({ answer: txt });
-      }
-      if (kind === "emotion") {
-        const txt =
-"Étape 1 — Où ressens-tu cette émotion dans ton corps (poitrine, gorge, ventre, tête…) ? Donne aussi quelques mots pour la décrire (serrement, pression, chaleur, vide, etc.).";
-        return NextResponse.json({ answer: txt });
-      }
-      // situation par défaut
-      const txt =
-"Étape 1 — Quand tu penses à cette situation, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?";
-      return NextResponse.json({ answer: txt });
-    }
+    /* ---------- Détection du type d’entrée ---------- */
+type IntakeKind = "physique" | "emotion" | "situation";
+
+function classifyIntake(intakeRaw: string): IntakeKind {
+  const s = clean(intakeRaw).toLowerCase();
+
+  // marqueurs physiques
+  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
+  if (phys.test(s)) return "physique";
+
+  // marqueurs émotionnels
+  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
+  if (emo.test(s)) return "emotion";
+
+  // sinon : situation/événement
+  return "situation";
+}
+
+/* ---------- Exemples contextuels par zone corporelle (physique) ---------- */
+function hintsForLocation(intakeRaw: string): string {
+  const s = clean(intakeRaw).toLowerCase();
+
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude|coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
+  ];
+
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  // Fallback générique si la zone n’est pas dans la table
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
+}
+
+   /* ---------- Étape 1 : déterministe + écho + exemples adaptés ---------- */
+if (etape === 1) {
+  const intakeRaw = slots.intake ?? prompt ?? "";
+  const intakeNorm = clean(intakeRaw); // ou normalizeIntake(intakeRaw) si tu préfères
+  const kind = classifyIntake(intakeNorm);
+
+  if (kind === "physique") {
+    const hints = hintsForLocation(intakeNorm);
+    const txt =
+`Étape 1 — Tu parles de « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
+et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
+    return NextResponse.json({ answer: txt });
+  }
+
+  if (kind === "emotion") {
+    const txt =
+`Étape 1 — Tu parles de « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
+Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
+    return NextResponse.json({ answer: txt });
+  }
+
+  // situation
+  const txt =
+`Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
+  return NextResponse.json({ answer: txt });
+}
+
 
     // Étape 5 — setup déterministe
     if (etape === 5) {
