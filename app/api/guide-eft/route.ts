@@ -101,12 +101,12 @@ function normalizeEmotionNoun(s: string): string {
   const t = clean(s).toLowerCase();
 
   // Formes verbales fréquentes -> enlever le "je suis / je me sens / je ressens / j'éprouve"
-  let x = t
-    .replace(/^j['’]?\s*eprouve\s+/i, "")   // j'éprouve
-    .replace(/^je\s+me\s+sens\s+/i, "")     // je me sens
-    .replace(/^je\s+ressens\s+/i, "")       // je ressens
-    .replace(/^je\s+suis\s+en\s+/i, "")     // je suis en + (colère, panique…)
-    .replace(/^je\s+suis\s+/i, "");         // je suis + (triste, anxieux…)
+ const x = t
+    .replace(/^j['’]?\s*eprouve\s+/i, "")
+    .replace(/^je\s+me\s+sens\s+/i, "")
+    .replace(/^je\s+ressens\s+/i, "")
+    .replace(/^je\s+suis\s+en\s+/i, "")
+    .replace(/^je\s+suis\s+/i, "");
 
   // Mappings adjectifs -> noms
   const map: Array<[RegExp, string]> = [
@@ -206,6 +206,9 @@ function buildRappelPhrases(slots: Slots): string[] {
 
 /* ---------- Classification Intake ---------- */
 type IntakeKind = "physique" | "emotion" | "situation";
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function classifyIntake(/* … */) { /* ... */ }
 
 function classifyIntake(raw: string): IntakeKind {
   const s = clean(normalizeIntake(raw)).toLowerCase();
