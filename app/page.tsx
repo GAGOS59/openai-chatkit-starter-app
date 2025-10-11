@@ -92,41 +92,38 @@ function renderPretty(s: string) {
 }
 
 /* --- Détection locale de messages à risque (pré-API) --- */
-// --- Détection de messages à risque (suicide, danger, etc.) ---
-const dangerWords = [
-  "suicide", "me suicider", "me tuer", "mourir", "je veux mourir",
-  "j’en ai marre de la vie", "je veux me foutre en l’air", "plus envie de vivre",
-  "je vais me tuer", "marre de vivre"
+const CRISIS_PATTERNS: RegExp[] = [
+  /\bsuicid(e|er|aire|al|ale|aux|erai)?\b/i,
+  /\bsu[cs]sid[ea]\b/i,
+  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ir[eé])\b/i,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
+  /j['’]?en\s+peux?\s+plus\s+de\s+vivre\b/i,
+  /j['’]?en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/i,
+  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/i,
+  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/i,
+  /\b(foutre|jeter)\s+en\s+l[’']?air\b/i,
+  /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/i,
+  /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/i,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i
 ];
-const t = userText.toLowerCase();
-if (dangerWords.some(w => t.includes(w))) {
-  const now = new Date().toISOString();
-  console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
-
-  setRows(r => [
-    ...r,
-    { who: "user", text: userText },
-    {
-      who: "bot",
-      text: `Message important
-Vous traversez peut-être une situation critique.
-Je ne suis pas un service d'urgence.
-
-- En France : appelez immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
-- En danger immédiat : appelez le 112.
-
-Votre sécurité est la priorité.`
-    }
-  ]);
-
-  setText("");
-  setStage("Clôture");
-  setEtape(8);
-  return; // on stoppe ici tout le flux normal
+function isCrisis(text: string): boolean {
+  const t = text.toLowerCase();
+  return CRISIS_PATTERNS.some(rx => rx.test(t));
 }
+function crisisMessage(): string {
+  return (
+`⚠️ **Message important :**
+Il semble que vous traversiez un moment très difficile.
+Je ne suis pas un service d’urgence, mais votre sécurité est prioritaire.
 
+**Appelez immédiatement le 15** (urgences médicales en France),
+ou contactez le **3114**, le **numéro national de prévention du suicide**,
+gratuit et disponible 24h/24, 7j/7.
 
-
+Si vous êtes à l’étranger, composez le numéro d’urgence local.
+Vous n’êtes pas seul·e — ces services sont à votre écoute et peuvent vous aider dès maintenant.`
+  );
+}
 
 /* ---------------- Component ---------------- */
 export default function Page() {
@@ -150,6 +147,9 @@ export default function Page() {
 
     // 🔒 Filtre "urgence suicidaire" côté client — interrompt le flux et n'appelle pas l'API
     if (isCrisis(userText)) {
+      const now = new Date().toISOString();
+      console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
+
       setRows(r => [
         ...r,
         { who: "user", text: userText },
