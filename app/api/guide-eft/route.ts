@@ -100,15 +100,13 @@ function detectGender(intakeRaw: string): "m" | "f" {
 function normalizeEmotionNoun(s: string): string {
   const t = clean(s).toLowerCase();
 
-  // Formes verbales fréquentes -> enlever le "je suis / je me sens / je ressens / j'éprouve"
- const x = t
+  const x = t
     .replace(/^j['’]?\s*eprouve\s+/i, "")
     .replace(/^je\s+me\s+sens\s+/i, "")
     .replace(/^je\s+ressens\s+/i, "")
     .replace(/^je\s+suis\s+en\s+/i, "")
     .replace(/^je\s+suis\s+/i, "");
 
-  // Mappings adjectifs -> noms
   const map: Array<[RegExp, string]> = [
     [/col[eè]re/, "colère"],
     [/triste(sse)?/, "tristesse"],
@@ -121,26 +119,22 @@ function normalizeEmotionNoun(s: string): string {
   ];
   for (const [rx, noun] of map) if (rx.test(x)) return noun;
 
-  // Si on trouve "peur de/peur du", on garde "peur ..."
   const m = t.match(/peur\s+(de|du|des|d’|d')\s+.+/i);
   if (m) return clean(t);
 
-  // Sinon on renvoie proprement la chaîne initiale nettoyée
   return clean(s);
 }
 
-/** Rend un contexte lisible après "lié(e) à" : ajoute "au fait que" si besoin et corrige "le/la/les/il/elle..." */
+/** Rend un contexte lisible après "lié(e) à" */
 function readableContext(ctx: string): string {
   let c = clean(ctx);
   if (!c) return "";
 
-  // Si le contexte commence par un pronom/article/que, on insère "au fait que "
   const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
   if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
     c = "au fait que " + c;
   }
 
-  // harmoniser "au fait que il" -> "au fait qu'il"
   c = c
     .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
     .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
@@ -149,7 +143,6 @@ function readableContext(ctx: string): string {
 
   return c;
 }
-
 
 function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   if (typeof sud !== "number" || sud === 0) return "";
@@ -160,7 +153,7 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
 }
 
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
-  const intake = clean(normalizeIntake(_raw)); // <— normalisation sûre
+  const intake = clean(normalizeIntake(_raw));
   const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) {
     return { generic: "Ce " + intake, short: "Ce " + intake, g };
@@ -207,25 +200,44 @@ function buildRappelPhrases(slots: Slots): string[] {
 /* ---------- Classification Intake ---------- */
 type IntakeKind = "physique" | "emotion" | "situation";
 
+function classifyIntake(intakeRaw: string): IntakeKind {
+  const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function classifyIntake(raw: string) {
-  const s = clean(normalizeIntake(raw)).toLowerCase();
-  // … corps existant …
+  // marqueurs physiques
+  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
+  if (phys.test(s)) return "physique";
+
+  // marqueurs émotionnels
+  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
+  if (emo.test(s)) return "emotion";
+
+  // sinon : situation/événement
+  return "situation";
 }
 
+/* ---------- Exemples contextuels par zone corporelle (physique) ---------- */
+function hintsForLocation(intakeRaw: string): string {
+  const s = clean(intakeRaw).toLowerCase();
 
-  // Douleur / sensation physique:
-  if (
-    /\bmal\b|\bdouleur\b|\btension\b|\bgêne\b|\bgene\b|\bcrispation\b|\bbrûlure\b|\bbrulure\b|\bpiqûre\b|\baguille\b/.test(s)
-  ) return "physique";
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
+  ];
 
-  // Émotions courantes:
-  if (/\bpeur\b|\bcol[èe]re\b|\btristesse\b|\bhonte\b|\bculpabilit[ée]\b|\bstress\b|\banxi[ée]t[ée]\b|\binqui[ée]tude\b/.test(s))
-    return "emotion";
-
-  // Par défaut: situation/événement
-  return "situation";
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
 }
 
 /* ---------- Safety patterns (in/out) ---------- */
@@ -309,116 +321,70 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
+    /* ---------- Étape 1 : déterministe + écho + exemples adaptés ---------- */
+    if (etape === 1) {
+      const intakeRaw = slots.intake ?? prompt ?? "";
+      const intakeNorm = clean(intakeRaw);
+      const kind = classifyIntake(intakeNorm);
 
-    /* ---------- Détection du type d’entrée ---------- */
-type IntakeKind = "physique" | "emotion" | "situation";
-
-function classifyIntake(intakeRaw: string): IntakeKind {
-  const s = clean(intakeRaw).toLowerCase();
-
-  // marqueurs physiques
-  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
-  if (phys.test(s)) return "physique";
-
-  // marqueurs émotionnels
-  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
-  if (emo.test(s)) return "emotion";
-
-  // sinon : situation/événement
-  return "situation";
-}
-
-/* ---------- Exemples contextuels par zone corporelle (physique) ---------- */
-function hintsForLocation(intakeRaw: string): string {
-  const s = clean(intakeRaw).toLowerCase();
-
-  const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
-    [/\b(coude|coude)\b/, " (épicondyle, face interne/externe…)"],
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
-  ];
-
-  for (const [rx, hint] of table) if (rx.test(s)) return hint;
-  // Fallback générique si la zone n’est pas dans la table
-  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
-}
-
-   /* ---------- Étape 1 : déterministe + écho + exemples adaptés ---------- */
-if (etape === 1) {
-  const intakeRaw = slots.intake ?? prompt ?? "";
-  const intakeNorm = clean(intakeRaw); // ou normalizeIntake(intakeRaw) si tu préfères
-  const kind = classifyIntake(intakeNorm);
-
-  if (kind === "physique") {
-    const hints = hintsForLocation(intakeNorm);
-    const txt =
+      if (kind === "physique") {
+        const hints = hintsForLocation(intakeNorm);
+        const txt =
 `Étape 1 — Tu parles de « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
 et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  if (kind === "emotion") {
-    const txt =
+      if (kind === "emotion") {
+        const txt =
 `Étape 1 — Tu parles de « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
 Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  // situation
-  const txt =
+      const txt =
 `Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
-  return NextResponse.json({ answer: txt });
-}
+      return NextResponse.json({ answer: txt });
+    }
 
+    /* ---------- Étape 5 : Setup (accord "lié/liée", émotions, contexte lisible) ---------- */
+    if (etape === 5) {
+      const aspectRaw = clean((slots.aspect ?? slots.intake ?? ""));
 
-  /* ---------- Étape 5 : Setup (accord "lié/liée", émotions, contexte lisible) ---------- */
-if (etape === 5) {
-  // On part de ce que le client a calculé, mais on renormalise côté serveur pour fiabiliser
-  const aspectRaw = clean((slots.aspect ?? slots.intake ?? ""));
+      // Séparer base & contexte si un "lié(e) à" est déjà présent
+      let base = aspectRaw;
+      let ctx = "";
+      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+      if (m) {
+        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+        base = aspectRaw.slice(0, idx).trim();
+        ctx  = aspectRaw.slice(idx + m[0].length).trim();
+      }
 
-  // Séparer base & contexte si un "lié(e) à" est déjà présent
-  let base = aspectRaw;
-  let ctx = "";
-  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-  if (m) {
-    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-    base = aspectRaw.slice(0, idx).trim();
-    ctx  = aspectRaw.slice(idx + m[0].length).trim();
-  }
+      // 1) Normaliser les formes émotionnelles et nettoyer les débuts indésirables
+      base = normalizeEmotionNoun(base)
+        .replace(/^j['’]?\s*ai\s+/, "")
+        .replace(/^je\s+/, "")
+        .replace(/^(ce|cette)\s+/i, "");
 
-  // 1) Normaliser les formes "je suis en colère…" -> "colère …"
-  base = normalizeEmotionNoun(base)
-    .replace(/^j['’]?\s*ai\s+/, "")        // j'ai …
-    .replace(/^je\s+/, "")                 // je …
-    .replace(/^(ce|cette)\s+/i, "");       // ce / cette
+      // 2) Genre pour "lié/liée"
+      const g = detectGender(base);
+      const liaison = ctx ? (g === "f" ? "liée à " : "lié à ") : "";
 
-  // 2) Genre pour "lié/liée"
-  const g = detectGender(base);            // utilise ta fonction existante
-  const liaison = ctx ? (g === "f" ? "liée à " : "lié à ") : "";
+      // 3) Contexte lisible
+      const ctxPretty = ctx ? readableContext(ctx) : "";
 
-  // 3) Contexte lisible
-  const ctxPretty = ctx ? readableContext(ctx) : "";
+      const aspectPretty = ctxPretty ? `${base} ${liaison}${ctxPretty}` : base;
 
-  const aspectPretty = ctxPretty ? `${base} ${liaison}${ctxPretty}` : base;
+      const article = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|colère)\b/i.test(base)
+        ? "cette" : "ce";
 
-  const txt =
-`Étape 5 — Setup : « Même si j’ai ${/^(peur|honte|culpabilité|anxiété|angoisse|tristesse|colère)\b/i.test(base) ? "cette" : "ce"} ${aspectPretty}, je m’accepte profondément et complètement. »
+      const txt =
+`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-  return NextResponse.json({ answer: txt });
-}
-
+      return NextResponse.json({ answer: txt });
+    }
 
     // Étape 6 — ronde déterministe (personnalisée)
     if (etape === 6) {
