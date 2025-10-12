@@ -71,7 +71,9 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   return `${intake} ${liaison} ${cleaned}`;
 }
 function renderPretty(s: string) {
-  const paragraphs = s.split(/\n\s*\n/);
+  // Supprime le préfixe "Étape X — " au début du message
+  const cleanText = s.replace(/^Étape\s*\d+\s*[—-]\s*/i, "");
+  const paragraphs = cleanText.split(/\n\s*\n/);
   return (
     <div className="space-y-3">
       {paragraphs.map((p, i) => {
@@ -88,6 +90,7 @@ function renderPretty(s: string) {
     </div>
   );
 }
+
 
 /* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
