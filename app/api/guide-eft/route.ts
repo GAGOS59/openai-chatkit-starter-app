@@ -529,26 +529,70 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
     }
 
     /* ---------- Autres étapes : modèle (SYSTEM) ---------- */
-    const stage = (raw.stage as Stage) ?? "Intake";
-    const USER_BLOCK =
+{
+  // On réutilise les variables déjà définies plus haut : `stage`, `etape`, `slots`, `transcript`, `prompt`
+  const USER_BLOCK =
 `[CONTEXTE]
-Étape demandée: ${Math.min(8, Math.max(1, Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage)))}
+Étape demandée: ${etape}
 Slots:
-- intake="${(raw.slots?.intake ?? "").toString()}"
-- duration="${(raw.slots?.duration ?? "").toString()}"
-- context="${(raw.slots?.context ?? "").toString()}"
-- sud=${Number.isFinite(raw.slots?.sud) ? raw.slots?.sud : "NA"}
-- round=${Number.isFinite(raw.slots?.round) ? raw.slots?.round : "NA"}
-- aspect="${(raw.slots?.aspect ?? "").toString()}"
+- intake="${(slots.intake ?? "").toString()}"
+- duration="${(slots.duration ?? "").toString()}"
+- context="${(slots.context ?? "").toString()}"
+- sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
+- round=${Number.isFinite(slots.round) ? slots.round : "NA"}
+- aspect="${(slots.aspect ?? "").toString()}"
 
 [DERNIER MESSAGE UTILISATEUR]
 ${prompt}
 
 [HISTORIQUE (court)]
-${typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : ""}
+${transcript}
 
 [INSTRUCTION]
 Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      input: `${SYSTEM}\n\n${USER_BLOCK}`,
+      temperature: 0.2,
+      max_output_tokens: 260,
+    }),
+    signal: controller.signal,
+  }).catch(() => { throw new Error("Upstream error"); });
+  clearTimeout(timer);
+
+  if (!res || !res.ok) {
+    return NextResponse.json({ error: "Upstream failure" }, { status: 502 });
+  }
+
+  const json = await res.json();
+  const answer =
+    (json?.output?.[0]?.content?.[0]?.text) ??
+    (json?.choices?.[0]?.message?.content) ??
+    (json?.content?.[0]?.text) ??
+    "";
+
+  // 🔒 Garde SORTANT
+  const FORBIDDEN_OUTPUT: RegExp[] = [
+    ...CRISIS_PATTERNS,
+    /\bsuicid\w*/i,
+    /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
+  ];
+  if (answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer))) {
+    return NextResponse.json({ answer: crisisMessage() });
+  }
+
+  return NextResponse.json({ answer });
+}
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
