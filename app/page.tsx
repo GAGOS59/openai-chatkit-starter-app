@@ -64,33 +64,52 @@ function normalizeContextForAspect(ctx: string): string {
 
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const intake = normalizeIntake(intakeTextRaw);
-  if (!ctxShort) return intake;
   const masculine = isMasculine(intake);
   const liaison = masculine ? "lié à" : "liée à";
   const cleaned = normalizeContextForAspect(ctxShort);
-  return `${intake} ${liaison} ${cleaned}`;
+  return ctxShort ? `${intake} ${liaison} ${cleaned}` : intake;
 }
+
+/** Rendu lisible : paragraphes, puces et listes numérotées */
 function renderPretty(s: string) {
   // Supprime le préfixe "Étape X — " au début du message
   const cleanText = s.replace(/^Étape\s*\d+\s*[—-]\s*/i, "");
   const paragraphs = cleanText.split(/\n\s*\n/);
+
+  const bulletRx = /^\s*(?:-|\*|•)\s+/;                 // - x / * x / • x
+  const orderedRx = /^\s*\d+[\.\)]\s+/;                 // 1. x / 1) x
+
   return (
     <div className="space-y-3">
       {paragraphs.map((p, i) => {
-        if (/^(?:- |\u2022 |\* )/m.test(p)) {
-          const items = p.split(/\n/).filter(Boolean).map(t => t.replace(/^(- |\u2022 |\* )/, ""));
+        const lines = p.split(/\n/).map(t => t.trim()).filter(Boolean);
+
+        // Liste à puces ?
+        if (lines.length >= 2 && lines.every(l => bulletRx.test(l))) {
+          const items = lines.map(l => l.replace(bulletRx, ""));
           return (
             <ul key={i} className="list-disc pl-5 space-y-1">
               {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
             </ul>
           );
         }
+
+        // Liste numérotée ?
+        if (lines.length >= 2 && lines.every(l => orderedRx.test(l))) {
+          const items = lines.map(l => l.replace(orderedRx, ""));
+          return (
+            <ol key={i} className="list-decimal pl-5 space-y-1">
+              {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
+            </ol>
+          );
+        }
+
+        // Paragraphe simple (sauts de ligne conservés)
         return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
       })}
     </div>
   );
 }
-
 
 /* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
@@ -179,32 +198,30 @@ export default function Page() {
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
-   } else if (stage === "Durée") {
-  const prevIntake = (slots.intake ?? "").trim().toLowerCase();
+    } else if (stage === "Durée") {
+      const prevIntake = (slots.intake ?? "").trim().toLowerCase();
 
-  // Heuristique : l’intake initial ressemble-t-il à une SITUATION (et pas douleur/émotion) ?
-  const looksLikeSituation =
-    !/^(mal|douleur|tension|gêne|gene|peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude|boule|serrement|pression|chaleur|vide)\b/i
-      .test(prevIntake);
+      // Heuristique : l’intake initial ressemble-t-il à une SITUATION (et pas douleur/émotion) ?
+      const looksLikeSituation =
+        !/^(mal|douleur|tension|gêne|gene|peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude|boule|serrement|pression|chaleur|vide)\b/i
+          .test(prevIntake);
 
-  // La nouvelle réponse ressemble-t-elle à un RESSENTI (émotion/sensation) ?
-  const looksLikeFeeling =
-    /^(je\s+suis|je\s+me\s+sens|je\s+ressens)\b/i.test(userText) ||                      // "je suis…"
-    /^j['’]\s*ai\s+de\s+la\s+\w+/i.test(userText) ||                                    // "j’ai de la tristesse…"
-    /^de\s+la\s+(peur|col[èe]re|tristesse|honte|culpabilit[eé]|anxi[ée]t[ée]|angoisse|inqui[èe]tude|tristesse|joie)\b/i
-      .test(userText) ||                                                                // "de la colère…"
-    /\b(peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)\b/i
-      .test(userText);                                                                  // contient une émotion claire
+      // La nouvelle réponse ressemble-t-elle à un RESSENTI (émotion/sensation) ?
+      const looksLikeFeeling =
+        /^(je\s+suis|je\s+me\s+sens|je\s+ressens)\b/i.test(userText) ||
+        /^j['’]\s*ai\s+de\s+la\s+\w+/i.test(userText) ||
+        /^de\s+la\s+(peur|col[èe]re|tristesse|honte|culpabilit[eé]|anxi[ée]t[ée]|angoisse|inqui[èe]tude|tristesse|joie)\b/i
+          .test(userText) ||
+        /\b(peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)\b/i
+          .test(userText);
 
-  if (looksLikeSituation && looksLikeFeeling) {
-    // On promeut le ressenti en VRAI sujet EFT
-    updated.intake = normalizeIntake(userText);
-  } else {
-    updated.duration = userText;
-  }
-}
-
- else if (stage === "Contexte") {
+      if (looksLikeSituation && looksLikeFeeling) {
+        // On promeut le ressenti en VRAI sujet EFT
+        updated.intake = normalizeIntake(userText);
+      } else {
+        updated.duration = userText;
+      }
+    } else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
       const sud0 = parseSUD(userText);
