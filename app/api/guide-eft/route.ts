@@ -55,22 +55,18 @@ function clean(s: string): string {
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
 
-  // j'ai mal à/au/aux/à la/à l'...
   const mMal =
     s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
 
-  // j'ai une/la douleur ...
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
 
-  // j'ai (une/la) peur ..., j'ai peur ...
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
 
-  // j'ai (une/la) tension|gêne|gene ...
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
 
@@ -99,7 +95,7 @@ function detectGender(intakeRaw: string): "m" | "f" {
 /** Détecte si l’intake est une émotion (forme adjectivale « je suis … » ou nom : tristesse, colère…) */
 function isEmotionIntake(raw: string): boolean {
   const t = clean(raw).toLowerCase();
-  if (/^je\s+suis\b/i.test(t)) return true; // forme adjectivale "je suis ..."
+  if (/^je\s+suis\b/i.test(t)) return true;
   return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
 }
 
@@ -109,55 +105,41 @@ function emotionArticle(noun: string): "ce" | "cette" {
   const fem = new Set([
     "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude"
   ]);
-  return fem.has(n) ? "cette" : "ce"; // « stress » / « dégoût » → masculin
+  return fem.has(n) ? "cette" : "ce";
 }
 
 /**
  * Extrait une forme exploitable pour le setup à partir d’un intake émotionnel.
- * - "je suis triste"        → {mode:"adj",  text:"triste"}
- * - "tristesse"/"de la ..." → {mode:"noun", text:"tristesse", article:"cette"}
- * - "peur de parler"        → {mode:"noun", text:"peur de parler", article:"cette"}
  */
 function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, article?: "ce"|"cette" } {
   const t = clean(raw);
-
-  // Cas adjectival direct : "je suis ..."
   const mAdj = t.match(/^je\s+suis\s+(.+)$/i);
-  if (mAdj) {
-    return { mode: "adj", text: clean(mAdj[1]) };
-  }
+  if (mAdj) return { mode: "adj", text: clean(mAdj[1]) };
 
-  // Cas "de la tristesse"
   const mDeLa = t.match(/^de\s+la\s+(.+)$/i);
   if (mDeLa) {
     const noun = clean(mDeLa[1]);
     return { mode: "noun", text: noun, article: emotionArticle(noun) };
   }
 
-  // Cas nominal : « tristesse », « peur de … », etc. (on passe par ta normalisation)
   const noun = clean(normalizeEmotionNoun(t));
   return { mode: "noun", text: noun, article: emotionArticle(noun) };
 }
 
-/** Normalise une tournure émotionnelle vers un nom : "je suis en colère" → "colère", "je me sens coupable" → "culpabilité" */
+/** Normalise une tournure émotionnelle vers un nom */
 function normalizeEmotionNoun(s: string): string {
   const raw = clean(s);
   const t = raw.toLowerCase();
 
-  // 1️⃣ Garder les expressions spécifiques (ne pas les tronquer)
-  // Ex. peur de parler en public → on garde tout
   const mPeurComp = t.match(/\bpeur\s+(de|du|des|d’|d')\s+.+/i);
   if (mPeurComp) return raw;
 
-  // colère contre/envers/à propos de …
   const mColereComp = t.match(/\bcol[eè]re\s+(contre|envers|à\s+propos\s+de)\s+.+/i);
   if (mColereComp) return raw;
 
-  // honte ou culpabilité de …
   const mHonteCulp = t.match(/\b(honte|culpabilit[eé])\s+(de|d’|d')\s+.+/i);
   if (mHonteCulp) return raw;
 
-  // 2️⃣ Nettoyer le début s’il y a un verbe
   const x = t
     .replace(/^j['’]?\s*eprouve\s+/, "")
     .replace(/^je\s+me\s+sens\s+/, "")
@@ -165,7 +147,6 @@ function normalizeEmotionNoun(s: string): string {
     .replace(/^je\s+suis\s+en\s+/, "")
     .replace(/^je\s+suis\s+/, "");
 
-  // 3️⃣ Transformer les adjectifs en noms d’émotions
   const map: Array<[RegExp, string]> = [
     [/col[eè]re/, "colère"],
     [/triste(sse)?/, "tristesse"],
@@ -177,22 +158,15 @@ function normalizeEmotionNoun(s: string): string {
     [/peur/, "peur"],
   ];
   for (const [rx, noun] of map) if (rx.test(x)) return noun;
-
-  // 4️⃣ Par défaut, renvoyer la phrase nettoyée
   return raw;
 }
 
-
-/** Rend un contexte lisible après "lié(e) à".
- *  - si kind==="physique" et que le contexte commence par "je/j’/j'ai/je me/je suis…",
- *    on force "parce que …"
- *  - sinon, on applique la règle "au fait que ..." pour les pronoms/articles.
- */
+/** Contexte lisible + règle "parce que" pour douleurs */
+type IntakeKind = "physique" | "emotion" | "situation";
 function readableContext(ctx: string, kind?: IntakeKind): string {
   let c = clean(ctx);
   if (!c) return "";
 
-  // Cas douleur : préférer "parce que ..."
   if (
     kind === "physique" &&
     !/^parce que\b/i.test(c) &&
@@ -201,12 +175,9 @@ function readableContext(ctx: string, kind?: IntakeKind): string {
     c = "parce que " + c.replace(/^parce que\s+/i, "");
   }
 
-  // Si on n'est pas en "parce que …", appliquer la règle "au fait que …"
   if (!/^parce que\b/i.test(c)) {
     const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
-    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
-      c = "au fait que " + c;
-    }
+    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) c = "au fait que " + c;
     c = c
       .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
       .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
@@ -226,9 +197,7 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
 }
 
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
-  // 1) normalise les tournures "j'ai mal..." etc.
   const intakePrim = clean(normalizeIntake(_raw));
-  // 2) si émotion ("je suis en colère"…), transforme en nom ("colère")
   const intake = clean(normalizeEmotionNoun(intakePrim));
 
   const g = detectGender(intake);
@@ -242,11 +211,8 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
 }
 
 function buildRappelPhrases(slots: Slots): string[] {
-  // 1) Normaliser
   let intake = clean(normalizeIntake(slots.intake ?? ""));
-  // 2) Enlever les démarreurs de phrase s'ils traînent encore
   intake = intake.replace(/^(?:je\s+suis|je\s+me\s+sens|je\s+ressens|j['’]ai)\s+/i, "");
-  // 3) Si c’est une émotion adjectivale, la convertir en nom (“colère”, “tristesse”…)
   intake = clean(normalizeEmotionNoun(intake));
 
   const ctx = clean(slots.context ?? "");
@@ -259,7 +225,6 @@ function buildRappelPhrases(slots: Slots): string[] {
     typeof slots.sud === "number" && slots.sud > 0 && round > 1
       ? (slots.sud >= 7 ? " toujours" : " encore")
       : "";
-
   const qOrRound = sudQ || roundMod;
 
   const phrases: string[] = [];
@@ -279,30 +244,22 @@ function buildRappelPhrases(slots: Slots): string[] {
   return phrases.slice(0, 8);
 }
 
-
-
 /* ---------- Classification Intake ---------- */
-type IntakeKind = "physique" | "emotion" | "situation";
-
 function classifyIntake(intakeRaw: string): IntakeKind {
   const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
 
-  // marqueurs physiques
   const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
   if (phys.test(s)) return "physique";
 
-  // marqueurs émotionnels
   const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
   if (emo.test(s)) return "emotion";
 
-  // sinon : situation/événement
   return "situation";
 }
 
 /* ---------- Exemples contextuels par zone corporelle (physique) ---------- */
 function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
-
   const table: Array<[RegExp, string]> = [
     [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
     [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
@@ -319,7 +276,6 @@ function hintsForLocation(intakeRaw: string): string {
     [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
     [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
   ];
-
   for (const [rx, hint] of table) if (rx.test(s)) return hint;
   return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
 }
@@ -361,24 +317,35 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
+/* ---------- Garde anti-“affirmations positives” ---------- */
+const POSITIVE_REQUEST: RegExp[] = [
+  /\baffirmation(s)?\s+positive(s)?\b/i,
+  /\bpenser\s+positif\b/i,
+  /\bremplacer\s+le\s+n[eé]gatif\b/i,
+  /\breprogrammer\s+(mon|ma|mes|les)\s+pens[ée]es\b/i,
+  /\bvisualisation(s)?\b/i,
+  /\bmantra(s)?\b/i,
+];
+
 /* ---------- SYSTEM (pour les étapes non déterministes) ---------- */
 const SYSTEM = `
 Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
 
+Rappels méthodologiques (stricts) :
+- Pas d'affirmations positives, pas de reprogrammation, pas de “remplacer le négatif par du positif”.
+- On accueille ce qui dérange, on tapote, on réévalue. Pas de contournement du problème.
+- Une seule consigne par message (sauf Setup: 2 lignes max).
+- Commencer par "Étape {N} — ".
+
 FLUX
 1) Intake — qualité/localisation (si douleur) OU "où dans le corps ?" (si émotion) OU "que ressens-tu quand tu penses à … ?" (si situation).
 2) Durée — depuis quand.
 3) Contexte — circonstances/événements (pas "émotions" si l'intake est déjà une émotion).
-4) Évaluation — SUD (0–10) pour la première fois.
+4) Évaluation — SUD (0–10).
 5) Setup — Phrase de préparation (PK ×3) puis attendre un message de l'utilisateur.
 7) Réévaluation — SUD ; si >0 → nouvelle ronde ; si =0 → Clôture.
 8) Clôture — remercier, féliciter, pause/hydratation, note de prudence.
-
-LANGAGE
-- Pas de fillers. Utiliser uniquement les mots fournis (slots).
-- Une seule consigne par message (sauf Setup: 2 lignes max).
-- Commencer par "Étape {N} — ".
 `;
 
 /* ---------- Handler ---------- */
@@ -394,9 +361,19 @@ export async function POST(req: Request) {
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
 
-    // 🔒 Garde ENTRANT (avant tout)
+    // 🔒 Garde ENTRANT (crise)
     if (prompt && isCrisis(prompt)) {
       return NextResponse.json({ answer: crisisMessage() });
+    }
+
+    // 🔒 Garde ENTRANT (affirmations positives / reprogrammation)
+    if (prompt && POSITIVE_REQUEST.some(rx => rx.test(prompt))) {
+      return NextResponse.json({
+        answer:
+`En EFT telle que transmise par Gary Craig, on ne cherche pas à “remplacer” le négatif par du positif.
+Le travail consiste à **accueillir et tapoter sur ce qui dérange**, puis réévaluer le SUD.
+Souhaitez-vous que je vous aide à formuler une phrase de setup fidèle à cette approche ?`
+      });
     }
 
     const stage = (raw.stage as Stage) ?? "Intake";
@@ -432,78 +409,65 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
     }
 
     /* ---------- Étape 5 : Setup (accord "lié/liée", émotions, contexte lisible) ---------- */
-if (etape === 5) {
-  const intakeOrig = clean(slots.intake ?? "");
-  const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+    if (etape === 5) {
+      const intakeOrig = clean(slots.intake ?? "");
+      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
 
-  // Branche ÉMOTION (inchangée, mais garantit une belle forme)
-  if (isEmotionIntake(intakeOrig)) {
-    const emo = parseEmotionPhrase(intakeOrig);
-    let setupLine = "";
-    if (emo.mode === "adj") {
-      setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
-    } else {
-      const art = emo.article ?? emotionArticle(emo.text);
-      setupLine = `Même si j’ai ${art} ${emo.text}, je m’accepte profondément et complètement.`;
-    }
-    const txt =
+      // ÉMOTION → “je suis …” ou “j’ai cette …”
+      if (isEmotionIntake(intakeOrig)) {
+        const emo = parseEmotionPhrase(intakeOrig);
+        let setupLine = "";
+        if (emo.mode === "adj") {
+          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
+        } else {
+          const art = emo.article ?? emotionArticle(emo.text);
+          setupLine = `Même si j’ai ${art} ${emo.text}, je m’accepte profondément et complètement.`;
+        }
+        const txt =
 `Étape 5 — Setup : « ${setupLine} »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  // Sinon : PHYSIQUE ou SITUATION
-  // Séparer base & contexte si "lié(e) à" déjà présent
-  let base = aspectRaw;
-  let ctx  = "";
-  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-  if (m) {
-    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-    base = aspectRaw.slice(0, idx).trim();
-    ctx  = aspectRaw.slice(idx + m[0].length).trim();
-  }
+      // PHYSIQUE / SITUATION
+      let base = aspectRaw;
+      let ctx  = "";
+      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+      if (m) {
+        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+        base = aspectRaw.slice(0, idx).trim();
+        ctx  = aspectRaw.slice(idx + m[0].length).trim();
+      }
 
-  // Nettoyer "base"
-  base = normalizeEmotionNoun(base)
-    .replace(/^j['’]?\s*ai\s+/, "")
-    .replace(/^je\s+/, "")
-    .replace(/^(ce|cette)\s+/i, "");
+      base = normalizeEmotionNoun(base)
+        .replace(/^j['’]?\s*ai\s+/, "")
+        .replace(/^je\s+/, "")
+        .replace(/^(ce|cette)\s+/i, "");
 
-  const kind = classifyIntake(intakeOrig || base);
+      const kind = classifyIntake(intakeOrig || base);
 
-  // Contexte lisible avec la règle "parce que" (douleur -> "je...")
-  const ctxPretty = ctx ? readableContext(ctx, kind) : "";
+      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
 
-  // Pour douleurs : si ctxPretty commence par "parce que / car / puisque", on ne met PAS "lié(e) à"
-// Pour le reste : on garde "lié/liée à"
-const g = detectGender(base);
-const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+      const g = detectGender(base);
+      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+      const connector = ctxPretty
+        ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à "))
+        : "";
 
-// Connecteur : soit rien (si "parce que/car/puisque"), soit "liée/lié à"
-const connector = ctxPretty
-  ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à "))
-  : "";
+      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
 
-// Assemblage propre (évite doubles espaces)
-const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
+      const femWords = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i;
+      const article = femWords.test(base) ? "cette" : "ce";
 
-
-  // Article ce/cette : féminins émotionnels, sinon masculin
- // Article ce/cette : corrige pour les émotions et les mots féminins
-const femWords = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i;
-const article = femWords.test(base) ? "cette" : "ce";
-
-
-  const txt =
+      const txt =
 `Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-  return NextResponse.json({ answer: txt });
-}
+      return NextResponse.json({ answer: txt });
+    }
 
-
-    // Étape 6 — ronde déterministe (personnalisée)
+    // Étape 6 — ronde déterministe
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -521,7 +485,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 — clôture stable
+    // Étape 8 — clôture
     if (etape === 8) {
       const txt =
 "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
@@ -581,7 +545,18 @@ Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
       (json?.content?.[0]?.text) ??
       "";
 
-    // 🔒 Garde SORTANT
+    // 🔒 Garde SORTANT (affirmations positives / reprogrammation)
+    const POSITIVE_OUTPUT = /\b(affirmation(s)?\s+positive(s)?|penser\s+positif|remplacer\s+le\s+n[eé]gatif|reprogrammer\s+les?\s+pens[ée]es|visualisation|mantra)\b/i;
+    if (answer && POSITIVE_OUTPUT.test(answer)) {
+      return NextResponse.json({
+        answer:
+`Rappel EFT (Gary Craig) : pas d’affirmations positives ni de reprogrammation.
+On reste sur **ce qui dérange**, on tapote, puis on réévalue le SUD.
+Souhaitez-vous poursuivre avec la prochaine étape EFT ?`
+      });
+    }
+
+    // 🔒 Garde SORTANT (crise)
     const FORBIDDEN_OUTPUT: RegExp[] = [
       ...CRISIS_PATTERNS,
       /\bsuicid\w*/i,
