@@ -392,11 +392,12 @@ export default function Page() {
         <strong className="block mb-1">⚖️ Note de prudence</strong>
         <p className="text-sm leading-relaxed">
           Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
-          psychologique ou professionnel. L&apos;École EFT France et ses représentants déclinent toute
-          responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
-          des informations ou protocoles présentés. Chaque utilisateur reste responsable de sa pratique et de ses choix.
-          <br />
-          L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
+          psychologique ou professionnel.  <br />
+          L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
+          des informations ou protocoles présentés.  <br />
+          Chaque utilisateur reste responsable de sa pratique et de ses choix.
+          <br /> <br />
+          Important : L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
           Comme pour tout ce qui transite par Internet, restez prudents et évitez de divulguer des éléments très personnels.
         </p>
         <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
