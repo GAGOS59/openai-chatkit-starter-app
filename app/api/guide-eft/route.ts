@@ -326,6 +326,12 @@ const POSITIVE_REQUEST: RegExp[] = [
   /\bvisualisation(s)?\b/i,
   /\bmantra(s)?\b/i,
 ];
+// En haut du POST(), juste après avoir lu `prompt`
+const origin = (req.headers.get("origin") || "").toLowerCase();
+const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr", "http://localhost:3000"];
+if (origin && !allowed.includes(origin)) {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
 
 /* ---------- SYSTEM (pour les étapes non déterministes) ---------- */
 const SYSTEM = `
