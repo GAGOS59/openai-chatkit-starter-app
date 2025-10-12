@@ -54,22 +54,27 @@ function clean(s: string): string {
 /** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
+
   const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
+
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
+
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
+
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
+
   return s;
 }
 
 function splitContext(ctx: string): string[] {
   return ctx
-    .split(/[,.;]|(?:\s(?:et|quand|parce que|lorsque|depuis|depuis que)\s)/gi)
+    .split(/[,.;]|(?:\s(?:et|quand|parce que|car|puisque|lorsque|depuis|depuis que)\s)/gi)
     .map((p) => clean(p))
     .filter((p) => p.length > 0)
     .slice(0, 6);
@@ -86,38 +91,44 @@ function detectGender(intakeRaw: string): "m" | "f" {
   return "f";
 }
 
-/** Détecte si l’intake est une émotion (forme adjectivale « je suis … » ou nom : tristesse, colère…) */
+/** Émotion ? (forme “je suis …” ou nom d’émotion) */
 function isEmotionIntake(raw: string): boolean {
   const t = clean(raw).toLowerCase();
   if (/^je\s+suis\b/i.test(t)) return true;
   return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
 }
 
-/** Choisit « ce » ou « cette » selon le nom d’émotion */
+/** Article ce/cette selon racine */
 function emotionArticle(noun: string): "ce" | "cette" {
   const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
-  const fem = new Set(["peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude","douleur","gêne","gene","tension"]);
+  const fem = new Set([
+    "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude","douleur","gêne","gene","tension"
+  ]);
   return fem.has(n) ? "cette" : "ce";
 }
 
-/** Parse une émotion pour le setup (adj vs nom) */
+/** “je suis X” → {mode:"adj",text:"X"} ; “tristesse” / “peur de …” → {mode:"noun",text:"…"} */
 function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, article?: "ce"|"cette" } {
   const t = clean(raw);
+
   const mAdj = t.match(/^je\s+suis\s+(.+)$/i);
   if (mAdj) return { mode: "adj", text: clean(mAdj[1]) };
+
   const mDeLa = t.match(/^de\s+la\s+(.+)$/i);
   if (mDeLa) {
     const noun = clean(mDeLa[1]);
     return { mode: "noun", text: noun, article: emotionArticle(noun) };
   }
+
   const noun = clean(normalizeEmotionNoun(t));
   return { mode: "noun", text: noun, article: emotionArticle(noun) };
 }
 
-/** Normalise « je suis en colère » → « colère », mais conserve « peur de parler en public », etc. */
+/** Normalise une tournure émotionnelle vers un nom — conserve les compléments (“peur de …”) */
 function normalizeEmotionNoun(s: string): string {
   const raw = clean(s);
   const t = raw.toLowerCase();
+
   if (/\bpeur\s+(de|du|des|d’|d')\s+.+/i.test(t)) return raw;
   if (/\bcol[eè]re\s+(contre|envers|à\s+propos\s+de)\s+.+/i.test(t)) return raw;
   if (/\b(honte|culpabilit[eé])\s+(de|d’|d')\s+.+/i.test(t)) return raw;
@@ -140,30 +151,37 @@ function normalizeEmotionNoun(s: string): string {
     [/peur/, "peur"],
   ];
   for (const [rx, noun] of map) if (rx.test(x)) return noun;
+
   return raw;
 }
 
-/** Contexte lisible : « parce que … » pour douleur+phrase en "je", sinon règle « au fait que … » */
 type IntakeKind = "physique" | "emotion" | "situation";
+
+/** Rend un contexte lisible (“parce que …” pour douleurs sinon “au fait que …”) */
 function readableContext(ctx: string, kind?: IntakeKind): string {
   let c = clean(ctx);
   if (!c) return "";
+
   if (
     kind === "physique" &&
-    !/^parce que\b/i.test(c) &&
+    !/^(parce que|car|puisque)\b/i.test(c) &&
     /^(?:j['’]ai|j['’]étais|j['’]etais|je\s+me|je\s+suis|je\s+)/i.test(c)
   ) {
     c = "parce que " + c.replace(/^parce que\s+/i, "");
   }
-  if (!/^parce que\b/i.test(c)) {
+
+  if (!/^(parce que|car|puisque)\b/i.test(c)) {
     const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
-    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) c = "au fait que " + c;
+    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
+      c = "au fait que " + c;
+    }
     c = c
       .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
       .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
       .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
       .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
   }
+
   return c;
 }
 
@@ -178,9 +196,14 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
   const intakePrim = clean(normalizeIntake(_raw));
   const intake = clean(normalizeEmotionNoun(intakePrim));
+
   const g = detectGender(intake);
-  if (g === "m" && /^mal\b/i.test(intake)) return { generic: "Ce " + intake, short: "Ce " + intake, g };
-  if (g === "f") return { generic: "Cette " + intake, short: "Cette " + intake, g };
+  if (g === "m" && /^mal\b/i.test(intake)) {
+    return { generic: "Ce " + intake, short: "Ce " + intake, g };
+  }
+  if (g === "f") {
+    return { generic: "Cette " + intake, short: "Cette " + intake, g };
+  }
   return { generic: "Ce problème", short: "Ce problème", g: "m" };
 }
 
@@ -206,8 +229,12 @@ function buildRappelPhrases(slots: Slots): string[] {
   phrases.push(`${generic}${qOrRound}.`);
   phrases.push(`${short}.`);
   for (let i = 0; i < 4; i++) {
-    if (contextParts[i]) phrases.push(contextParts[i][0].toUpperCase() + contextParts[i].slice(1) + ".");
-    else phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
+    if (contextParts[i]) {
+      const s = contextParts[i];
+      phrases.push(s[0].toUpperCase() + s.slice(1) + ".");
+    } else {
+      phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
+    }
   }
   if (contextParts[0]) phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
   else phrases.push(`${short}.`);
@@ -218,16 +245,20 @@ function buildRappelPhrases(slots: Slots): string[] {
 /* ---------- Classification Intake ---------- */
 function classifyIntake(intakeRaw: string): IntakeKind {
   const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
+
   const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
   if (phys.test(s)) return "physique";
+
   const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
   if (emo.test(s)) return "emotion";
+
   return "situation";
 }
 
-/* ---------- Hints localisation (physique) ---------- */
+/* ---------- Exemples contextuels (physique) ---------- */
 function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
+
   const table: Array<[RegExp, string]> = [
     [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
     [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
@@ -242,13 +273,14 @@ function hintsForLocation(intakeRaw: string): string {
     [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
     [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
     [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
   ];
+
   for (const [rx, hint] of table) if (rx.test(s)) return hint;
   return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
 }
 
-/* ---------- Safety patterns (in/out) ---------- */
+/* ---------- Safety (in/out) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
   /\bsu[cs]sid[ea]\b/i,
@@ -285,32 +317,7 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
-/* ---------- Origine autorisée (prod + sous-domaines + vercel + localhost) ---------- */
-function isAllowedOrigin(req: Request): boolean {
-  const origin = req.headers.get("origin");
-  if (!origin) return true;
-  const oURL = new URL(origin);
-  const oHost = oURL.host.toLowerCase();
-  const selfOrigin = new URL(req.url).origin.toLowerCase();
-  if (origin.toLowerCase() === selfOrigin) return true;
-  const allowedRoots = ["ecole-eft-france.fr", "localhost:3000"];
-  if (allowedRoots.some(root => oHost === root || oHost.endsWith("." + root))) return true;
-  if (oHost.endsWith(".vercel.app")) return true;
-  return false;
-}
-
-/* ---------- Détection question FAQ ---------- */
-function isGeneralInfoQuery(q?: string): boolean {
-  if (!q) return false;
-  const t = clean(q).toLowerCase();
-  return (
-    /^qu['’]?est-ce\s+que\s+l['’]?eft\b/.test(t) ||
-    /^c['’]?est\s+quoi\s+l['’]?eft\b/.test(t) ||
-    /\b(gary\s+craig|histoire\s+de\s+l['’]?eft|comment\s+ça\s+marche|comment\s+fonctionne)\b/.test(t)
-  );
-}
-
-/* ---------- SYSTEM guidage ---------- */
+/* ---------- SYSTEM (pour les étapes non déterministes) ---------- */
 const SYSTEM = `
 Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
@@ -330,13 +337,26 @@ LANGAGE
 - Commencer par "Étape {N} — ".
 `;
 
+/* ---------- FAQ stricte EFT ---------- */
+function looksLikeFAQ(q: string): boolean {
+  const t = clean(q).toLowerCase();
+  if (!t) return false;
+  if (/[?]$/.test(t)) return true;
+  if (/^(qu['’]?est-ce\s+que|c['’]?est\s+quoi|comment\s+(?:faire|pratiquer|fonctionne)|qui\s+est\s+gary\s+craig|histoire\s+de\s+l['’]eft|contre-?indications?|formation|certification)/i.test(t)) return true;
+  if (!/(mal|douleur|peur|col[eè]re|tristesse|honte|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)/i.test(t)
+      && /(eft|technique|méthode|principe|définition)/i.test(t)) return true;
+  return false;
+}
+
+const FAQ_SYSTEM = `
+Tu réponds en français, brièvement (4–8 lignes), style clair et bienveillant.
+Tu parles UNIQUEMENT de l'EFT classique de Gary Craig (pas d'EFT positive, pas d'inductions positives).
+Pas de promesses de résultat, pas de diagnostic, pas de conseils médicaux. Pas de recherche Internet.
+`;
+
 /* ---------- Handler ---------- */
 export async function POST(req: Request) {
   try {
-    if (!isAllowedOrigin(req)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
@@ -344,38 +364,27 @@ export async function POST(req: Request) {
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
 
+    // CORS simple
+    const origin = (req.headers.get("origin") || "").toLowerCase();
+    const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr", "http://localhost:3000"];
+    if (origin && !allowed.includes(origin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
 
-    // 🔒 Garde ENTRANT
+    // 🔒 Entrant
     if (prompt && isCrisis(prompt)) {
       return NextResponse.json({ answer: crisisMessage() });
     }
 
-    // --- Mode FAQ libre (prioritaire si question générale, même si slots.intake existe)
-    const looksLikeFAQ =
-      (prompt && isGeneralInfoQuery(prompt)) ||
-      (raw.slots?.intake && isGeneralInfoQuery(String(raw.slots.intake)));
+    // ------ Branche FAQ ------
+    if (prompt && looksLikeFAQ(prompt)) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
 
-    if (looksLikeFAQ) {
-      const SYSTEM_QA = `
-Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
-Réponds de façon claire, fidèle à l'EFT de Gary Craig (pas d'EFT "positive", pas d'inductions positives, pas de reprogrammation).
-Rappelle que l'EFT ne remplace pas un avis médical. Pas de diagnostic, pas de promesses de guérison.
-Style concis, bienveillant, pédagogique.`;
-
-      const USER_QA = `Question de l'utilisateur (FAQ) :
-${prompt || raw.slots?.intake || ""}
-
-Contraintes :
-- Rester centré sur l’EFT de Gary Craig.
-- Pas de protocole guidé ni de "rondes" si l’utilisateur ne le demande pas.
-- Réponse courte (6–10 lignes), structurée si utile.`;
-
-      const controller2 = new AbortController();
-      const timer2 = setTimeout(() => controller2.abort(), 15000);
-
-      const res2 = await fetch(endpoint, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -383,44 +392,39 @@ Contraintes :
         },
         body: JSON.stringify({
           model: "gpt-4o-mini",
-          input: `${SYSTEM_QA}\n\n${USER_QA}`,
-          temperature: 0.3,
-          max_output_tokens: 400,
+          input: `${FAQ_SYSTEM}\nQuestion: ${prompt}\nRéponse:`,
+          temperature: 0.2,
+          max_output_tokens: 260,
         }),
-        signal: controller2.signal,
+        signal: controller.signal,
       }).catch(() => { throw new Error("Upstream error"); });
-      clearTimeout(timer2);
+      clearTimeout(timer);
 
-      if (!res2 || !res2.ok) {
+      if (!res || !res.ok) {
         return NextResponse.json({ error: "Upstream failure" }, { status: 502 });
       }
 
-      const json2 = await res2.json();
-      const answer2 =
-        (json2?.output?.[0]?.content?.[0]?.text) ??
-        (json2?.choices?.[0]?.message?.content) ??
-        (json2?.content?.[0]?.text) ??
+      const json = await res.json();
+      const answer =
+        (json?.output?.[0]?.content?.[0]?.text) ??
+        (json?.choices?.[0]?.message?.content) ??
+        (json?.content?.[0]?.text) ??
         "";
 
-      const FORBIDDEN_OUTPUT: RegExp[] = [
-        ...CRISIS_PATTERNS,
-        /\bsuicid\w*/i,
-        /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
-      ];
-      if (answer2 && FORBIDDEN_OUTPUT.some(rx => rx.test(answer2))) {
+      if (answer && isCrisis(answer)) {
         return NextResponse.json({ answer: crisisMessage() });
       }
-      return NextResponse.json({ answer: answer2 });
+      return NextResponse.json({ answer });
     }
 
-    // --- Flux guidé
+    // ------ Flux guidé EFT ------
     const stage = (raw.stage as Stage) ?? "Intake";
     const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage);
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    /* Étape 1 : déterministe */
+    // Étape 1
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -446,17 +450,18 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    /* Étape 5 : Setup (émotions/physique/situation) */
+    // Étape 5 — Setup
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
 
-      // Émotion → forme naturelle
+      // ÉMOTION
       if (isEmotionIntake(intakeOrig)) {
         const emo = parseEmotionPhrase(intakeOrig);
         let setupLine = "";
-        if (emo.mode === "adj") setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
-        else {
+        if (emo.mode === "adj") {
+          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
+        } else {
           const art = emo.article ?? emotionArticle(emo.text);
           setupLine = `Même si j’ai ${art} ${emo.text}, je m’accepte profondément et complètement.`;
         }
@@ -467,7 +472,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Physique / Situation
+      // PHYSIQUE / SITUATION
       let base = aspectRaw;
       let ctx  = "";
       const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
@@ -480,8 +485,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       base = normalizeEmotionNoun(base)
         .replace(/^j['’]?\s*ai\s+/, "")
         .replace(/^je\s+/, "")
-        .replace(/^(ce|cette)\s+/i, "")
-        .trim();
+        .replace(/^(ce|cette)\s+/i, "");
 
       const kind = classifyIntake(intakeOrig || base);
       const ctxPretty = ctx ? readableContext(ctx, kind) : "";
@@ -503,7 +507,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
     }
 
-    /* Étape 6 : ronde personnalisée */
+    // Étape 6 — ronde
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -521,17 +525,15 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    /* Étape 8 : clôture stable */
+    // Étape 8 — clôture
     if (etape === 8) {
       const txt =
 "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
-    /* ---------- Autres étapes : modèle (SYSTEM) ---------- */
-{
-  // On réutilise les variables déjà définies plus haut : `stage`, `etape`, `slots`, `transcript`, `prompt`
-  const USER_BLOCK =
+    /* ---------- Autres étapes -> LLM (SYSTEM) ---------- */
+    const USER_BLOCK =
 `[CONTEXTE]
 Étape demandée: ${etape}
 Slots:
@@ -550,49 +552,6 @@ ${transcript}
 
 [INSTRUCTION]
 Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
-
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      input: `${SYSTEM}\n\n${USER_BLOCK}`,
-      temperature: 0.2,
-      max_output_tokens: 260,
-    }),
-    signal: controller.signal,
-  }).catch(() => { throw new Error("Upstream error"); });
-  clearTimeout(timer);
-
-  if (!res || !res.ok) {
-    return NextResponse.json({ error: "Upstream failure" }, { status: 502 });
-  }
-
-  const json = await res.json();
-  const answer =
-    (json?.output?.[0]?.content?.[0]?.text) ??
-    (json?.choices?.[0]?.message?.content) ??
-    (json?.content?.[0]?.text) ??
-    "";
-
-  // 🔒 Garde SORTANT
-  const FORBIDDEN_OUTPUT: RegExp[] = [
-    ...CRISIS_PATTERNS,
-    /\bsuicid\w*/i,
-    /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
-  ];
-  if (answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer))) {
-    return NextResponse.json({ answer: crisisMessage() });
-  }
-
-  return NextResponse.json({ answer });
-}
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
@@ -624,13 +583,14 @@ Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
       (json?.content?.[0]?.text) ??
       "";
 
-    // 🔒 Garde SORTANT
+    // 🔒 Sortant
     const FORBIDDEN_OUTPUT: RegExp[] = [
       ...CRISIS_PATTERNS,
       /\bsuicid\w*/i,
       /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
     ];
-    if (answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer))) {
+    const unsafeOut = answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer));
+    if (unsafeOut) {
       return NextResponse.json({ answer: crisisMessage() });
     }
 
