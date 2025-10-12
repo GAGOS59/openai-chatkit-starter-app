@@ -398,7 +398,7 @@ export default function Page() {
           Chaque utilisateur reste responsable de sa pratique et de ses choix.
           <br /> <br />
           <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
-          Comme pour tout ce qui transite par Internet, restez prudents et évitez de divulguer des éléments très personnels.
+          Mais comme pour tout ce qui transite par Internet, nous vous invitons à rester prudents et à ne pas divulguer des éléments très personnels.
         </p>
         <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
       </div>
