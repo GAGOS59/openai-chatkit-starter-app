@@ -54,26 +54,16 @@ function clean(s: string): string {
 /** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
-
-  // j'ai mal à/au/aux/à la/à l'...
-  const mMal =
-    s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
-
-  // j'ai une/la douleur ...
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
-
-  // j'ai (une/la) peur ..., j'ai peur ...
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
-
-  // j'ai (une/la) tension|gêne|gene ...
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
-
   return s;
 }
 
@@ -99,7 +89,7 @@ function detectGender(intakeRaw: string): "m" | "f" {
 /** Détecte si l’intake est une émotion (forme adjectivale « je suis … » ou nom : tristesse, colère…) */
 function isEmotionIntake(raw: string): boolean {
   const t = clean(raw).toLowerCase();
-  if (/^je\s+suis\b/i.test(t)) return true; // forme adjectivale "je suis ..."
+  if (/^je\s+suis\b/i.test(t)) return true;
   return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
 }
 
@@ -110,44 +100,28 @@ function emotionArticle(noun: string): "ce" | "cette" {
   return fem.has(n) ? "cette" : "ce";
 }
 
-/**
- * Extrait une forme exploitable pour le setup à partir d’un intake émotionnel.
- * - "je suis triste"        → {mode:"adj",  text:"triste"}
- * - "tristesse"/"de la ..." → {mode:"noun", text:"tristesse", article:"cette"}
- * - "peur de parler"        → {mode:"noun", text:"peur de parler", article:"cette"}
- */
+/** Parse une émotion pour le setup (adj vs nom) */
 function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, article?: "ce"|"cette" } {
   const t = clean(raw);
-
-  // Cas adjectival direct : "je suis ..."
   const mAdj = t.match(/^je\s+suis\s+(.+)$/i);
-  if (mAdj) {
-    return { mode: "adj", text: clean(mAdj[1]) };
-  }
-
-  // Cas "de la tristesse"
+  if (mAdj) return { mode: "adj", text: clean(mAdj[1]) };
   const mDeLa = t.match(/^de\s+la\s+(.+)$/i);
   if (mDeLa) {
     const noun = clean(mDeLa[1]);
     return { mode: "noun", text: noun, article: emotionArticle(noun) };
   }
-
-  // Cas nominal : « tristesse », « peur de … », etc.
   const noun = clean(normalizeEmotionNoun(t));
   return { mode: "noun", text: noun, article: emotionArticle(noun) };
 }
 
-/** Normalise une tournure émotionnelle vers un nom (préserve les compléments : peur de…, colère contre…) */
+/** Normalise « je suis en colère » → « colère », mais conserve « peur de parler en public », etc. */
 function normalizeEmotionNoun(s: string): string {
   const raw = clean(s);
   const t = raw.toLowerCase();
-
-  // Conserver les expressions spécifiques (compléments)
   if (/\bpeur\s+(de|du|des|d’|d')\s+.+/i.test(t)) return raw;
   if (/\bcol[eè]re\s+(contre|envers|à\s+propos\s+de)\s+.+/i.test(t)) return raw;
   if (/\b(honte|culpabilit[eé])\s+(de|d’|d')\s+.+/i.test(t)) return raw;
 
-  // Nettoyer le début s’il y a un verbe
   const x = t
     .replace(/^j['’]?\s*eprouve\s+/, "")
     .replace(/^je\s+me\s+sens\s+/, "")
@@ -155,7 +129,6 @@ function normalizeEmotionNoun(s: string): string {
     .replace(/^je\s+suis\s+en\s+/, "")
     .replace(/^je\s+suis\s+/, "");
 
-  // Transformer adjectifs en noms d’émotions
   const map: Array<[RegExp, string]> = [
     [/col[eè]re/, "colère"],
     [/triste(sse)?/, "tristesse"],
@@ -167,20 +140,14 @@ function normalizeEmotionNoun(s: string): string {
     [/peur/, "peur"],
   ];
   for (const [rx, noun] of map) if (rx.test(x)) return noun;
-
   return raw;
 }
 
-/** Rend un contexte lisible après "lié(e) à".
- *  - si kind==="physique" et que le contexte commence par "je/j’/j'ai/je me/je suis…",
- *    on force "parce que …"
- *  - sinon, on applique la règle "au fait que ..." pour les pronoms/articles.
- */
+/** Contexte lisible : « parce que … » pour douleur+phrase en "je", sinon règle « au fait que … » */
 type IntakeKind = "physique" | "emotion" | "situation";
 function readableContext(ctx: string, kind?: IntakeKind): string {
   let c = clean(ctx);
   if (!c) return "";
-
   if (
     kind === "physique" &&
     !/^parce que\b/i.test(c) &&
@@ -188,19 +155,15 @@ function readableContext(ctx: string, kind?: IntakeKind): string {
   ) {
     c = "parce que " + c.replace(/^parce que\s+/i, "");
   }
-
   if (!/^parce que\b/i.test(c)) {
     const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
-    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
-      c = "au fait que " + c;
-    }
+    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) c = "au fait que " + c;
     c = c
       .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
       .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
       .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
       .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
   }
-
   return c;
 }
 
@@ -216,17 +179,12 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
   const intakePrim = clean(normalizeIntake(_raw));
   const intake = clean(normalizeEmotionNoun(intakePrim));
   const g = detectGender(intake);
-  if (g === "m" && /^mal\b/i.test(intake)) {
-    return { generic: "Ce " + intake, short: "Ce " + intake, g };
-  }
-  if (g === "f") {
-    return { generic: "Cette " + intake, short: "Cette " + intake, g };
-  }
+  if (g === "m" && /^mal\b/i.test(intake)) return { generic: "Ce " + intake, short: "Ce " + intake, g };
+  if (g === "f") return { generic: "Cette " + intake, short: "Cette " + intake, g };
   return { generic: "Ce problème", short: "Ce problème", g: "m" };
 }
 
 function buildRappelPhrases(slots: Slots): string[] {
-  // 1) Normaliser l’intake
   let intake = clean(normalizeIntake(slots.intake ?? ""));
   intake = intake.replace(/^(?:je\s+suis|je\s+me\s+sens|je\s+ressens|j['’]ai)\s+/i, "");
   intake = clean(normalizeEmotionNoun(intake));
@@ -248,12 +206,8 @@ function buildRappelPhrases(slots: Slots): string[] {
   phrases.push(`${generic}${qOrRound}.`);
   phrases.push(`${short}.`);
   for (let i = 0; i < 4; i++) {
-    if (contextParts[i]) {
-      const s = contextParts[i];
-      phrases.push(s[0].toUpperCase() + s.slice(1) + ".");
-    } else {
-      phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
-    }
+    if (contextParts[i]) phrases.push(contextParts[i][0].toUpperCase() + contextParts[i].slice(1) + ".");
+    else phrases.push(`${(i % 2 === 0) ? generic : short}${qOrRound}.`);
   }
   if (contextParts[0]) phrases.push(`Tout ce contexte : ${contextParts[0]}.`);
   else phrases.push(`${short}.`);
@@ -264,23 +218,16 @@ function buildRappelPhrases(slots: Slots): string[] {
 /* ---------- Classification Intake ---------- */
 function classifyIntake(intakeRaw: string): IntakeKind {
   const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
-
-  // marqueurs physiques
   const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
   if (phys.test(s)) return "physique";
-
-  // marqueurs émotionnels
   const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
   if (emo.test(s)) return "emotion";
-
-  // sinon : situation/événement
   return "situation";
 }
 
-/* ---------- Exemples contextuels par zone corporelle (physique) ---------- */
+/* ---------- Hints localisation (physique) ---------- */
 function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
-
   const table: Array<[RegExp, string]> = [
     [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
     [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
@@ -295,40 +242,10 @@ function hintsForLocation(intakeRaw: string): string {
     [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
     [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
     [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"],
   ];
-
   for (const [rx, hint] of table) if (rx.test(s)) return hint;
   return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
-}
-
-/* ---------- Helpers sécurité & mode FAQ ---------- */
-
-// Filtre d’origine (CORS applicatif léger)
-function isAllowedOrigin(req: Request): boolean {
-  const origin = (req.headers.get("origin") || "").toLowerCase();
-  if (!origin) return true; // requêtes server-to-server ou tests
-  const allowed = new Set([
-    "https://ecole-eft-france.fr",
-    "https://www.ecole-eft-france.fr",
-    "http://localhost:3000",
-  ]);
-  return allowed.has(origin);
-}
-
-// Détecte les questions “générales” (FAQ) non guidées EFT
-function isGeneralInfoQuery(q: string): boolean {
-  const t = q.toLowerCase().trim();
-  if (!t) return false;
-  const rx = [
-    /\b(c['’]est\s+quoi|qu['’]est-ce\s+que)\s+l['’]?eft\b/,
-    /\bqu['’]?est[-\s]?ce\s+que\s+l['’]?eft\b/,
-    /\b(principe|histoire|origine|créateur|fondateur)\s+(de|de\s+l['’])\s*eft\b/,
-    /\bgary\s+craig\b/,
-    /\b(comment|pourquoi)\s+(pratiquer|fonctionne|marche)\s+l['’]?eft\b/,
-    /\bquelles?\s+différences?\s+entre\s+l['’]?eft\b/,
-  ];
-  return rx.some(r => r.test(t));
 }
 
 /* ---------- Safety patterns (in/out) ---------- */
@@ -368,7 +285,32 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
-/* ---------- SYSTEM (pour les étapes non déterministes) ---------- */
+/* ---------- Origine autorisée (prod + sous-domaines + vercel + localhost) ---------- */
+function isAllowedOrigin(req: Request): boolean {
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+  const oURL = new URL(origin);
+  const oHost = oURL.host.toLowerCase();
+  const selfOrigin = new URL(req.url).origin.toLowerCase();
+  if (origin.toLowerCase() === selfOrigin) return true;
+  const allowedRoots = ["ecole-eft-france.fr", "localhost:3000"];
+  if (allowedRoots.some(root => oHost === root || oHost.endsWith("." + root))) return true;
+  if (oHost.endsWith(".vercel.app")) return true;
+  return false;
+}
+
+/* ---------- Détection question FAQ ---------- */
+function isGeneralInfoQuery(q?: string): boolean {
+  if (!q) return false;
+  const t = clean(q).toLowerCase();
+  return (
+    /^qu['’]?est-ce\s+que\s+l['’]?eft\b/.test(t) ||
+    /^c['’]?est\s+quoi\s+l['’]?eft\b/.test(t) ||
+    /\b(gary\s+craig|histoire\s+de\s+l['’]?eft|comment\s+ça\s+marche|comment\s+fonctionne)\b/.test(t)
+  );
+}
+
+/* ---------- SYSTEM guidage ---------- */
 const SYSTEM = `
 Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
@@ -391,7 +333,6 @@ LANGAGE
 /* ---------- Handler ---------- */
 export async function POST(req: Request) {
   try {
-    // --- Contrôle d'origine (doit être dans la fonction) ---
     if (!isAllowedOrigin(req)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -406,13 +347,17 @@ export async function POST(req: Request) {
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
 
-    // 🔒 Garde ENTRANT (avant tout)
+    // 🔒 Garde ENTRANT
     if (prompt && isCrisis(prompt)) {
       return NextResponse.json({ answer: crisisMessage() });
     }
 
-    // --- Mode FAQ libre (si question générale et pas d'intake) ---
-    if (prompt && isGeneralInfoQuery(prompt) && !raw.slots?.intake) {
+    // --- Mode FAQ libre (prioritaire si question générale, même si slots.intake existe)
+    const looksLikeFAQ =
+      (prompt && isGeneralInfoQuery(prompt)) ||
+      (raw.slots?.intake && isGeneralInfoQuery(String(raw.slots.intake)));
+
+    if (looksLikeFAQ) {
       const SYSTEM_QA = `
 Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
 Réponds de façon claire, fidèle à l'EFT de Gary Craig (pas d'EFT "positive", pas d'inductions positives, pas de reprogrammation).
@@ -420,7 +365,7 @@ Rappelle que l'EFT ne remplace pas un avis médical. Pas de diagnostic, pas de p
 Style concis, bienveillant, pédagogique.`;
 
       const USER_QA = `Question de l'utilisateur (FAQ) :
-${prompt}
+${prompt || raw.slots?.intake || ""}
 
 Contraintes :
 - Rester centré sur l’EFT de Gary Craig.
@@ -465,18 +410,17 @@ Contraintes :
       if (answer2 && FORBIDDEN_OUTPUT.some(rx => rx.test(answer2))) {
         return NextResponse.json({ answer: crisisMessage() });
       }
-
       return NextResponse.json({ answer: answer2 });
     }
 
-    // ---- Flux guidé EFT ----
+    // --- Flux guidé
     const stage = (raw.stage as Stage) ?? "Intake";
     const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage);
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    /* ---------- Étape 1 : déterministe + écho + exemples adaptés ---------- */
+    /* Étape 1 : déterministe */
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -502,18 +446,17 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    /* ---------- Étape 5 : Setup (accord "lié/liée", émotions, contexte lisible) ---------- */
+    /* Étape 5 : Setup (émotions/physique/situation) */
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
 
-      // Branche ÉMOTION
+      // Émotion → forme naturelle
       if (isEmotionIntake(intakeOrig)) {
         const emo = parseEmotionPhrase(intakeOrig);
         let setupLine = "";
-        if (emo.mode === "adj") {
-          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
-        } else {
+        if (emo.mode === "adj") setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
+        else {
           const art = emo.article ?? emotionArticle(emo.text);
           setupLine = `Même si j’ai ${art} ${emo.text}, je m’accepte profondément et complètement.`;
         }
@@ -524,8 +467,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Sinon : PHYSIQUE ou SITUATION
-      // Séparer base & contexte si "lié(e) à" déjà présent
+      // Physique / Situation
       let base = aspectRaw;
       let ctx  = "";
       const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
@@ -535,18 +477,15 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
         ctx  = aspectRaw.slice(idx + m[0].length).trim();
       }
 
-      // Nettoyer "base"
       base = normalizeEmotionNoun(base)
         .replace(/^j['’]?\s*ai\s+/, "")
         .replace(/^je\s+/, "")
-        .replace(/^(ce|cette)\s+/i, "");
+        .replace(/^(ce|cette)\s+/i, "")
+        .trim();
 
       const kind = classifyIntake(intakeOrig || base);
-
-      // Contexte lisible avec la règle "parce que" (douleur -> "je...")
       const ctxPretty = ctx ? readableContext(ctx, kind) : "";
 
-      // Connecteur : pour "parce que / car / puisque" → pas de "lié(e) à"
       const g = detectGender(base);
       const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
       const connector = ctxPretty
@@ -555,7 +494,6 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
 
       const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
 
-      // Article ce/cette
       const article = emotionArticle(base);
 
       const txt =
@@ -565,7 +503,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 6 — ronde déterministe (personnalisée)
+    /* Étape 6 : ronde personnalisée */
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -583,7 +521,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 — clôture stable
+    /* Étape 8 : clôture stable */
     if (etape === 8) {
       const txt =
 "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
@@ -591,25 +529,26 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
     }
 
     /* ---------- Autres étapes : modèle (SYSTEM) ---------- */
+    const stage = (raw.stage as Stage) ?? "Intake";
     const USER_BLOCK =
 `[CONTEXTE]
-Étape demandée: ${etape}
+Étape demandée: ${Math.min(8, Math.max(1, Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage)))}
 Slots:
-- intake="${slots.intake ?? ""}"
-- duration="${slots.duration ?? ""}"
-- context="${slots.context ?? ""}"
-- sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
-- round=${Number.isFinite(slots.round) ? slots.round : "NA"}
-- aspect="${slots.aspect ?? ""}"
+- intake="${(raw.slots?.intake ?? "").toString()}"
+- duration="${(raw.slots?.duration ?? "").toString()}"
+- context="${(raw.slots?.context ?? "").toString()}"
+- sud=${Number.isFinite(raw.slots?.sud) ? raw.slots?.sud : "NA"}
+- round=${Number.isFinite(raw.slots?.round) ? raw.slots?.round : "NA"}
+- aspect="${(raw.slots?.aspect ?? "").toString()}"
 
 [DERNIER MESSAGE UTILISATEUR]
 ${prompt}
 
 [HISTORIQUE (court)]
-${transcript}
+${typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : ""}
 
 [INSTRUCTION]
-Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
+Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
@@ -627,9 +566,7 @@ Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
         max_output_tokens: 260,
       }),
       signal: controller.signal,
-    }).catch(() => {
-      throw new Error("Upstream error");
-    });
+    }).catch(() => { throw new Error("Upstream error"); });
     clearTimeout(timer);
 
     if (!res || !res.ok) {
@@ -649,8 +586,7 @@ Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
       /\bsuicid\w*/i,
       /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
     ];
-    const unsafeOut = answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer));
-    if (unsafeOut) {
+    if (answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer))) {
       return NextResponse.json({ answer: crisisMessage() });
     }
 
