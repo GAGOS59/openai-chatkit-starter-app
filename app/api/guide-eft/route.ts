@@ -364,15 +364,24 @@ export async function POST(req: Request) {
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
 
-    // CORS simple
-    const origin = (req.headers.get("origin") || "").toLowerCase();
-    const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr", "http://localhost:3000"];
-    if (origin && !allowed.includes(origin)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    // CORS sûr mais compatible Vercel preview
+const origin = (req.headers.get("origin") || "").toLowerCase();
+const ALLOWED_EXACT = new Set([
+  "https://ecole-eft-france.fr",
+  "https://www.ecole-eft-france.fr",
+  "http://localhost:3000",
+]);
 
-    const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
-    const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
+const isVercelPreview = /\.vercel\.app$/.test(origin); // autorise les déploiements vercel
+const isAllowed = !origin || ALLOWED_EXACT.has(origin) || isVercelPreview;
+
+if (!isAllowed) {
+  // On retourne un message lisible plutôt qu’un 403 qui créerait une bulle vide côté client
+  return NextResponse.json({
+    answer: "Accès refusé depuis cette origine. Ouvrez cette page depuis le site officiel de l’École EFT France.",
+  });
+}
+
 
     // 🔒 Entrant
     if (prompt && isCrisis(prompt)) {
