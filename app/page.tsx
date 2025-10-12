@@ -371,7 +371,7 @@ export default function Page() {
           />
         </div>
       </div>
-      
+      <p>Avis : soyez indulgent, il s'agit d'une version beta... mais je suis certaine qu'elle peut déjà vous aider.</p>
 
       {/* Chat */}
       <div ref={chatRef} className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm">
