@@ -522,7 +522,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
     // Étape 8 — clôture stable
     if (etape === 8) {
       const txt =
-"Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
+"Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Si tu souhaites travailler sur un nouveau sujet, rafraichis d'abord la page. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
