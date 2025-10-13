@@ -93,13 +93,16 @@ function isEmotionIntake(raw: string): boolean {
   return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
 }
 
+/** Article ce/cette selon le début du syntagme (gère "douleur au genou", "gêne à l'épaule", etc.) */
 function emotionArticle(noun: string): "ce" | "cette" {
-  const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
-  const fem = new Set([
-    "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude","douleur","gêne","gene","tension"
-  ]);
-  return fem.has(n) ? "cette" : "ce";
+  const n = clean(noun).toLowerCase();
+  // Féminins si le syntagme commence par l’un de ces mots
+  if (/^(peur|col[eè]re|tristesse|honte|culpabilit[eé]|anxi[ée]t[ée]|angoisse|inqui[èe]tude|douleur|gêne|gene|tension)\b/.test(n)) {
+    return "cette";
+  }
+  return "ce"; // ex. "mal au genou", "stress", "dégoût"
 }
+
 
 function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, article?: "ce"|"cette" } {
   const t = clean(raw);
