@@ -164,7 +164,7 @@ export default function Page() {
             who: "bot",
             text:
               "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
-              "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment ! " +
+              "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment ! " + <fr/>
               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
           setStage("Clôture");
