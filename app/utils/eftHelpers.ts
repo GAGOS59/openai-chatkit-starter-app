@@ -1,4 +1,4 @@
-// Helpers partagés pour API et client (pas de JSX ici !)
+// Helpers partagés pour API et client (pas de JSX, pas d'import React ici !)
 
 export function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
