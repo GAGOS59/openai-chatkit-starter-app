@@ -325,6 +325,7 @@ export async function POST(req: Request) {
     const ALLOWED_EXACT = new Set([
       "https://ecole-eft-france.fr",
       "https://www.ecole-eft-france.fr",
+      "https://appli.ecole-eft-france.fr",
       "http://localhost:3000",
     ]);
     const isVercelPreview = /\.vercel\.app$/.test(origin);
