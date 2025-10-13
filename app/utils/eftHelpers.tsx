@@ -31,7 +31,13 @@ export function normalizeIntake(input: string): string {
 }
 
 export function isMasculine(intake: string): boolean {
+  // Renvoie true si l’intake est au masculin (ex. "mal", "stress"), false sinon (ex. "douleur", "peur")
   return /^mal\b/i.test(intake);
+}
+
+// Helper pour choisir "ce" ou "cette" selon le genre
+export function getDemoWord(intake: string) {
+  return isMasculine(intake) ? "ce" : "cette";
 }
 
 export function normalizeContextForAspect(ctx: string): string {
