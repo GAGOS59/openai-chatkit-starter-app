@@ -326,7 +326,7 @@ export default function Page() {
       </a>
       <p className="text-sm text-gray-600 mt-2 text-center">
         Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
-        découvrez les formations proposées par l’École EFT France.
+        découvrez les formations proposées par <strong>l’École EFT France</strong>.
       </p>
     </div>
 
