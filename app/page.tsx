@@ -421,19 +421,32 @@ export default function Page() {
       </div>
 
       {/* Formulaire */}
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
-          placeholder="Sur quoi souhaitez-vous essayer l&apos;EFT…"
-          aria-label="Saisissez votre message pour l’assistante EFT"
-          disabled={loading}
-        />
-        <button type="submit" disabled={loading || !text.trim()} className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]">
-          {loading ? "Envoi..." : "Envoyer"}
-        </button>
-      </form>
+      <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2">
+  <div className="flex-1">
+    <input
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
+      placeholder="Sur quoi souhaitez-vous essayer l’EFT…"
+      aria-label="Saisissez votre message pour l’assistante EFT"
+      disabled={loading}
+    />
+    {(stage === "Évaluation" || stage === "Réévaluation") && (
+      <p className="text-sm text-gray-500 mt-1">
+        👉 Indiquez un nombre entre <strong>0</strong> et <strong>10</strong> pour évaluer l’intensité de votre ressenti.
+      </p>
+    )}
+  </div>
+
+  <button
+    type="submit"
+    disabled={loading || !text.trim()}
+    className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]"
+  >
+    {loading ? "Envoi..." : "Envoyer"}
+  </button>
+</form>
+
       {error && <div className="text-red-600 mt-2">{error}</div>}
 
       {/* CTA + Note */}
