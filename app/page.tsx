@@ -1,17 +1,14 @@
-<nav className="flex gap-4 justify-center mt-4 mb-6">
-  <a
-    href="/"
-    className="px-4 py-2 rounded font-semibold text-[#0f3d69] hover:bg-blue-50 border border-transparent hover:border-[#0f3d69] transition"
-  >
-    Guide interactif EFT
-  </a>
-  <a
-    href="/chat-libre"
-    className="px-4 py-2 rounded font-semibold text-[#0f3d69] hover:bg-blue-50 border border-transparent hover:border-[#0f3d69] transition"
-  >
-    Chat libre EFT officielle
-  </a>
-</nav>
+
+import NavTabs from "./components/NavTabs"; // ajuste le chemin si besoin
+
+export default function Page() {
+  return (
+    <>
+      <NavTabs />
+      {/* ...le reste du contenu... */}
+    </>
+  );
+}
 
 /* eslint-disable @next/next/no-img-element */
 "use client";
