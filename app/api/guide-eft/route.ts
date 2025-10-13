@@ -492,7 +492,10 @@ const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, "
   // Article ce/cette : féminins émotionnels, sinon masculin
  // Article ce/cette : corrige pour les émotions et les mots féminins
 const femWords = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i;
-const article = femWords.test(base) ? "cette" : "ce";
+const article = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i.test(base)
+  ? "cette"
+  : "ce";
+
 
 
   const txt =
