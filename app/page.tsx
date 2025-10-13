@@ -288,10 +288,12 @@ export default function Page() {
           setRows(r => [...r, {
             who: "bot",
             text:
-               "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-               "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-              "Si tu souhaites travailler sur un nouveau sujet, rafraichis d'abord la page.\n\n"
-               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+               text:
+  "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+  "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+  "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" + 
+  "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+
           }]);
           setStage("Clôture");
           setEtape(8);
@@ -312,10 +314,12 @@ export default function Page() {
         setRows(r => [...r, {
           who: "bot",
           text:
-            "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-               "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-              "Si tu souhaites travailler sur un nouveau sujet, rafraichis d'abord la page.\n\n"
-               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+            text:
+  "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+  "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+  "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+  "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+
         }]);
         setStage("Clôture");
         setEtape(8);
