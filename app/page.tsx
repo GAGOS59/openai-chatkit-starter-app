@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
-import NavTabs from "../components/NavTabs"; // ajuste le chemin si besoin
+import NavTabs from "./components/NavTabs"; // ajuste le chemin si besoin
 
 import {
   shortContext,
