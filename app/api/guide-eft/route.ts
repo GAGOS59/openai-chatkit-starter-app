@@ -373,12 +373,21 @@ export async function POST(req: Request) {
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
 
-    // CORS simple
-    const origin = (req.headers.get("origin") || "").toLowerCase();
-    const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr", "http://localhost:3000"];
-    if (origin && !allowed.includes(origin)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+ 
+    // CORS simple : prod + localhost + *preview vercel.app*
+const origin = (req.headers.get("origin") || "").toLowerCase();
+const isAllowedOrigin =
+  !origin ||
+  /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+  /^https:\/\/(www\.)?ecole-eft-france\.fr$/.test(origin) ||
+  /^https:\/\/.*\.vercel\.app$/.test(origin);
+
+if (!isAllowedOrigin) {
+  return NextResponse.json(
+    { answer: "Origine non autorisée (CORS)." }, // ← toujours un 'answer'
+    { status: 403 }
+  );
+}
 
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
@@ -410,7 +419,7 @@ export async function POST(req: Request) {
       clearTimeout(timer);
 
       if (!res || !res.ok) {
-        return NextResponse.json({ error: "Upstream failure" }, { status: 502 });
+return NextResponse.json({ answer: "Le service est temporairement indisponible (502)." }, { status: 502 });
       }
 
       const json = await res.json();
@@ -582,7 +591,7 @@ Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
     clearTimeout(timer);
 
     if (!res || !res.ok) {
-      return NextResponse.json({ error: "Upstream failure" }, { status: 502 });
+return NextResponse.json({ answer: "Le service est temporairement indisponible (502)." }, { status: 502 });
     }
 
     const json = await res.json();
