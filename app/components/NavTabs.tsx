@@ -4,8 +4,6 @@ import React from "react";
 
 export default function NavTabs() {
   const pathname = usePathname();
-
-  // Pour l’onglet principal, on considère aussi "/" ou "" comme actif
   const isGuide = pathname === "/" || pathname === "";
   const isChatLibre = pathname.startsWith("/chat-libre");
 
