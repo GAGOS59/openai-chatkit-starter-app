@@ -9,7 +9,7 @@ export default function NavTabs() {
 
   return (
     <nav className="flex gap-4 justify-center mt-4 mb-6">
-      <a
+      <link
         href="/"
         className={
           "px-4 py-2 rounded font-semibold transition " +
@@ -20,8 +20,8 @@ export default function NavTabs() {
         aria-current={isGuide ? "page" : undefined}
       >
         Guide interactif EFT
-      </a>
-      <a
+      </link>
+      <link
         href="/chat-libre"
         className={
           "px-4 py-2 rounded font-semibold transition " +
@@ -32,7 +32,7 @@ export default function NavTabs() {
         aria-current={isChatLibre ? "page" : undefined}
       >
         Chat libre EFT officielle
-      </a>
+      </link>
     </nav>
   );
 }
