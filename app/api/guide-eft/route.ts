@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { isCrisis, crisisMessage } from "../../utils/eftHelpers";
-
-// ...TON RESTE DE CODE, comme tu l'avais déjà, sans import JSX ou helpers du client...
-// (Pas de modification majeure requise ici, seulement l'import)
+import { isCrisis, crisisMessage, isMasculine } from "../../utils/eftHelpers";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -55,24 +52,18 @@ function clean(s: string): string {
   return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
 }
 
-/** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
-
   const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
-
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
-
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
-
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
-
   return s;
 }
 
@@ -86,7 +77,8 @@ function splitContext(ctx: string): string[] {
 
 function detectGender(intakeRaw: string): "m" | "f" {
   const s = clean(intakeRaw).toLowerCase();
-  if (s.startsWith("mal") || s.startsWith("serrement") || s.startsWith("truc")) return "m";
+  // Utilisation possible de isMasculine ici aussi
+  if (isMasculine(s)) return "m";
   if (
     s.startsWith("douleur") || s.startsWith("peur") || s.startsWith("gêne") || s.startsWith("gene") ||
     s.startsWith("tension") || s.startsWith("colère") || s.startsWith("colere") ||
@@ -95,14 +87,12 @@ function detectGender(intakeRaw: string): "m" | "f" {
   return "f";
 }
 
-/** Émotion ? (forme “je suis …” ou nom d’émotion) */
 function isEmotionIntake(raw: string): boolean {
   const t = clean(raw).toLowerCase();
   if (/^je\s+suis\b/i.test(t)) return true;
   return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
 }
 
-/** Article ce/cette selon racine */
 function emotionArticle(noun: string): "ce" | "cette" {
   const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
   const fem = new Set([
@@ -111,7 +101,6 @@ function emotionArticle(noun: string): "ce" | "cette" {
   return fem.has(n) ? "cette" : "ce";
 }
 
-/** “je suis X” → {mode:"adj",text:"X"} ; “tristesse” / “peur de …” → {mode:"noun",text:"…"} */
 function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, article?: "ce"|"cette" } {
   const t = clean(raw);
 
@@ -128,7 +117,6 @@ function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, ar
   return { mode: "noun", text: noun, article: emotionArticle(noun) };
 }
 
-/** Normalise une tournure émotionnelle vers un nom — conserve les compléments (“peur de …”) */
 function normalizeEmotionNoun(s: string): string {
   const raw = clean(s);
   const t = raw.toLowerCase();
@@ -161,7 +149,6 @@ function normalizeEmotionNoun(s: string): string {
 
 type IntakeKind = "physique" | "emotion" | "situation";
 
-/** Rend un contexte lisible (“parce que …” pour douleurs sinon “au fait que …”) */
 function readableContext(ctx: string, kind?: IntakeKind): string {
   let c = clean(ctx);
   if (!c) return "";
@@ -200,7 +187,6 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
   const intakePrim = clean(normalizeIntake(_raw));
   const intake = clean(normalizeEmotionNoun(intakePrim));
-
   const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) {
     return { generic: "Ce " + intake, short: "Ce " + intake, g };
@@ -246,7 +232,6 @@ function buildRappelPhrases(slots: Slots): string[] {
   return phrases.slice(0, 8);
 }
 
-/* ---------- Classification Intake ---------- */
 function classifyIntake(intakeRaw: string): IntakeKind {
   const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
 
@@ -259,7 +244,6 @@ function classifyIntake(intakeRaw: string): IntakeKind {
   return "situation";
 }
 
-/* ---------- Exemples contextuels (physique) ---------- */
 function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
 
@@ -283,8 +267,6 @@ function hintsForLocation(intakeRaw: string): string {
   for (const [rx, hint] of table) if (rx.test(s)) return hint;
   return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
 }
-
-
 
 /* ---------- SYSTEM (pour les étapes non déterministes) ---------- */
 const SYSTEM = `
@@ -333,24 +315,26 @@ export async function POST(req: Request) {
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
 
+    // Parse le body JSON pour extraire prompt et raw
+    const body = await req.json().catch(() => ({}));
+    const raw = body as GuideRequest;
+    const prompt = typeof raw.prompt === "string" ? raw.prompt : "";
+
     // CORS sûr mais compatible Vercel preview
-const origin = (req.headers.get("origin") || "").toLowerCase();
-const ALLOWED_EXACT = new Set([
-  "https://ecole-eft-france.fr",
-  "https://www.ecole-eft-france.fr",
-  "http://localhost:3000",
-]);
+    const origin = (req.headers.get("origin") || "").toLowerCase();
+    const ALLOWED_EXACT = new Set([
+      "https://ecole-eft-france.fr",
+      "https://www.ecole-eft-france.fr",
+      "http://localhost:3000",
+    ]);
+    const isVercelPreview = /\.vercel\.app$/.test(origin);
+    const isAllowed = !origin || ALLOWED_EXACT.has(origin) || isVercelPreview;
 
-const isVercelPreview = /\.vercel\.app$/.test(origin); // autorise les déploiements vercel
-const isAllowed = !origin || ALLOWED_EXACT.has(origin) || isVercelPreview;
-
-if (!isAllowed) {
-  // On retourne un message lisible plutôt qu’un 403 qui créerait une bulle vide côté client
-  return NextResponse.json({
-    answer: "Accès refusé depuis cette origine. Ouvrez cette page depuis le site officiel de l’École EFT France.",
-  });
-}
-
+    if (!isAllowed) {
+      return NextResponse.json({
+        answer: "Accès refusé depuis cette origine. Ouvrez cette page depuis le site officiel de l’École EFT France.",
+      });
+    }
 
     // 🔒 Entrant
     if (prompt && isCrisis(prompt)) {
@@ -563,7 +547,6 @@ Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
 
     // 🔒 Sortant
     const FORBIDDEN_OUTPUT: RegExp[] = [
-      ...CRISIS_PATTERNS,
       /\bsuicid\w*/i,
       /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
     ];
