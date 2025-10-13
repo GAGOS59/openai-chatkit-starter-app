@@ -69,11 +69,9 @@ function normalizeIntake(input: string): string {
 
 /** Masculin/féminin minimal pour la petite liaison quand on construit l’aspect */
 function isMasculine(intake: string): boolean {
-  // on traite « mal … » comme masculin ; « douleur/peur/gêne/tension » comme féminin
   const t = intake.toLowerCase().trim();
   if (t.startsWith("mal ")) return true;
   if (/^(douleur|peur|gêne|gene|tension)\b/i.test(t)) return false;
-  // défaut : masculin
   return true;
 }
 
@@ -100,7 +98,6 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   return `${intake} ${liaison} ${cleaned}`;
 }
 
-
 /** Rendu de texte avec listes et paragraphes simples */
 function renderPretty(s: string) {
   const paragraphs = s.split(/\n\s*\n/);
@@ -120,30 +117,39 @@ function renderPretty(s: string) {
     </div>
   );
 }
+
+/** Extrait la phrase cœur du setup (entre « … » si présent ; sinon première phrase "Même si ...") */
+function extractCoreSetup(text: string): string {
+  const inQuotes = text.match(/«\s*([^»]+)\s*»/);
+  if (inQuotes) return clean(inQuotes[1]);
+  const memeSi = text.match(/(Même\s+si|Meme\s+si)[^.!\n]+/i);
+  if (memeSi) return clean(memeSi[0]);
+  return clean(text.split(/\n/)[0]);
+}
+
 /** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
 
-  // 1) Enlever tous les en-têtes "Étape N —" s'ils apparaissent (début de lignes)
+  // 1) Enlever tous les en-têtes "Étape N —" (début de ligne)
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
 
-  // 2) Enlever "Setup :" en début de ligne (au cas où)
+  // 2) Enlever "Setup :" au début de ligne
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
 
-  // 3) Habillage gentil du Setup
   if (stage === "Setup") {
-    // On garde la phrase centrale telle quelle, mais on encadre joliment
-    // Sans doubler les guillemets si déjà là
-    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-    t =
-      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
-      `« ${core} »\n` +
-      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
+    const core = extractCoreSetup(t);
+    // On remplace tout le bloc par notre formulation claire
+    return [
+      "Reste bien connecté·e à ton ressenti et dis à voix haute :",
+      `« ${core} »`,
+      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois."
+    ].join("\n");
   }
 
+  // 3) Pour les autres étapes : on renvoie le texte nettoyé tel quel
   return t;
 }
-
 
 /* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
@@ -313,23 +319,21 @@ export default function Page() {
           setRows(r => [...r, {
             who: "bot",
             text:
-            
-  "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-  "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-  "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" + 
-  "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
-
+              "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+              "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+              "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+              "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
           setStage("Clôture");
           setEtape(8);
           setLoading(false);
           return;
         } else {
-  const nextRound = (updated.round ?? 1) + 1;
-  updated.round = nextRound;
-  setSlots(s => ({ ...s, round: nextRound }));
-  stageForAPI = "Setup";      etapeForAPI = 5;   // ← on repasse par Setup ajusté
-}
+          const nextRound = (updated.round ?? 1) + 1;
+          updated.round = nextRound;
+          setSlots(s => ({ ...s, round: nextRound }));
+          stageForAPI = "Setup";      etapeForAPI = 5;   // ← repasser par Setup ajusté
+        }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
       }
@@ -339,23 +343,21 @@ export default function Page() {
         setRows(r => [...r, {
           who: "bot",
           text:
-          
-  "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-  "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-  "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
-  "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
-
+            "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
         setStage("Clôture");
         setEtape(8);
         setLoading(false);
         return;
       } else if (updated.sud > 0) {
-  const nextRound = (updated.round ?? 1) + 1;
-  updated.round = nextRound;
-  setSlots(s => ({ ...s, round: nextRound }));
-  stageForAPI = "Setup";        etapeForAPI = 5; // ← on repasse par Setup ajusté
-}
+        const nextRound = (updated.round ?? 1) + 1;
+        updated.round = nextRound;
+        setSlots(s => ({ ...s, round: nextRound }));
+        stageForAPI = "Setup";        etapeForAPI = 5; // ← repasser par Setup ajusté
+      }
     }
 
     const transcriptShort = rows
@@ -406,8 +408,7 @@ export default function Page() {
     }
 
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
-setRows(r => [...r, { who: "bot", text: cleaned }]);
-
+    setRows(r => [...r, { who: "bot", text: cleaned }]);
 
     // Avancer localement
     if (stageForAPI === "Intake" && etapeForAPI === 1) {
@@ -455,30 +456,30 @@ setRows(r => [...r, { who: "bot", text: cleaned }]);
 
       {/* Formulaire */}
       <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2">
-  <div className="flex-1">
-    <input
-      value={text}
-      onChange={(e) => setText(e.target.value)}
-      className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
-      placeholder="Sur quoi souhaitez-vous essayer l’EFT…"
-      aria-label="Saisissez votre message pour l’assistante EFT"
-      disabled={loading}
-    />
-    {(stage === "Évaluation" || stage === "Réévaluation") && (
-      <p className="text-sm text-gray-500 mt-1">
-        👉 Indiquez un nombre entre <strong>0</strong> et <strong>10</strong> pour évaluer l’intensité de votre ressenti.
-      </p>
-    )}
-  </div>
+        <div className="flex-1">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
+            placeholder="Sur quoi souhaitez-vous essayer l’EFT…"
+            aria-label="Saisissez votre message pour l’assistante EFT"
+            disabled={loading}
+          />
+          {(stage === "Évaluation" || stage === "Réévaluation") && (
+            <p className="text-sm text-gray-500 mt-1">
+              👉 Indiquez un nombre entre <strong>0</strong> et <strong>10</strong> pour évaluer l’intensité de votre ressenti.
+            </p>
+          )}
+        </div>
 
-  <button
-    type="submit"
-    disabled={loading || !text.trim()}
-    className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]"
-  >
-    {loading ? "Envoi..." : "Envoyer"}
-  </button>
-</form>
+        <button
+          type="submit"
+          disabled={loading || !text.trim()}
+          className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]"
+        >
+          {loading ? "Envoi..." : "Envoyer"}
+        </button>
+      </form>
 
       {error && <div className="text-red-600 mt-2">{error}</div>}
 
