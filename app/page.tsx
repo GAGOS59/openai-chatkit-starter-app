@@ -1,19 +1,8 @@
 "use client";
-import React, { useRef, useState, useEffect, FormEvent } from "react";
-import NavTabs from "./components/NavTabs";
-
-import {
-  shortContext,
-  parseSUD,
-  normalizeIntake,
-  isMasculine,
-  getDemoWord,
-  normalizeContextForAspect,
-  buildAspect,
-  isCrisis,
-  crisisMessage,
-} from "./utils/eftHelpers";
-import { renderPretty } from "./utils/eftHelpers.client";
+import React, { useState, useRef, useEffect } from "react";
+import { renderPretty } from "../utils/eftHelpers.client";
+import { isCrisis, crisisMessage } from "../utils/eftHelpers";
+// ...le reste de ton code...
 
 /* eslint-disable @next/next/no-img-element */
 
