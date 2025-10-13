@@ -1,4 +1,5 @@
-
+"use client";
+import React, { useRef, useState, useEffect, FormEvent } from "react";
 import NavTabs from "../components/NavTabs"; // ajuste le chemin si besoin
 
 export default function Page() {
@@ -11,8 +12,7 @@ export default function Page() {
 }
 
 /* eslint-disable @next/next/no-img-element */
-"use client";
-import React, { useRef, useState, useEffect, FormEvent } from "react";
+
 import {
   shortContext,
   parseSUD,
