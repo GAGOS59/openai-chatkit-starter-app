@@ -492,22 +492,20 @@ const connector = ctxPretty
 // Assemblage propre (évite doubles espaces)
 const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
 
-
-  // Article ce/cette : féminins émotionnels, sinon masculin
- // Article ce/cette : corrige pour les émotions et les mots féminins
+// Article ce/cette : corrige pour les émotions et les mots féminins
 const femWords = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i;
-const article = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i.test(base)
-  ? "cette"
-  : "ce";
+const article = femWords.test(base) ? "cette" : "ce";
 
+// ✅ Nouveau : ajout du qualificatif d’intensité selon le SUD
+const qual = sudQualifierFromNumber(slots.sud, g);
 
-
-  const txt =
-`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
+const txt =
+`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}${qual}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-  return NextResponse.json({ answer: txt });
-}
+
+return NextResponse.json({ answer: txt });
+
 
 
     // Étape 6 — ronde déterministe (personnalisée)
