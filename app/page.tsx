@@ -405,7 +405,9 @@ export default function Page() {
       return;
     }
 
-    setRows(r => [...r, { who: "bot", text: answer }]);
+    const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
+setRows(r => [...r, { who: "bot", text: cleaned }]);
+
 
     // Avancer localement
     if (stageForAPI === "Intake" && etapeForAPI === 1) {
