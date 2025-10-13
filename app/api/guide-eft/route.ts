@@ -431,81 +431,74 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    /* ---------- Étape 5 : Setup (accord "lié/liée", émotions, contexte lisible) ---------- */
-if (etape === 5) {
-  const intakeOrig = clean(slots.intake ?? "");
-  const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+       /* ---------- Étape 5 : Setup (ajusté selon le SUD) ---------- */
+    if (etape === 5) {
+      const intakeOrig = clean(slots.intake ?? "");
+      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
 
-  // Branche ÉMOTION (inchangée, mais garantit une belle forme)
-  if (isEmotionIntake(intakeOrig)) {
-  const emo = parseEmotionPhrase(intakeOrig);
-  let setupLine = "";
-  if (emo.mode === "adj") {
-    // On garde simple pour l’adjectif (pas de qualificateur pour éviter les lourdeurs)
-    setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
-  } else {
-    const art = emo.article ?? emotionArticle(emo.text);
-    const gEmo: "m"|"f" = (art === "cette") ? "f" : "m";
-    const qual = sudQualifierFromNumber(slots.sud, gEmo);
-    setupLine = `Même si j’ai ${art} ${emo.text}${qual}, je m’accepte profondément et complètement.`;
-  }
-  const txt =
+      // === BRANCHE ÉMOTION ===
+      if (isEmotionIntake(intakeOrig)) {
+        const emo = parseEmotionPhrase(intakeOrig);
+        let setupLine = "";
+        if (emo.mode === "adj") {
+          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
+        } else {
+          const art = emo.article ?? emotionArticle(emo.text);
+          const gEmo: "m" | "f" = (art === "cette") ? "f" : "m";
+          const qual = sudQualifierFromNumber(slots.sud, gEmo);
+          setupLine = `Même si j’ai ${art} ${emo.text}${qual}, je m’accepte profondément et complètement.`;
+        }
+        const txt =
 `Étape 5 — Setup : « ${setupLine} »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-  return NextResponse.json({ answer: txt });
-}
+        return NextResponse.json({ answer: txt });
+      }
 
+      // === BRANCHE PHYSIQUE / SITUATION ===
+      // Séparer base & contexte si "lié(e) à" déjà présent
+      let base = aspectRaw;
+      let ctx  = "";
+      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+      if (m) {
+        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+        base = aspectRaw.slice(0, idx).trim();
+        ctx  = aspectRaw.slice(idx + m[0].length).trim();
+      }
 
-  // Sinon : PHYSIQUE ou SITUATION
-  // Séparer base & contexte si "lié(e) à" déjà présent
-  let base = aspectRaw;
-  let ctx  = "";
-  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-  if (m) {
-    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-    base = aspectRaw.slice(0, idx).trim();
-    ctx  = aspectRaw.slice(idx + m[0].length).trim();
-  }
+      // Nettoyer "base"
+      base = normalizeEmotionNoun(base)
+        .replace(/^j['’]?\s*ai\s+/, "")
+        .replace(/^je\s+/, "")
+        .replace(/^(ce|cette)\s+/i, "");
 
-  // Nettoyer "base"
-  base = normalizeEmotionNoun(base)
-    .replace(/^j['’]?\s*ai\s+/, "")
-    .replace(/^je\s+/, "")
-    .replace(/^(ce|cette)\s+/i, "");
+      const kind = classifyIntake(intakeOrig || base);
+      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
 
-  const kind = classifyIntake(intakeOrig || base);
+      // Pour douleurs : si ctxPretty commence par "parce que / car / puisque", on ne met PAS "lié(e) à"
+      const g = detectGender(base);
+      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+      const connector = ctxPretty
+        ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à "))
+        : "";
 
-  // Contexte lisible avec la règle "parce que" (douleur -> "je...")
-  const ctxPretty = ctx ? readableContext(ctx, kind) : "";
+      // Assemblage propre (évite doubles espaces)
+      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
 
-  // Pour douleurs : si ctxPretty commence par "parce que / car / puisque", on ne met PAS "lié(e) à"
-// Pour le reste : on garde "lié/liée à"
-const g = detectGender(base);
-const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+      // Article ce/cette
+      const femWords = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i;
+      const article = femWords.test(base) ? "cette" : "ce";
 
-// Connecteur : soit rien (si "parce que/car/puisque"), soit "liée/lié à"
-const connector = ctxPretty
-  ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à "))
-  : "";
+      // ✅ Ajout du qualificatif SUD dynamique
+      const qual = sudQualifierFromNumber(slots.sud, g);
 
-// Assemblage propre (évite doubles espaces)
-const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
-
-// Article ce/cette : corrige pour les émotions et les mots féminins
-const femWords = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i;
-const article = femWords.test(base) ? "cette" : "ce";
-
-// ✅ Nouveau : ajout du qualificatif d’intensité selon le SUD
-const qual = sudQualifierFromNumber(slots.sud, g);
-
-const txt =
+      const txt =
 `Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}${qual}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
 
-return NextResponse.json({ answer: txt });
-
+      return NextResponse.json({ answer: txt });
+    }
 
 
     // Étape 6 — ronde déterministe (personnalisée)
