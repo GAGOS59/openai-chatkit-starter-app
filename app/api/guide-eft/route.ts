@@ -387,7 +387,7 @@ export async function POST(req: Request) {
 
     // CORS (autoriser tes domaines)
     const origin = (req.headers.get("origin") || "").toLowerCase();
-    const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr", "http://localhost:3000"];
+    const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr","https://appli.ecole-eft-france.fr/", "http://localhost:3000"];
     if (origin && !allowed.includes(origin)) {
       return NextResponse.json(
         { answer: "Accès refusé depuis cet origine." },
