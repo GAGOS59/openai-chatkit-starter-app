@@ -288,7 +288,7 @@ export default function Page() {
           setRows(r => [...r, {
             who: "bot",
             text:
-               text:
+            
   "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
   "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
   "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" + 
@@ -314,7 +314,7 @@ export default function Page() {
         setRows(r => [...r, {
           who: "bot",
           text:
-            text:
+          
   "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
   "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
   "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
