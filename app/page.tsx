@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
-import NavTabs from "./components/NavTabs"; // ajuste le chemin si besoin
+import NavTabs from "./components/NavTabs";
 
 import {
   shortContext,
@@ -14,16 +14,6 @@ import {
   crisisMessage,
 } from "./utils/eftHelpers";
 import { renderPretty } from "./utils/eftHelpers.client";
-
-
-export default function Page() {
-  return (
-    <>
-      <NavTabs />
-      {/* ...le reste du contenu... */}
-    </>
-  );
-}
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -200,8 +190,8 @@ export default function Page() {
         setRows(r => [...r, {
           who: "bot",
           text:
-            "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. " +
-            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment ! " +
+            "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
             "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
         setStage("Clôture");
@@ -276,111 +266,112 @@ export default function Page() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-6">
-      {/* Bandeau */}
-      <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
-            <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
-            <p className="text-sm mt-1 opacity-90">
-              Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
-            </p>
-          </div>
-          <img
-            src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
-            alt="Logo École EFT France"
-            className="h-10 w-auto"
-          />
-        </div>
-      </div>
-
-      {/* Chat */}
-      <div ref={chatRef} className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="space-y-3">
-          {rows.map((r, i) => (
-            <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
-              <div className={(r.who === "bot" ? "bg-gray-50 text-gray-900 border-gray-200" : "bg-blue-50 text-blue-900 border-blue-200") + " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"}>
-                {renderPretty(r.text)}
-              </div>
+    <>
+      <NavTabs />
+      <main className="mx-auto max-w-3xl p-6 space-y-6">
+        {/* Bandeau */}
+        <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
+              <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
+              <p className="text-sm mt-1 opacity-90">
+                Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
+              </p>
             </div>
-          ))}
+            <img
+              src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
+              alt="Logo École EFT France"
+              className="h-10 w-auto"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Formulaire */}
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
-          placeholder="Sur quoi souhaitez-vous essayer l&apos;EFT…"
-          aria-label="Saisissez votre message pour l’assistante EFT"
-          disabled={loading}
-        />
-        <button type="submit" disabled={loading || !text.trim()} className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]">
-          {loading ? "Envoi..." : "Envoyer"}
-        </button>
-      </form>
-      {error && <div className="text-red-600 mt-2">{error}</div>}
+        {/* Chat */}
+        <div ref={chatRef} className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm">
+          <div className="space-y-3">
+            {rows.map((r, i) => (
+              <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
+                <div className={(r.who === "bot" ? "bg-gray-50 text-gray-900 border-gray-200" : "bg-blue-50 text-blue-900 border-blue-200") + " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"}>
+                  {renderPretty(r.text)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-  
-      {/* CTA + Note */}
-<div className="mt-6">
-  <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-    {/* Colonne gauche */}
-    <div className="flex-1 flex flex-col items-center">
-      <a
-        href="https://ecole-eft-france.fr/pages/formations-eft.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-      >
-        Découvrir nos formations
-      </a>
-      <p className="text-sm text-gray-600 mt-2 text-center">
-        Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
-        découvrez les formations proposées par <strong>l’École EFT France</strong>.
-      </p>
-    </div>
+        {/* Formulaire */}
+        <form onSubmit={onSubmit} className="flex gap-2">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
+            placeholder="Sur quoi souhaitez-vous essayer l&apos;EFT…"
+            aria-label="Saisissez votre message pour l’assistante EFT"
+            disabled={loading}
+          />
+          <button type="submit" disabled={loading || !text.trim()} className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]">
+            {loading ? "Envoi..." : "Envoyer"}
+          </button>
+        </form>
+        {error && <div className="text-red-600 mt-2">{error}</div>}
 
-    {/* Trait vertical */}
-    <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
-    {/* Sur mobile, pas de trait vertical */}
+        {/* CTA + Note */}
+        <div className="mt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+            {/* Colonne gauche */}
+            <div className="flex-1 flex flex-col items-center">
+              <a
+                href="https://ecole-eft-france.fr/pages/formations-eft.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              >
+                Découvrir nos formations
+              </a>
+              <p className="text-sm text-gray-600 mt-2 text-center">
+                Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
+                découvrez les formations proposées par <strong>l’École EFT France</strong>.
+              </p>
+            </div>
 
-    {/* Colonne droite */}
-    <div className="flex-1 flex flex-col items-center">
-      <span className="block text-gray-700 text-center mb-2">
-        Pour en apprendre plus sur l’EFT,<br />
-        retrouvez-moi sur le site <strong>Technique-EFT.com</strong>
-      </span>
-      <a
-        href="https://technique-eft.com/"
-        target="_blank"
-        rel="noopener noreferrer"
+            {/* Trait vertical */}
+            <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
+            {/* Sur mobile, pas de trait vertical */}
+
+            {/* Colonne droite */}
+            <div className="flex-1 flex flex-col items-center">
+              <span className="block text-gray-700 text-center mb-2">
+                Pour en apprendre plus sur l’EFT,<br />
+                retrouvez-moi sur le site <strong>Technique-EFT.com</strong>
+              </span>
+              <a
+                href="https://technique-eft.com/"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              >
+                En savoir plus sur l’EFT
+              </a>
+            </div>
+          </div>
+        </div>
 
-      >
-        En savoir plus sur l’EFT
-      </a>
-    </div>
-  </div>
-</div>
-
-      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
-        <strong className="block mb-1">Note de prudence</strong>
-        <p className="text-sm leading-relaxed">
-          Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
-          psychologique ou professionnel.<br />
-          L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
-          des informations ou protocoles présentés.<br />
-          Chaque utilisateur reste responsable de sa pratique et de ses choix.
-          <br /><br />
-          <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
-          Mais comme pour tout ce qui transite par Internet, nous vous invitons à rester prudents et à ne pas divulguer des éléments très personnels.
-        </p>
-        <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
-      </div>
-    </main>
+        <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
+          <strong className="block mb-1">Note de prudence</strong>
+          <p className="text-sm leading-relaxed">
+            Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
+            psychologique ou professionnel.<br />
+            L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
+            des informations ou protocoles présentés.<br />
+            Chaque utilisateur reste responsable de sa pratique et de ses choix.
+            <br /><br />
+            <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
+            Mais comme pour tout ce qui transite par Internet, nous vous invitons à rester prudents et à ne pas divulguer des éléments très personnels.
+          </p>
+          <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
+        </div>
+      </main>
+    </>
   );
 }
