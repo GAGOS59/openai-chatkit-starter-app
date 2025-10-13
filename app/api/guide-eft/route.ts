@@ -51,34 +51,26 @@ function clean(s: string): string {
   return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
 }
 
-/** Nettoyage automatique du texte avant envoi à l’utilisateur (supprime “Étape X —”, “Setup :”, etc.) */
-function cleanAnswer(s: string): string {
-  if (!s) return s;
-  return s
-    // “Étape X — …” / “Etape X - …”
-    .replace(/^\s*É?tape\s*\d+\s*[—\-:]\s*/gmi, "")
-    // “Setup :”, “Évaluation :”, “Réévaluation :”, “Clôture :”
-    .replace(/^\s*(Setup|Évaluation|Re?évaluation|Clôture)\s*[:：–-]\s*/gmi, "")
-    // Doubles/triples sauts de ligne
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
 /** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
 
-  const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  // j'ai mal à/au/aux/à la/à l'...
+  const mMal =
+    s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
 
+  // j'ai une/la douleur ...
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
 
+  // j'ai (une/la) peur ..., j'ai peur ...
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
 
+  // j'ai (une/la) tension|gêne|gene ...
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
 
@@ -115,7 +107,8 @@ function isEmotionIntake(raw: string): boolean {
 function emotionArticle(noun: string): "ce" | "cette" {
   const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
   const fem = new Set([
-    "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude","douleur","gêne","gene","tension"
+    "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude",
+    "douleur","gêne","gene","tension"
   ]);
   return fem.has(n) ? "cette" : "ce";
 }
@@ -168,7 +161,48 @@ function normalizeEmotionNoun(s: string): string {
   return raw;
 }
 
+/* ---------- Classification Intake & aides ---------- */
 type IntakeKind = "physique" | "emotion" | "situation";
+
+/** Classe l’intake en douleur/symptôme physique, émotion ou situation. */
+function classifyIntake(intakeRaw: string): IntakeKind {
+  const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
+
+  // marqueurs physiques
+  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
+  if (phys.test(s)) return "physique";
+
+  // marqueurs émotionnels
+  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
+  if (emo.test(s)) return "emotion";
+
+  return "situation";
+}
+
+/** Donne des exemples de précision selon la zone (utilisé à l’étape 1 pour les douleurs). */
+function hintsForLocation(intakeRaw: string): string {
+  const s = clean(intakeRaw).toLowerCase();
+
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
+  ];
+
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
+}
 
 /** Rend un contexte lisible (“parce que …” pour douleurs sinon “au fait que …”) */
 function readableContext(ctx: string, kind?: IntakeKind): string {
@@ -198,22 +232,12 @@ function readableContext(ctx: string, kind?: IntakeKind): string {
   return c;
 }
 
-/** Qualificatif SUD pour noms (présent/présente, très, vraiment très…) */
 function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   if (typeof sud !== "number" || sud === 0) return "";
   if (sud >= 9) return g === "m" ? " vraiment très présent" : " vraiment très présente";
   if (sud >= 7) return g === "m" ? " très présent" : " très présente";
   if (sud >= 4) return g === "m" ? " encore présent" : " encore présente";
   return " qui reste encore un peu";
-}
-
-/** Adverbe SUD pour adjectifs (“je suis …”) */
-function sudAdverbForAdj(sud?: number): string {
-  if (typeof sud !== "number" || sud === 0) return "";
-  if (sud >= 9) return "vraiment très ";
-  if (sud >= 7) return "très ";
-  if (sud >= 4) return "encore ";
-  return "";
 }
 
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
@@ -322,48 +346,22 @@ LANGAGE
 - Commencer par "Étape {N} — ".
 `;
 
-/* ---------- Classification Intake & aides ---------- */
-type IntakeKind = "physique" | "emotion" | "situation";
-
-/** Classe l’intake en douleur/symptôme physique, émotion ou situation. */
-function classifyIntake(intakeRaw: string): IntakeKind {
-  const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
-
-  // marqueurs physiques
-  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
-  if (phys.test(s)) return "physique";
-
-  // marqueurs émotionnels
-  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
-  if (emo.test(s)) return "emotion";
-
-  return "situation";
+/* ---------- FAQ stricte EFT ---------- */
+function looksLikeFAQ(q: string): boolean {
+  const t = clean(q).toLowerCase();
+  if (!t) return false;
+  if (/[?]$/.test(t)) return true;
+  if (/^(qu['’]?est-ce\s+que|c['’]?est\s+quoi|comment\s+(?:faire|pratiquer|fonctionne)|qui\s+est\s+gary\s+craig|histoire\s+de\s+l['’]eft|contre-?indications?|formation|certification)/i.test(t)) return true;
+  if (!/(mal|douleur|peur|col[eè]re|tristesse|honte|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)/i.test(t)
+      && /(eft|technique|méthode|principe|définition)/i.test(t)) return true;
+  return false;
 }
 
-/** Donne des exemples de précision selon la zone (utilisé à l’étape 1 pour les douleurs). */
-function hintsForLocation(intakeRaw: string): string {
-  const s = clean(intakeRaw).toLowerCase();
-
-  const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
-    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
-  ];
-
-  for (const [rx, hint] of table) if (rx.test(s)) return hint;
-  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
-}
+const FAQ_SYSTEM = `
+Tu réponds en français, brièvement (4–8 lignes), style clair et bienveillant.
+Tu parles UNIQUEMENT de l'EFT classique de Gary Craig (pas d'EFT positive, pas d'inductions positives).
+Pas de promesses de résultat, pas de diagnostic, pas de conseils médicaux. Pas de recherche Internet.
+`;
 
 /* ---------- Handler ---------- */
 export async function POST(req: Request) {
@@ -375,6 +373,13 @@ export async function POST(req: Request) {
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
 
+    // CORS simple
+    const origin = (req.headers.get("origin") || "").toLowerCase();
+    const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr", "http://localhost:3000"];
+    if (origin && !allowed.includes(origin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
 
@@ -383,13 +388,52 @@ export async function POST(req: Request) {
       return NextResponse.json({ answer: crisisMessage() });
     }
 
+    // ------ Branche FAQ ------
+    if (prompt && looksLikeFAQ(prompt)) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          input: `${FAQ_SYSTEM}\nQuestion: ${prompt}\nRéponse:`,
+          temperature: 0.2,
+          max_output_tokens: 260,
+        }),
+        signal: controller.signal,
+      }).catch(() => { throw new Error("Upstream error"); });
+      clearTimeout(timer);
+
+      if (!res || !res.ok) {
+        return NextResponse.json({ error: "Upstream failure" }, { status: 502 });
+      }
+
+      const json = await res.json();
+      const answer =
+        (json?.output?.[0]?.content?.[0]?.text) ??
+        (json?.choices?.[0]?.message?.content) ??
+        (json?.content?.[0]?.text) ??
+        "";
+
+      if (answer && isCrisis(answer)) {
+        return NextResponse.json({ answer: crisisMessage() });
+      }
+      return NextResponse.json({ answer });
+    }
+
+    // ------ Flux guidé EFT ------
     const stage = (raw.stage as Stage) ?? "Intake";
     const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage);
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    /* ---------- Étape 1 : déterministe ---------- */
+    // Étape 1
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -400,50 +444,41 @@ export async function POST(req: Request) {
         const txt =
 `Étape 1 — Tu dis « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
 et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
-        return NextResponse.json({ answer: cleanAnswer(txt) });
+        return NextResponse.json({ answer: txt });
       }
 
       if (kind === "emotion") {
         const txt =
 `Étape 1 — Tu dis « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
 Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
-        return NextResponse.json({ answer: cleanAnswer(txt) });
+        return NextResponse.json({ answer: txt });
       }
 
       const txt =
 `Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
-      return NextResponse.json({ answer: cleanAnswer(txt) });
+      return NextResponse.json({ answer: txt });
     }
 
-    /* ---------- Étape 5 : Setup (ajusté avec SUD + phrase “reste connecté·e…”) ---------- */
+    // Étape 5 — Setup
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
-      const sud = slots.sud;
 
       // ÉMOTION
       if (isEmotionIntake(intakeOrig)) {
         const emo = parseEmotionPhrase(intakeOrig);
         let setupLine = "";
         if (emo.mode === "adj") {
-          // “je suis …” → adverbe SUD
-          const adv = sudAdverbForAdj(sud); // "", "encore ", "très ", "vraiment très "
-          setupLine = `Même si je suis ${adv}${emo.text}, je m’accepte profondément et complètement.`;
+          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
         } else {
-          // nom : “cette peur …” + qualificatif présent/présente
           const art = emo.article ?? emotionArticle(emo.text);
-          // genre pour présent/présente
-          const g = art === "cette" ? "f" : "m";
-          const qual = sudQualifierFromNumber(sud, g); // ex: " encore présente"
-          setupLine = `Même si j’ai ${art} ${emo.text}${qual}, je m’accepte profondément et complètement.`;
+          setupLine = `Même si j’ai ${art} ${emo.text}, je m’accepte profondément et complètement.`;
         }
-
         const txt =
-`Étape 5 — Maintenant reste bien connecté·e à ton ressenti et dis :
-« ${setupLine} »
-Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoie “OK” et nous passerons à la ronde.`;
-        return NextResponse.json({ answer: cleanAnswer(txt) });
+`Étape 5 — Setup : « ${setupLine} »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
+        return NextResponse.json({ answer: txt });
       }
 
       // PHYSIQUE / SITUATION
@@ -471,18 +506,17 @@ Quand c’est fait, envoie “OK” et nous passerons à la ronde.`;
         : "";
 
       const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
-      const article = emotionArticle(base); // “ce” ou “cette”
-      const qual = sudQualifierFromNumber(slots.sud, article === "cette" ? "f" : "m");
+
+      const article = emotionArticle(base);
 
       const txt =
-`Étape 5 — Maintenant reste bien connecté·e à ton ressenti et dis :
-« Même si j’ai ${article} ${aspectPretty}${qual}, je m’accepte profondément et complètement. »
-Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoie “OK” et nous passerons à la ronde.`;
-      return NextResponse.json({ answer: cleanAnswer(txt) });
+`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
+      return NextResponse.json({ answer: txt });
     }
 
-    // Étape 6 — ronde (déterministe)
+    // Étape 6 — ronde
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -497,16 +531,14 @@ Quand c’est fait, envoie “OK” et nous passerons à la ronde.`;
 - CL : ${p[6]}
 - SB : ${p[7]}
 Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
-      return NextResponse.json({ answer: cleanAnswer(txt) });
+      return NextResponse.json({ answer: txt });
     }
 
     // Étape 8 — clôture
     if (etape === 8) {
       const txt =
-`Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.
-Prends un moment pour t’hydrater et te reposer. 
-Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.`;
-      return NextResponse.json({ answer: cleanAnswer(txt) });
+"Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
+      return NextResponse.json({ answer: txt });
     }
 
     /* ---------- Autres étapes -> LLM (SYSTEM) ---------- */
@@ -554,7 +586,7 @@ Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
     }
 
     const json = await res.json();
-    const rawAnswer =
+    const answer =
       (json?.output?.[0]?.content?.[0]?.text) ??
       (json?.choices?.[0]?.message?.content) ??
       (json?.content?.[0]?.text) ??
@@ -566,14 +598,12 @@ Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
       /\bsuicid\w*/i,
       /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
     ];
-    const unsafeOut = rawAnswer && FORBIDDEN_OUTPUT.some((rx) => rx.test(rawAnswer));
+    const unsafeOut = answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer));
     if (unsafeOut) {
       return NextResponse.json({ answer: crisisMessage() });
     }
 
-    const answer = cleanAnswer(rawAnswer);
     return NextResponse.json({ answer });
-
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
