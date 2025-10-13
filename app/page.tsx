@@ -2,7 +2,6 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
-
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
 type Stage =
@@ -23,6 +22,103 @@ type Slots = {
   round?: number;
   aspect?: string;
 };
+
+/* ---------- Helpers (client) ---------- */
+function clean(s: string): string {
+  return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
+}
+
+function shortContext(s: string): string {
+  const t = s.replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  return t.split(" ").slice(0, 14).join(" ");
+}
+
+function parseSUD(s: string): number | null {
+  const m = s.match(/(^|[^0-9])(10|[0-9])([^0-9]|$)/);
+  if (!m) return null;
+  const v = Number(m[2]);
+  return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
+}
+
+/** Normalise une entrée du type « j’ai mal au/à la… » → « mal … », « j’ai une douleur … » → « douleur … » */
+function normalizeIntake(input: string): string {
+  const s = input.trim().replace(/\s+/g, " ");
+
+  // "j’ai mal à/au/aux/à la/à l’..."
+  const mMal =
+    s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  if (mMal) return `mal ${mMal[1].trim()}`;
+
+  // "j’ai une/la douleur ..."
+  const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
+  if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
+
+  // "j’ai peur ..." / "j’ai une peur ..."
+  const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
+  if (mPeur1) return `peur ${mPeur1[1].trim()}`;
+  const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
+  if (mPeur2) return `peur ${mPeur2[1].trim()}`;
+
+  // "j’ai une/la tension|gêne ..."
+  const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
+  if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
+
+  return s;
+}
+
+/** Masculin/féminin minimal pour la petite liaison quand on construit l’aspect */
+function isMasculine(intake: string): boolean {
+  // on traite « mal … » comme masculin ; « douleur/peur/gêne/tension » comme féminin
+  const t = intake.toLowerCase().trim();
+  if (t.startsWith("mal ")) return true;
+  if (/^(douleur|peur|gêne|gene|tension)\b/i.test(t)) return false;
+  // défaut : masculin
+  return true;
+}
+
+/** Nettoyage léger du contexte pour l’aspect (supprime les « je/j’ai » en tête) */
+function normalizeContextForAspect(ctx: string): string {
+  let c = ctx.trim();
+  c = c.replace(/^je\s+/i, "");
+  c = c.replace(/^j['’]ai\s+/i, "");
+  c = c.replace(/^j['’](?:étais|etais)\s+/i, "être ");
+  c = c.replace(/^suis\b/i, "être ");
+  c = c.replace(/^ai\b/i, "avoir ");
+  c = c.replace(/^étais\b/i, "être ");
+  c = c.replace(/,\s+/g, " ");
+  return c;
+}
+
+/** Construit l’aspect court « intake + (lié(e) à + contexte court) » pour le serveur */
+function buildAspect(intakeTextRaw: string, ctxShort: string): string {
+  const intake = normalizeIntake(intakeTextRaw);
+  if (!ctxShort) return intake;
+  const masculine = isMasculine(intake);
+  const liaison = masculine ? "lié à" : "liée à";
+  const cleaned = normalizeContextForAspect(ctxShort);
+  return `${intake} ${liaison} ${cleaned}`;
+}
+
+/** Rendu de texte avec listes et paragraphes simples */
+function renderPretty(s: string) {
+  const paragraphs = s.split(/\n\s*\n/);
+  return (
+    <div className="space-y-3">
+      {paragraphs.map((p, i) => {
+        if (/^(?:- |\u2022 |\* )/m.test(p)) {
+          const items = p.split(/\n/).filter(Boolean).map(t => t.replace(/^(- |\u2022 |\* )/, ""));
+          return (
+            <ul key={i} className="list-disc pl-5 space-y-1">
+              {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
+            </ul>
+          );
+        }
+        return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
+      })}
+    </div>
+  );
+}
 
 /* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
@@ -109,6 +205,7 @@ export default function Page() {
       return;
     }
 
+    // Nouveau sujet après clôture → reset
     if (stage === "Clôture") {
       setStage("Intake");
       setEtape(1);
@@ -118,6 +215,7 @@ export default function Page() {
     setRows(r => [...r, { who: "user", text: userText }]);
     setText("");
 
+    // MÀJ slots
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
@@ -131,7 +229,7 @@ export default function Page() {
       const looksLikeFeeling =
         /^(je\s+suis|je\s+me\s+sens|je\s+ressens)\b/i.test(userText) ||
         /^j['’]\s*ai\s+de\s+la\s+\w+/i.test(userText) ||
-        /^de\s+la\s+(peur|col[èe]re|tristesse|honte|culpabilit[eé]|anxi[ée]t[ée]|angoisse|inqui[èe]tude|tristesse|joie)\b/i
+        /^de\s+la\s+(peur|col[èe]re|tristesse|honte|culpabilit[eé]|anxi[ée]t[ée]|angoisse|inqui[èe]tude)\b/i
           .test(userText) ||
         /\b(peur|col[èe]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)\b/i
           .test(userText);
@@ -168,6 +266,7 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
+    // Étape suivante
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
@@ -190,8 +289,8 @@ export default function Page() {
             who: "bot",
             text:
                "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-    "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-    "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+               "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
           setStage("Clôture");
           setEtape(8);
@@ -277,6 +376,7 @@ export default function Page() {
 
     setRows(r => [...r, { who: "bot", text: answer }]);
 
+    // Avancer localement
     if (stageForAPI === "Intake" && etapeForAPI === 1) {
       setStage("Durée");
       setEtape(2);
@@ -336,48 +436,42 @@ export default function Page() {
       </form>
       {error && <div className="text-red-600 mt-2">{error}</div>}
 
-  
       {/* CTA + Note */}
-<div className="mt-6">
-  <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-    {/* Colonne gauche */}
-    <div className="flex-1 flex flex-col items-center">
-      <a
-        href="https://ecole-eft-france.fr/pages/formations-eft.html"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-      >
-        Découvrir nos formations
-      </a>
-      <p className="text-sm text-gray-600 mt-2 text-center">
-        Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
-        découvrez les formations proposées par <strong>l’École EFT France</strong>.
-      </p>
-    </div>
+      <div className="mt-6">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+          <div className="flex-1 flex flex-col items-center">
+            <a
+              href="https://ecole-eft-france.fr/pages/formations-eft.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            >
+              Découvrir nos formations
+            </a>
+            <p className="text-sm text-gray-600 mt-2 text-center">
+              Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
+              découvrez les formations proposées par <strong>l’École EFT France</strong>.
+            </p>
+          </div>
 
-    {/* Trait vertical */}
-    <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
-    {/* Sur mobile, pas de trait vertical */}
+          <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
 
-    {/* Colonne droite */}
-    <div className="flex-1 flex flex-col items-center">
-      <span className="block text-gray-700 text-center mb-2">
-        Pour en apprendre plus sur l’EFT,<br />
-        retrouvez-moi sur le site <strong>Technique-EFT.com</strong>
-      </span>
-      <a
-        href="https://technique-eft.com/"
-        target="_blank"
-        rel="noopener noreferrer"
-                className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-
-      >
-        En savoir plus sur l’EFT
-      </a>
-    </div>
-  </div>
-</div>
+          <div className="flex-1 flex flex-col items-center">
+            <span className="block text-gray-700 text-center mb-2">
+              Pour en apprendre plus sur l’EFT,<br />
+              retrouvez-moi sur le site <strong>Technique-EFT.com</strong>
+            </span>
+            <a
+              href="https://technique-eft.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+            >
+              En savoir plus sur l’EFT
+            </a>
+          </div>
+        </div>
+      </div>
 
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
