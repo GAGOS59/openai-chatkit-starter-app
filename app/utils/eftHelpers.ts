@@ -1,6 +1,4 @@
-// Fonctions utilitaires pour l'EFT
-
-export type Row = { who: "bot" | "user"; text: string };
+// Helpers partagés pour API et client (pas de JSX ici !)
 
 export function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
@@ -31,11 +29,9 @@ export function normalizeIntake(input: string): string {
 }
 
 export function isMasculine(intake: string): boolean {
-  // Renvoie true si l’intake est au masculin (ex. "mal", "stress"), false sinon (ex. "douleur", "peur")
   return /^mal\b/i.test(intake);
 }
 
-// Helper pour choisir "ce" ou "cette" selon le genre
 export function getDemoWord(intake: string) {
   return isMasculine(intake) ? "ce" : "cette";
 }
@@ -57,44 +53,6 @@ export function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   return ctxShort ? `${intake} ${liaison} ${cleaned}` : intake;
 }
 
-/** Rendu lisible : paragraphes, puces et listes numérotées */
-export function renderPretty(s: string) {
-  const cleanText = s.replace(/^Étape\s*\d+\s*[—-]\s*/i, "");
-  const paragraphs = cleanText.split(/\n\s*\n/);
-
-  const bulletRx = /^\s*(?:-|\*|•)\s+/;
-  const orderedRx = /^\s*\d+[\.\)]\s+/;
-
-  return (
-    <div className="space-y-3">
-      {paragraphs.map((p, i) => {
-        const lines = p.split(/\n/).map(t => t.trim()).filter(Boolean);
-
-        if (lines.length >= 2 && lines.every(l => bulletRx.test(l))) {
-          const items = lines.map(l => l.replace(bulletRx, ""));
-          return (
-            <ul key={i} className="list-disc pl-5 space-y-1">
-              {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
-            </ul>
-          );
-        }
-
-        if (lines.length >= 2 && lines.every(l => orderedRx.test(l))) {
-          const items = lines.map(l => l.replace(orderedRx, ""));
-          return (
-            <ol key={i} className="list-decimal pl-5 space-y-1">
-              {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
-            </ol>
-          );
-        }
-
-        return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
-      })}
-    </div>
-  );
-}
-
-/* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
   /\bsu[cs]sid[ea]\b/i,
