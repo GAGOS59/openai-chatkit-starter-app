@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { isCrisis, crisisMessage } from "../../utils/eftHelpers";
+
+// ...TON RESTE DE CODE, comme tu l'avais déjà, sans import JSX ou helpers du client...
+// (Pas de modification majeure requise ici, seulement l'import)
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
