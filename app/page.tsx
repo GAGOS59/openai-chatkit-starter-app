@@ -310,13 +310,47 @@ export default function Page() {
       </form>
       {error && <div className="text-red-600 mt-2">{error}</div>}
 
+  
       {/* CTA + Note */}
-      <div className="text-center mt-6">
-        <a href="https://ecole-eft-france.fr/pages/formations-eft.html" target="_blank" rel="noopener noreferrer" className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2">
-          Découvrir nos formations
-        </a>
-        <p className="text-sm text-gray-600 mt-2">Pour aller plus loin dans la pratique et la transmission de l’EFT, découvrez les formations proposées par l’École EFT France.</p>
-      </div>
+<div className="mt-6">
+  <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+    {/* Colonne gauche */}
+    <div className="flex-1 flex flex-col items-center">
+      <a
+        href="https://ecole-eft-france.fr/pages/formations-eft.html"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+      >
+        Découvrir nos formations
+      </a>
+      <p className="text-sm text-gray-600 mt-2 text-center">
+        Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
+        découvrez les formations proposées par l’École EFT France.
+      </p>
+    </div>
+
+    {/* Trait vertical */}
+    <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
+    {/* Sur mobile, pas de trait vertical */}
+
+    {/* Colonne droite */}
+    <div className="flex-1 flex flex-col items-center">
+      <span className="block text-gray-700 text-center mb-2">
+        Pour en apprendre plus sur l’EFT,<br />
+        retrouvez-moi sur le site <strong>Technique-EFT.com</strong>
+      </span>
+      <a
+        href="https://technique-eft.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+      >
+        En savoir plus sur l’EFT
+      </a>
+    </div>
+  </div>
+</div>
 
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
