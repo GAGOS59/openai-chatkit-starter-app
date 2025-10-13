@@ -46,8 +46,7 @@ function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
 
   // "j’ai mal à/au/aux/à la/à l’..."
-  const mMal =
-    s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
 
   // "j’ai une/la douleur ..."
@@ -118,36 +117,25 @@ function renderPretty(s: string) {
   );
 }
 
-/** Extrait la phrase cœur du setup (entre « … » si présent ; sinon première phrase "Même si ...") */
-function extractCoreSetup(text: string): string {
-  const inQuotes = text.match(/«\s*([^»]+)\s*»/);
-  if (inQuotes) return clean(inQuotes[1]);
-  const memeSi = text.match(/(Même\s+si|Meme\s+si)[^.!\n]+/i);
-  if (memeSi) return clean(memeSi[0]);
-  return clean(text.split(/\n/)[0]);
-}
-
 /** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
 
-  // 1) Enlever tous les en-têtes "Étape N —" (début de ligne)
+  // Retirer tous les "Étape N —" en début de ligne (partout)
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
 
-  // 2) Enlever "Setup :" au début de ligne
+  // Enlever "Setup :" en début de ligne si présent
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
 
+  // Habillage du Setup
   if (stage === "Setup") {
-    const core = extractCoreSetup(t);
-    // On remplace tout le bloc par notre formulation claire
-    return [
-      "Reste bien connecté·e à ton ressenti et dis à voix haute :",
-      `« ${core} »`,
-      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois."
-    ].join("\n");
+    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+    t =
+      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
+      `« ${core} »\n` +
+      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
   }
 
-  // 3) Pour les autres étapes : on renvoie le texte nettoyé tel quel
   return t;
 }
 
@@ -276,7 +264,7 @@ export default function Page() {
       const sud0 = parseSUD(userText);
       if (sud0 !== null) updated.sud = sud0;
       else {
-        setError("Merci d’indiquer un score SUD valide entre 0 et 10.");
+        setError("👉 Merci d’indiquer un score SUD valide entre 0 et 10.");
         setLoading(false);
         return;
       }
@@ -319,7 +307,7 @@ export default function Page() {
           setRows(r => [...r, {
             who: "bot",
             text:
-              "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+              "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
               "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
               "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
@@ -332,7 +320,7 @@ export default function Page() {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots(s => ({ ...s, round: nextRound }));
-          stageForAPI = "Setup";      etapeForAPI = 5;   // ← repasser par Setup ajusté
+          stageForAPI = "Setup";      etapeForAPI = 5;   // repasser par Setup ajusté
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -343,7 +331,7 @@ export default function Page() {
         setRows(r => [...r, {
           who: "bot",
           text:
-            "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
             "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
             "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
             "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
@@ -356,7 +344,7 @@ export default function Page() {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
         setSlots(s => ({ ...s, round: nextRound }));
-        stageForAPI = "Setup";        etapeForAPI = 5; // ← repasser par Setup ajusté
+        stageForAPI = "Setup";        etapeForAPI = 5; // repasser par Setup ajusté
       }
     }
 
@@ -387,11 +375,8 @@ export default function Page() {
 
     let answer = "";
     if (
-      raw &&
-      typeof raw === "object" &&
-      raw !== null &&
-      "answer" in raw &&
-      typeof (raw as { answer: unknown }).answer === "string"
+      raw && typeof raw === "object" && raw !== null &&
+      "answer" in raw && typeof (raw as { answer: unknown }).answer === "string"
     ) {
       answer = (raw as { answer: string }).answer;
     }
