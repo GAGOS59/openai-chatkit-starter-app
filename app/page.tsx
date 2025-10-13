@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import NavTabs from "./components/NavTabs";
 import { renderPretty } from "../utils/eftHelpers.client";
 import { isCrisis, crisisMessage } from "../utils/eftHelpers";
 // ...le reste de ton code...
