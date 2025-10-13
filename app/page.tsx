@@ -299,12 +299,12 @@ export default function Page() {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
           placeholder="Sur quoi souhaitez-vous essayer l&apos;EFT…"
           aria-label="Saisissez votre message pour l’assistante EFT"
           disabled={loading}
         />
-        <button type="submit" disabled={loading || !text.trim()} className="rounded-xl border px-4 py-2 shadow-sm active:scale-[0.99]">
+        <button type="submit" disabled={loading || !text.trim()} className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]">
           {loading ? "Envoi..." : "Envoyer"}
         </button>
       </form>
