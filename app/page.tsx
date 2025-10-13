@@ -1,18 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
-import {
-  shortContext,
-  parseSUD,
-  normalizeIntake,
-  isMasculine,
-  getDemoWord,
-  normalizeContextForAspect,
-  buildAspect,
-  isCrisis,
-  crisisMessage,
-} from "./utils/eftHelpers";
-import { renderPretty } from "./utils/eftHelpers.client";
+
 
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
