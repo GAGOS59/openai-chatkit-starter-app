@@ -431,74 +431,96 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-       /* ---------- Étape 5 : Setup (ajusté selon le SUD) ---------- */
-    if (etape === 5) {
-      const intakeOrig = clean(slots.intake ?? "");
-      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+       /* ---------- Étape 5 — Setup ajusté et sans en-têtes ---------- */
+if (etape === 5) {
+  const intakeOrig = clean(slots.intake ?? "");
+  const aspectRaw = clean(slots.aspect ?? slots.intake ?? "");
+  const roundNum = Number.isFinite(slots.round) ? (slots.round as number) : 1;
+  const sudNow = slots.sud;
+  const isNextRound = roundNum > 1;
 
-      // === BRANCHE ÉMOTION ===
-      if (isEmotionIntake(intakeOrig)) {
-        const emo = parseEmotionPhrase(intakeOrig);
-        let setupLine = "";
-        if (emo.mode === "adj") {
-          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
-        } else {
-          const art = emo.article ?? emotionArticle(emo.text);
-          const gEmo: "m" | "f" = (art === "cette") ? "f" : "m";
-          const qual = sudQualifierFromNumber(slots.sud, gEmo);
-          setupLine = `Même si j’ai ${art} ${emo.text}${qual}, je m’accepte profondément et complètement.`;
-        }
-        const txt =
-`Étape 5 — Setup : « ${setupLine} »
-Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-        return NextResponse.json({ answer: txt });
-      }
+  /** Qualificatif selon le SUD */
+  function setupQualifier(sud?: number, g: "m" | "f" = "f"): string {
+    if (typeof sud !== "number") return "";
+    if (sud >= 9) return g === "m" ? " vraiment très présent" : " vraiment très présente";
+    if (sud >= 7) return g === "m" ? " très présent" : " très présente";
+    if (sud >= 4) return g === "m" ? " encore présent" : " encore présente";
+    if (sud > 0)  return g === "m" ? " encore un peu présent" : " encore un peu présente";
+    return "";
+  }
 
-      // === BRANCHE PHYSIQUE / SITUATION ===
-      // Séparer base & contexte si "lié(e) à" déjà présent
-      let base = aspectRaw;
-      let ctx  = "";
-      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-      if (m) {
-        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-        base = aspectRaw.slice(0, idx).trim();
-        ctx  = aspectRaw.slice(idx + m[0].length).trim();
-      }
+  /** Vérifie si l’intake correspond à une émotion */
+  function isEmotionIntake(txt: string): boolean {
+    return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)\b/i.test(txt);
+  }
 
-      // Nettoyer "base"
-      base = normalizeEmotionNoun(base)
-        .replace(/^j['’]?\s*ai\s+/, "")
-        .replace(/^je\s+/, "")
-        .replace(/^(ce|cette)\s+/i, "");
+  /** Article correct (ce/cette) */
+  function emotionArticle(noun: string): string {
+    return /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re)\b/i.test(noun) ? "cette" : "ce";
+  }
 
-      const kind = classifyIntake(intakeOrig || base);
-      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
+  /** Détection du genre pour l’accord */
+  function detectGender(word: string): "m" | "f" {
+    return /^(douleur|peur|gêne|gene|tension|tristesse|col[eè]re)\b/i.test(word) ? "f" : "m";
+  }
 
-      // Pour douleurs : si ctxPretty commence par "parce que / car / puisque", on ne met PAS "lié(e) à"
-      const g = detectGender(base);
-      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
-      const connector = ctxPretty
-        ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à "))
-        : "";
+  /** Convertit “je suis en colère” → “colère” */
+  function normalizeEmotionNoun(s: string): string {
+    return s
+      .replace(/^(je\s+suis|je\s+me\s+sens|je\s+ressens)\s+/i, "")
+      .replace(/^en\s+col[eè]re\b/i, "colère")
+      .replace(/^triste$/i, "tristesse")
+      .replace(/^angoiss[ée]$/i, "angoisse")
+      .replace(/^stress[ée]?$/i, "stress")
+      .trim();
+  }
 
-      // Assemblage propre (évite doubles espaces)
-      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
+  let setupLine = "";
 
-      // Article ce/cette
-      const femWords = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i;
-      const article = femWords.test(base) ? "cette" : "ce";
+  // 🌿 Cas émotion
+  if (isEmotionIntake(intakeOrig)) {
+    const noun = clean(normalizeEmotionNoun(intakeOrig));
+    const art = emotionArticle(noun);
+    const g = detectGender(noun);
+    const qual = isNextRound ? setupQualifier(sudNow, g) : "";
+    setupLine = `« Même si j’ai ${art} ${noun}${qual}, je m’accepte profondément et complètement. »`;
+  }
 
-      // ✅ Ajout du qualificatif SUD dynamique
-      const qual = sudQualifierFromNumber(slots.sud, g);
-
-      const txt =
-`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}${qual}, je m’accepte profondément et complètement. »
-Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-
-      return NextResponse.json({ answer: txt });
+  // 🌿 Cas douleur ou situation
+  else {
+    // Séparer base & contexte
+    let base = aspectRaw;
+    let ctx = "";
+    const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+    if (m) {
+      const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+      base = aspectRaw.slice(0, idx).trim();
+      ctx = aspectRaw.slice(idx + m[0].length).trim();
     }
+
+    base = normalizeEmotionNoun(base)
+      .replace(/^j['’]?\s*ai\s+/, "")
+      .replace(/^je\s+/, "")
+      .replace(/^(ce|cette)\s+/i, "")
+      .trim();
+
+    const g = detectGender(base);
+    const qual = isNextRound ? setupQualifier(sudNow, g) : "";
+    const hasCause = /^(parce que|car|puisque)\b/i.test(ctx);
+    const connector = ctx ? (hasCause ? " " : g === "f" ? " liée à " : " lié à ") : "";
+    const aspectPretty = clean(`${base}${connector}${ctx || ""}`);
+    const article = /^(peur|honte|culpabilité|anxiété|angoisse|tristesse|col[eè]re|douleur|gêne|gene|tension)\b/i.test(base)
+      ? "cette"
+      : "ce";
+    setupLine = `« Même si j’ai ${article} ${aspectPretty}${qual}, je m’accepte profondément et complètement. »`;
+  }
+
+  const txt = `${setupLine}
+Tapote sur le Point Karaté (tranche de la main) et répète 3 fois.
+Quand c’est fait, envoie “OK” pour continuer.`;
+
+  return NextResponse.json({ answer: txt });
+}
 
 
     // Étape 6 — ronde déterministe (personnalisée)
