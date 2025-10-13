@@ -96,14 +96,14 @@ function detectGender(intakeRaw: string): "m" | "f" {
   return "f";
 }
 
-/** Détecte si l’intake est une émotion (forme adjectivale « je suis … » ou nom : tristesse, colère…) */
+/** Émotion ? (forme “je suis …” ou nom d’émotion) */
 function isEmotionIntake(raw: string): boolean {
   const t = clean(raw).toLowerCase();
-  if (/^je\s+suis\b/i.test(t)) return true; // forme adjectivale "je suis ..."
+  if (/^je\s+suis\b/i.test(t)) return true;
   return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
 }
 
-/** Choisit « ce » ou « cette » selon le nom (et quelques féminins somatiques) */
+/** Article ce/cette selon racine */
 function emotionArticle(noun: string): "ce" | "cette" {
   const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
   const fem = new Set([
@@ -113,39 +113,28 @@ function emotionArticle(noun: string): "ce" | "cette" {
   return fem.has(n) ? "cette" : "ce";
 }
 
-/**
- * Extrait une forme exploitable pour le setup à partir d’un intake émotionnel.
- * - "je suis triste"        → {mode:"adj",  text:"triste"}
- * - "tristesse"/"de la ..." → {mode:"noun", text:"tristesse", article:"cette"}
- * - "peur de parler"        → {mode:"noun", text:"peur de parler", article:"cette"}
- */
+/** “je suis X” → {mode:"adj",text:"X"} ; “tristesse” / “peur de …” → {mode:"noun",text:"…"} */
 function parseEmotionPhrase(raw: string): { mode: "adj"|"noun", text: string, article?: "ce"|"cette" } {
   const t = clean(raw);
 
-  // Cas adjectival direct : "je suis ..."
   const mAdj = t.match(/^je\s+suis\s+(.+)$/i);
-  if (mAdj) {
-    return { mode: "adj", text: clean(mAdj[1]) };
-  }
+  if (mAdj) return { mode: "adj", text: clean(mAdj[1]) };
 
-  // Cas "de la tristesse"
   const mDeLa = t.match(/^de\s+la\s+(.+)$/i);
   if (mDeLa) {
     const noun = clean(mDeLa[1]);
     return { mode: "noun", text: noun, article: emotionArticle(noun) };
   }
 
-  // Cas nominal générique
   const noun = clean(normalizeEmotionNoun(t));
   return { mode: "noun", text: noun, article: emotionArticle(noun) };
 }
 
-/** Normalise une tournure émotionnelle vers un nom : "je suis en colère" → "colère", etc. */
+/** Normalise une tournure émotionnelle vers un nom — conserve les compléments (“peur de …”) */
 function normalizeEmotionNoun(s: string): string {
   const raw = clean(s);
   const t = raw.toLowerCase();
 
-  // Conserver les compléments spécifiques
   if (/\bpeur\s+(de|du|des|d’|d')\s+.+/i.test(t)) return raw;
   if (/\bcol[eè]re\s+(contre|envers|à\s+propos\s+de)\s+.+/i.test(t)) return raw;
   if (/\b(honte|culpabilit[eé])\s+(de|d’|d')\s+.+/i.test(t)) return raw;
@@ -172,7 +161,48 @@ function normalizeEmotionNoun(s: string): string {
   return raw;
 }
 
+/* ---------- Classification Intake & aides ---------- */
 type IntakeKind = "physique" | "emotion" | "situation";
+
+/** Classe l’intake en douleur/symptôme physique, émotion ou situation. */
+function classifyIntake(intakeRaw: string): IntakeKind {
+  const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
+
+  // marqueurs physiques
+  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
+  if (phys.test(s)) return "physique";
+
+  // marqueurs émotionnels
+  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
+  if (emo.test(s)) return "emotion";
+
+  return "situation";
+}
+
+/** Donne des exemples de précision selon la zone (utilisé à l’étape 1 pour les douleurs). */
+function hintsForLocation(intakeRaw: string): string {
+  const s = clean(intakeRaw).toLowerCase();
+
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
+  ];
+
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
+}
 
 /** Rend un contexte lisible (“parce que …” pour douleurs sinon “au fait que …”) */
 function readableContext(ctx: string, kind?: IntakeKind): string {
@@ -259,48 +289,7 @@ function buildRappelPhrases(slots: Slots): string[] {
   return phrases.slice(0, 8);
 }
 
-/* ---------- Classification Intake ---------- */
-function classifyIntake(intakeRaw: string): IntakeKind {
-  const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
-
-  // marqueurs physiques
-  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
-  if (phys.test(s)) return "physique";
-
-  // marqueurs émotionnels
-  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
-  if (emo.test(s)) return "emotion";
-
-  // sinon : situation/événement
-  return "situation";
-}
-
-/* ---------- Exemples contextuels par zone corporelle (physique) ---------- */
-function hintsForLocation(intakeRaw: string): string {
-  const s = clean(intakeRaw).toLowerCase();
-
-  const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
-    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
-  ];
-
-  for (const [rx, hint] of table) if (rx.test(s)) return hint;
-  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
-}
-
-/* ---------- Safety patterns (in/out) ---------- */
+/* ---------- Safety (in/out) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
   /\bsu[cs]sid[ea]\b/i,
@@ -357,7 +346,7 @@ LANGAGE
 - Commencer par "Étape {N} — ".
 `;
 
-/* ---------- FAQ stricte EFT (option) ---------- */
+/* ---------- FAQ stricte EFT ---------- */
 function looksLikeFAQ(q: string): boolean {
   const t = clean(q).toLowerCase();
   if (!t) return false;
@@ -379,67 +368,59 @@ export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { answer: "Le serveur n’est pas configuré correctement (clé manquante)." },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
     }
-
-    // CORS (autoriser tes domaines)
-    const origin = (req.headers.get("origin") || "").toLowerCase();
-    const allowed = ["https://ecole-eft-france.fr", "https://www.ecole-eft-france.fr","https://appli.ecole-eft-france.fr/", "http://localhost:3000"];
-    if (origin && !allowed.includes(origin)) {
-      return NextResponse.json(
-        { answer: "Accès refusé depuis cet origine." },
-        { status: 403 }
-      );
-    }
-
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
+
+ 
+    // CORS simple : prod + localhost + *preview vercel.app*
+const origin = (req.headers.get("origin") || "").toLowerCase();
+const isAllowedOrigin =
+  !origin ||
+  /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+  /^https:\/\/(www\.)?ecole-eft-france\.fr$/.test(origin) ||
+  /^https:\/\/appli.ecole-eft-france\.fr$/.test(origin) ||
+  /^https:\/\/.*\.vercel\.app$/.test(origin);
+
+if (!isAllowedOrigin) {
+  return NextResponse.json(
+    { answer: "Origine non autorisée (CORS)." }, // ← toujours un 'answer'
+    { status: 403 }
+  );
+}
 
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
 
-    // 🔒 Garde ENTRANT
+    // 🔒 Entrant
     if (prompt && isCrisis(prompt)) {
       return NextResponse.json({ answer: crisisMessage() });
     }
 
-    // Branche FAQ (si question générale)
+    // ------ Branche FAQ ------
     if (prompt && looksLikeFAQ(prompt)) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000);
-      let res: Response | null = null;
-      try {
-        res = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            input: `${FAQ_SYSTEM}\nQuestion: ${prompt}\nRéponse:`,
-            temperature: 0.2,
-            max_output_tokens: 260,
-          }),
-          signal: controller.signal,
-        });
-      } catch {
-        clearTimeout(timer);
-        return NextResponse.json(
-          { answer: "Le service distant ne répond pas pour le moment (502). Réessaie dans un instant." },
-          { status: 502 }
-        );
-      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          input: `${FAQ_SYSTEM}\nQuestion: ${prompt}\nRéponse:`,
+          temperature: 0.2,
+          max_output_tokens: 260,
+        }),
+        signal: controller.signal,
+      }).catch(() => { throw new Error("Upstream error"); });
       clearTimeout(timer);
 
       if (!res || !res.ok) {
-        return NextResponse.json(
-          { answer: "Le service distant ne répond pas correctement (502). Merci de réessayer." },
-          { status: 502 }
-        );
+return NextResponse.json({ answer: "Le service est temporairement indisponible (502)." }, { status: 502 });
       }
 
       const json = await res.json();
@@ -462,7 +443,7 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    // Étape 1 — déterministe
+    // Étape 1
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -488,38 +469,29 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 5 — Setup (ajusté SUD + ce/cette + contexte lisible)
+    // Étape 5 — Setup
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
-      const sud = typeof slots.sud === "number" ? Math.max(0, Math.min(10, slots.sud)) : null;
 
-      // Emo
+      // ÉMOTION
       if (isEmotionIntake(intakeOrig)) {
         const emo = parseEmotionPhrase(intakeOrig);
-        let setupCore = "";
+        let setupLine = "";
         if (emo.mode === "adj") {
-          setupCore = `Même si je suis ${emo.text}`;
+          setupLine = `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`;
         } else {
           const art = emo.article ?? emotionArticle(emo.text);
-          setupCore = `Même si j’ai ${art} ${emo.text}`;
+          setupLine = `Même si j’ai ${art} ${emo.text}, je m’accepte profondément et complètement.`;
         }
-        // modulateur SUD
-        const mod =
-          sud === null || sud <= 0 ? "" :
-          sud >= 9 ? " vraiment très présente" :
-          sud >= 7 ? " très présente" :
-          sud >= 4 ? " encore présente" :
-          " un peu présente";
-
-        const line = `${setupCore}${mod}, je m’accepte profondément et complètement.`;
         const txt =
-`Étape 5 — ${line}
-Reste bien connecté·e à ton ressenti et dis cette phrase à voix haute en tapotant le Point Karaté (tranche de la main), 3 fois.`;
+`Étape 5 — Setup : « ${setupLine} »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Physique / Situation
+      // PHYSIQUE / SITUATION
       let base = aspectRaw;
       let ctx  = "";
       const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
@@ -534,32 +506,27 @@ Reste bien connecté·e à ton ressenti et dis cette phrase à voix haute en tap
         .replace(/^je\s+/, "")
         .replace(/^(ce|cette)\s+/i, "");
 
-      const kind2 = classifyIntake(intakeOrig || base);
-      const ctxPretty = ctx ? readableContext(ctx, kind2) : "";
+      const kind = classifyIntake(intakeOrig || base);
+      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
 
       const g = detectGender(base);
       const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
       const connector = ctxPretty
         ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à "))
         : "";
+
       const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
 
       const article = emotionArticle(base);
-      const mod =
-        sud === null || sud <= 0 ? "" :
-        sud >= 9 ? " vraiment très présente" :
-        sud >= 7 ? " très présente" :
-        sud >= 4 ? " encore présente" :
-        " un peu présente";
 
-      const line = `Même si j’ai ${article} ${aspectPretty}${mod}, je m’accepte profondément et complètement.`;
       const txt =
-`Étape 5 — ${line}
-Reste bien connecté·e à ton ressenti et dis cette phrase à voix haute en tapotant le Point Karaté (tranche de la main), 3 fois.`;
+`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 6 — ronde déterministe
+    // Étape 6 — ronde
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -573,18 +540,18 @@ Reste bien connecté·e à ton ressenti et dis cette phrase à voix haute en tap
 - MT : ${p[5]}
 - CL : ${p[6]}
 - SB : ${p[7]}
-Quand tu as terminé cette ronde, indique ton SUD (0–10).`;
+Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 — clôture stable
+    // Étape 8 — clôture
     if (etape === 8) {
       const txt =
 "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
-    // ---------- Autres étapes -> LLM ----------
+    /* ---------- Autres étapes -> LLM (SYSTEM) ---------- */
     const USER_BLOCK =
 `[CONTEXTE]
 Étape demandée: ${etape}
@@ -600,54 +567,42 @@ Slots:
 ${prompt}
 
 [HISTORIQUE (court)]
-${(typeof (raw.transcript || "") === "string" ? raw.transcript : "").slice(0, 4000)}
+${transcript}
 
 [INSTRUCTION]
-Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
+Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
 
-    let resLLM: Response | null = null;
-    try {
-      resLLM = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          input: `${SYSTEM}\n\n${USER_BLOCK}`,
-          temperature: 0.2,
-          max_output_tokens: 260,
-        }),
-        signal: controller.signal,
-      });
-    } catch {
-      clearTimeout(timer);
-      return NextResponse.json(
-        { answer: "Le service distant ne répond pas pour le moment (502). Réessaie dans un instant." },
-        { status: 502 }
-      );
-    }
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input: `${SYSTEM}\n\n${USER_BLOCK}`,
+        temperature: 0.2,
+        max_output_tokens: 260,
+      }),
+      signal: controller.signal,
+    }).catch(() => { throw new Error("Upstream error"); });
     clearTimeout(timer);
 
-    if (!resLLM || !resLLM.ok) {
-      return NextResponse.json(
-        { answer: "Le service distant ne répond pas correctement (502). Merci de réessayer." },
-        { status: 502 }
-      );
+    if (!res || !res.ok) {
+return NextResponse.json({ answer: "Le service est temporairement indisponible (502)." }, { status: 502 });
     }
 
-    const json = await resLLM.json();
+    const json = await res.json();
     const answer =
       (json?.output?.[0]?.content?.[0]?.text) ??
       (json?.choices?.[0]?.message?.content) ??
       (json?.content?.[0]?.text) ??
       "";
 
-    // 🔒 SORTANT
+    // 🔒 Sortant
     const FORBIDDEN_OUTPUT: RegExp[] = [
       ...CRISIS_PATTERNS,
       /\bsuicid\w*/i,
@@ -659,11 +614,7 @@ Produis UNIQUEMENT le texte de l'étape ${etape}, concis, au bon format.`;
     }
 
     return NextResponse.json({ answer });
-  } catch (err) {
-    console.error("Erreur serveur:", err);
-    return NextResponse.json(
-      { answer: "Une erreur interne s’est produite (500). Merci de réessayer un peu plus tard." },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
 }
