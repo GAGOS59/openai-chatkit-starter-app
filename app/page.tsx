@@ -297,11 +297,11 @@ export default function Page() {
           setLoading(false);
           return;
         } else {
-          const nextRound = (updated.round ?? 1) + 1;
-          updated.round = nextRound;
-          setSlots(s => ({ ...s, round: nextRound }));
-          stageForAPI = "Tapping";    etapeForAPI = 6;
-        }
+  const nextRound = (updated.round ?? 1) + 1;
+  updated.round = nextRound;
+  setSlots(s => ({ ...s, round: nextRound }));
+  stageForAPI = "Setup";      etapeForAPI = 5;   // ← on repasse par Setup ajusté
+}
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
       }
@@ -320,11 +320,11 @@ export default function Page() {
         setLoading(false);
         return;
       } else if (updated.sud > 0) {
-        const nextRound = (updated.round ?? 1) + 1;
-        updated.round = nextRound;
-        setSlots(s => ({ ...s, round: nextRound }));
-        stageForAPI = "Tapping";      etapeForAPI = 6;
-      }
+  const nextRound = (updated.round ?? 1) + 1;
+  updated.round = nextRound;
+  setSlots(s => ({ ...s, round: nextRound }));
+  stageForAPI = "Setup";        etapeForAPI = 5; // ← on repasse par Setup ajusté
+}
     }
 
     const transcriptShort = rows
