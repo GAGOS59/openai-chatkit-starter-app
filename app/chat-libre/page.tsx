@@ -1,4 +1,4 @@
-import NavTabs from "./components/NavTabs"; // ajuste le chemin si besoin
+import NavTabs from "../../components/NavTabs"; // ajuste le chemin si besoin
 
 export default function Page() {
   return (
