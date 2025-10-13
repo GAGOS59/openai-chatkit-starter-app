@@ -2,17 +2,6 @@
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 import NavTabs from "../components/NavTabs"; // ajuste le chemin si besoin
 
-export default function Page() {
-  return (
-    <>
-      <NavTabs />
-      {/* ...le reste du contenu... */}
-    </>
-  );
-}
-
-/* eslint-disable @next/next/no-img-element */
-
 import {
   shortContext,
   parseSUD,
@@ -25,6 +14,19 @@ import {
   crisisMessage,
 } from "./utils/eftHelpers";
 import { renderPretty } from "./utils/eftHelpers.client";
+
+
+export default function Page() {
+  return (
+    <>
+      <NavTabs />
+      {/* ...le reste du contenu... */}
+    </>
+  );
+}
+
+/* eslint-disable @next/next/no-img-element */
+
 
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
