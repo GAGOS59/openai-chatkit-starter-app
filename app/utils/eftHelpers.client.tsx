@@ -1,6 +1,6 @@
-// Helpers spécifiques au client (JSX)
 import React from "react";
 
+// Helpers spécifiques au client (JSX)
 export function renderPretty(s: string) {
   const cleanText = s.replace(/^Étape\s*\d+\s*[—-]\s*/i, "");
   const paragraphs = cleanText.split(/\n\s*\n/);
