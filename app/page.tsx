@@ -100,6 +100,7 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   return `${intake} ${liaison} ${cleaned}`;
 }
 
+
 /** Rendu de texte avec listes et paragraphes simples */
 function renderPretty(s: string) {
   const paragraphs = s.split(/\n\s*\n/);
@@ -119,6 +120,30 @@ function renderPretty(s: string) {
     </div>
   );
 }
+/** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
+function cleanAnswerForDisplay(ans: string, stage: Stage): string {
+  let t = (ans || "").trim();
+
+  // 1) Enlever tous les en-têtes "Étape N —" s'ils apparaissent (début de lignes)
+  t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
+
+  // 2) Enlever "Setup :" en début de ligne (au cas où)
+  t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
+
+  // 3) Habillage gentil du Setup
+  if (stage === "Setup") {
+    // On garde la phrase centrale telle quelle, mais on encadre joliment
+    // Sans doubler les guillemets si déjà là
+    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+    t =
+      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
+      `« ${core} »\n` +
+      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
+  }
+
+  return t;
+}
+
 
 /* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
