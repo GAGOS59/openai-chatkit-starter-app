@@ -299,7 +299,7 @@ export default function Page() {
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="flex-1 rounded-xl border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
           placeholder="Sur quoi souhaitez-vous essayer l&apos;EFT…"
           aria-label="Saisissez votre message pour l’assistante EFT"
           disabled={loading}
