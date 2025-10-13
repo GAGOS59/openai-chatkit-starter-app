@@ -322,6 +322,49 @@ LANGAGE
 - Commencer par "Étape {N} — ".
 `;
 
+/* ---------- Classification Intake & aides ---------- */
+type IntakeKind = "physique" | "emotion" | "situation";
+
+/** Classe l’intake en douleur/symptôme physique, émotion ou situation. */
+function classifyIntake(intakeRaw: string): IntakeKind {
+  const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
+
+  // marqueurs physiques
+  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
+  if (phys.test(s)) return "physique";
+
+  // marqueurs émotionnels
+  const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
+  if (emo.test(s)) return "emotion";
+
+  return "situation";
+}
+
+/** Donne des exemples de précision selon la zone (utilisé à l’étape 1 pour les douleurs). */
+function hintsForLocation(intakeRaw: string): string {
+  const s = clean(intakeRaw).toLowerCase();
+
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
+  ];
+
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
+}
+
 /* ---------- Handler ---------- */
 export async function POST(req: Request) {
   try {
