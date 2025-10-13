@@ -6,12 +6,13 @@ import {
   parseSUD,
   normalizeIntake,
   isMasculine,
+  getDemoWord,
   normalizeContextForAspect,
   buildAspect,
-  renderPretty,
   isCrisis,
   crisisMessage,
 } from "./utils/eftHelpers";
+import { renderPretty } from "./utils/eftHelpers.client";
 
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
@@ -220,16 +221,21 @@ export default function Page() {
         }),
       });
       raw = await res.json();
-    } catch (e) {
+    } catch {
       setRows(r => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
       setLoading(false);
       return;
     }
 
     let answer = "";
-    if (raw && typeof raw === "object" && "answer" in raw) {
-      const maybe = (raw as Record<string, unknown>).answer;
-      if (typeof maybe === "string") answer = maybe;
+    if (
+      raw &&
+      typeof raw === "object" &&
+      raw !== null &&
+      "answer" in raw &&
+      typeof (raw as { answer: unknown }).answer === "string"
+    ) {
+      answer = (raw as { answer: string }).answer;
     }
 
     if (isCrisis(answer)) {
