@@ -206,7 +206,7 @@ export default function Page() {
       .slice(-10)
       .join("\n");
 
-    let raw: any;
+    let raw: unknown;
     try {
       const res = await fetch("/api/guide-eft", {
         method: "POST",
