@@ -230,7 +230,7 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
 /* ---------- Colonne promo (mobile-first, centrée) ---------- */
 function PromoAside() {
   return (
-    <aside className="rounded-2xl border bg-white p-5 shadow-sm xl:sticky xl:top-6">
+<aside className="rounded-2xl border bg-white p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition-shadow xl:sticky xl:top-6">
       {/* Titre sur 2 lignes, centré */}
       <div className="text-center mb-4">
         <p className="text-sm text-gray-700 leading-snug">Pour aller plus loin avec</p>
@@ -568,19 +568,20 @@ setSlots(updated);
           {/* Chat */}
           <div
             ref={chatRef}
-            className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
           >
             <div className="space-y-3">
               {rows.map((r, i) => (
                 <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
                   <div
-                    className={
-                      (r.who === "bot"
-                        ? "bg-gray-50 text-gray-900 border-gray-200"
-                        : "bg-blue-50 text-blue-900 border-blue-200") +
-                      " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"
-                    }
-                  >
+  className={
+    (r.who === "bot"
+      ? "bg-gray-50 text-gray-900 border-gray-200"
+      : "bg-blue-50 text-blue-900 border-blue-200") +
+    " max-w-[80%] rounded-3xl border px-4 py-3 shadow-md"
+  }
+>
+
                     {renderPretty(r.text)}
                   </div>
                 </div>
