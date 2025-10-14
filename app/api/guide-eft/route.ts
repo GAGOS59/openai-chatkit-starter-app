@@ -290,23 +290,30 @@ function buildRappelPhrases(slots: Slots): string[] {
 }
 
 /* ---------- Safety (in/out) ---------- */
+  // Ajoute le flag 'u' si possible pour une meilleure gestion des accents
 const CRISIS_PATTERNS: RegExp[] = [
-  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
-  /\bsu[cs]sid[ea]\b/i,
-  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/i,
-  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
-  /j['’]?en\s+peux?\s+plus\s+de\s+vivre\b/i,
-  /j['’]?en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/i,
-  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/i,
-  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/i,
-  /\b(foutre|jeter)\s+en\s+l[’']?air\b/i,
-  /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/i,
-  /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/i,
-  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
-  /\bje\s+suis\s+de\s+trop\b/i,
-  /\bje\s+me\s+sens\s+de\s+trop\b/i,
-  /\bid[ée]es?\s+noires?\b/i,
+  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
+  /\bsu[cs]sid[ea]\b/iu,                                 // fautes courantes
+  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/iu,
+  /j['’]?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,         // j’en / j en / jen
+  /j['’]?\s*en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/iu,
+  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/iu,
+  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/iu,
+  /\b(foutre|jeter)\s+en\s+l[’']?air\b/iu,               // l’air / l'air
+  /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/iu,
+  /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/iu,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,    // EN, pas besoin de 'u'
+  /\bje\s+suis\s+de\s+trop\b/iu,
+  /\bje\s+me\s+sens\s+de\s+trop\b/iu,
+
+  // Tes ajouts
+  /\bid[ée]es?\s+noires?\b/iu,                           // idée noire / idees noires
+  /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,         // me tuer / me tué / me tuerai...
+  /\bme\s+pendre\b/iu
 ];
+
+
 
 function isCrisis(text: string): boolean {
   const t = text.toLowerCase();
