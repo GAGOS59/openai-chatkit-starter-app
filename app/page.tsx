@@ -27,54 +27,37 @@ type Slots = {
 function clean(s: string): string {
   return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
 }
-
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
   return t.split(" ").slice(0, 14).join(" ");
 }
-
 function parseSUD(s: string): number | null {
   const m = s.match(/(^|[^0-9])(10|[0-9])([^0-9]|$)/);
   if (!m) return null;
   const v = Number(m[2]);
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
-
-/** Normalise une entrée du type « j’ai mal au/à la… » → « mal … », « j’ai une douleur … » → « douleur … » */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
-
-  // "j’ai mal à/au/aux/à la/à l’..."
   const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
-
-  // "j’ai une/la douleur ..."
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
-
-  // "j’ai peur ..." / "j’ai une peur ..."
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
-
-  // "j’ai une/la tension|gêne ..."
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
-
   return s;
 }
-
-/** Masculin/féminin minimal pour la petite liaison quand on construit l’aspect */
 function isMasculine(intake: string): boolean {
   const t = intake.toLowerCase().trim();
   if (t.startsWith("mal ")) return true;
   if (/^(douleur|peur|gêne|gene|tension)\b/i.test(t)) return false;
   return true;
 }
-
-/** Nettoyage léger du contexte pour l’aspect (supprime les « je/j’ai » en tête) */
 function normalizeContextForAspect(ctx: string): string {
   let c = ctx.trim();
   c = c.replace(/^je\s+/i, "");
@@ -86,8 +69,6 @@ function normalizeContextForAspect(ctx: string): string {
   c = c.replace(/,\s+/g, " ");
   return c;
 }
-
-/** Construit l’aspect court « intake + (lié(e) à + contexte court) » pour le serveur */
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const intake = normalizeIntake(intakeTextRaw);
   if (!ctxShort) return intake;
@@ -96,8 +77,6 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const cleaned = normalizeContextForAspect(ctxShort);
   return `${intake} ${liaison} ${cleaned}`;
 }
-
-/** Rendu de texte avec listes et paragraphes simples */
 function renderPretty(s: string) {
   const paragraphs = s.split(/\n\s*\n/);
   return (
@@ -116,26 +95,16 @@ function renderPretty(s: string) {
     </div>
   );
 }
-
-/** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
-
-  // Retirer tous les "Étape N —" en début de ligne (partout)
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
-
-  // Enlever "Setup :" en début de ligne si présent
-  t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-
-  // Habillage du Setup
+  t = t.replace(/^\s*Setup\s*:?/gmi, "");
   if (stage === "Setup") {
     const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-    t =
-      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
-      `« ${core} »\n` +
-      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
+    t = "Reste bien connecté·e à ton ressenti et dis à voix haute:\n" +
+        `« ${core} »\n` +
+        "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
   }
-
   return t;
 }
 
@@ -157,12 +126,10 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bje\s+me\s+sens\s+de\s+trop\b/i,
   /\bid[ée]es?\s+noires?\b/i,
 ];
-
 function isCrisis(text: string): boolean {
   const t = text.toLowerCase();
   return CRISIS_PATTERNS.some((rx) => rx.test(t));
 }
-
 function crisisMessage(): string {
   return (
 `Message important
@@ -177,6 +144,7 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
+/* ---------- Component ---------- */
 export default function Page() {
   // Session
   const [stage, setStage] = useState<Stage>("Intake");
@@ -196,7 +164,7 @@ export default function Page() {
     if (chatRef.current) chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [rows]);
 
-  // --- Crisis gate (client) ---
+  // Crisis gate (client)
   const [askedSuicideCheck, setAskedSuicideCheck] = useState<boolean>(false);
   const [answeredNoAt, setAnsweredNoAt] = useState<number | null>(null);
   const [closureKind, setClosureKind] = useState<'none'|'normal'|'crisis'>('none');
@@ -208,20 +176,17 @@ export default function Page() {
     /\b(carr[ée]ment|clairement)\b/i,
     /\b(je\s+c(r|’|')ains\s+que\s+oui)\b/i,
   ];
-
   const NO_PATTERNS: RegExp[] = [
     /\b(non|nan|nope)\b/i,
     /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
     /\b(aucune?\s+id[ée]e\s+suicidaire)\b/i,
     /\b(je\s+n['’]?ai\s+pas\s+d['’]?id[ée]es?\s+suicidaires?)\b/i,
   ];
-
   function interpretYesNoClient(text: string): 'yes' | 'no' | 'unknown' {
     if (YES_PATTERNS.some(rx => rx.test(text))) return 'yes';
     if (NO_PATTERNS.some(rx => rx.test(text))) return 'no';
     return 'unknown';
   }
-
   function gentleCrisisFollowupMessage(): string {
     return (
 `Merci pour votre message. 💛
@@ -246,26 +211,19 @@ Je vous souhaite d’être accompagné·e au plus vite.`
     setError(null);
 
     const userText = text.trim();
-    if (!userText) {
-      setLoading(false);
-      return;
-    }
+    if (!userText) { setLoading(false); return; }
 
     const nowMs = Date.now();
 
-    // Après clôture
+    // Si l’appli est en clôture "crise", on ré-affiche le message doux et on ne reprend pas le flux EFT
     if (stage === "Clôture") {
       if (closureKind === 'crisis') {
-        setRows(r => [
-          ...r,
-          { who: "user", text: userText },
-          { who: "bot", text: gentleCrisisFollowupMessage() }
-        ]);
+        setRows(r => [...r, { who: "user", text: userText }, { who: "bot", text: gentleCrisisFollowupMessage() }]);
         setText("");
         setLoading(false);
         return;
       } else {
-        // Clôture normale : nouveau sujet possible → reset EFT
+        // Clôture normale → nouveau sujet possible
         setStage("Intake");
         setEtape(1);
         setSlots({ round: 1 });
@@ -273,14 +231,13 @@ Je vous souhaite d’être accompagné·e au plus vite.`
       }
     }
 
-    // --- Porte de sécurité côté client ---
+    // Porte de sécurité : si on a posé la question, interpréter oui/non
     if (askedSuicideCheck) {
       const yn = interpretYesNoClient(userText);
       setRows(r => [...r, { who: "user", text: userText }]);
       setText("");
 
       if (yn === 'yes') {
-        // Alerte + clôture immédiate (type "crisis")
         setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
         setStage("Clôture");
         setEtape(8);
@@ -290,46 +247,40 @@ Je vous souhaite d’être accompagné·e au plus vite.`
         return;
       }
       if (yn === 'no') {
-        // Mémoriser NON (cooldown) et revenir à l'Intake sans reposer la question
         setAnsweredNoAt(nowMs);
         setAskedSuicideCheck(false);
         setStage("Intake");
         setEtape(1);
         setRows(r => [...r, { who: "bot", text:
-          "Merci pour votre réponse.\n" +
-          "Je suis rassurée que ça ne soit pas le cas. Reprenons.\n\n" +
+          "Merci pour votre réponse. Reprenons.\n\n" +
           "Étape 1 — Sur quoi souhaitez-vous travailler ?\n" +
           "• Si c’est une douleur : précisez la localisation (droite/gauche, zone exacte) et le type (lancinante, aiguë…).\n" +
           "• Si c’est une émotion : où la sentez-vous dans le corps (poitrine, gorge, ventre…) et comment (serrement, pression…)?"
         }]);
         setLoading(false);
-        return; // on ne contacte pas l'API sur ce tour
+        return;
       }
 
-      // Réponse floue → clarifier
       setRows(r => [...r, { who: "bot", text: "Je n’ai pas bien compris. Avez-vous des idées suicidaires en ce moment ? (oui / non)" }]);
       setLoading(false);
       return;
     }
 
-    // Déclenchement initial : poser la question (si pas de cooldown)
+    // Détection initiale de crise (hors cooldown) → poser la question seulement
     const underCooldown = answeredNoAt !== null && (nowMs - answeredNoAt) < CRISIS_COOLDOWN_MS;
     if (isCrisis(userText) && !underCooldown) {
-      setRows(r => [
-        ...r,
-        { who: "user", text: userText },
-        { who: "bot", text: "Avez-vous des idées suicidaires ? (oui / non)" }
-      ]);
+      setRows(r => [...r, { who: "user", text: userText }, { who: "bot", text: "Avez-vous des idées suicidaires ? (oui / non)" }]);
       setText("");
       setAskedSuicideCheck(true);
       setLoading(false);
       return;
     }
 
+    // Ajout du message utilisateur
     setRows(r => [...r, { who: "user", text: userText }]);
     setText("");
 
-    // MÀJ slots
+    // --- Construction des slots pour le flux EFT ---
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
@@ -380,32 +331,23 @@ Je vous souhaite d’être accompagné·e au plus vite.`
     updated.aspect = aspect;
     setSlots(updated);
 
-    // Étape suivante
+    // Étape suivante (par défaut on suit le flux EFT)
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
-    if (stage === "Intake") {
-      stageForAPI = "Intake";
-      etapeForAPI = 1;
-    }
-    else if (stage === "Durée")       { stageForAPI = "Contexte";     etapeForAPI = 3; }
-    else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
-    else if (stage === "Évaluation" && typeof updated.sud === "number") {
-      stageForAPI = "Setup";          etapeForAPI = 5;
-    }
-    else if (stage === "Setup") {
-      stageForAPI = "Tapping";        etapeForAPI = 6;
-    }
+    if (stage === "Intake") { stageForAPI = "Intake"; etapeForAPI = 1; }
+    else if (stage === "Durée") { stageForAPI = "Contexte"; etapeForAPI = 3; }
+    else if (stage === "Contexte") { stageForAPI = "Évaluation"; etapeForAPI = 4; }
+    else if (stage === "Évaluation" && typeof updated.sud === "number") { stageForAPI = "Setup"; etapeForAPI = 5; }
+    else if (stage === "Setup") { stageForAPI = "Tapping"; etapeForAPI = 6; }
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
-          setRows(r => [...r, {
-            who: "bot",
-            text:
-              "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-              "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-              "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
-              "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+          setRows(r => [...r, { who: "bot", text:
+            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
           setClosureKind('normal');
           setStage("Clôture");
@@ -416,7 +358,7 @@ Je vous souhaite d’être accompagné·e au plus vite.`
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots(s => ({ ...s, round: nextRound }));
-          stageForAPI = "Setup";      etapeForAPI = 5;   // repasser par Setup ajusté
+          stageForAPI = "Setup"; etapeForAPI = 5;
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -424,13 +366,11 @@ Je vous souhaite d’être accompagné·e au plus vite.`
     }
     else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        setRows(r => [...r, {
-          who: "bot",
-          text:
-            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
-            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+        setRows(r => [...r, { who: "bot", text:
+          "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+          "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+          "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+          "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
         setClosureKind('normal');
         setStage("Clôture");
@@ -441,17 +381,14 @@ Je vous souhaite d’être accompagné·e au plus vite.`
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
         setSlots(s => ({ ...s, round: nextRound }));
-        stageForAPI = "Setup";        etapeForAPI = 5; // repasser par Setup ajusté
+        stageForAPI = "Setup"; etapeForAPI = 5;
       }
     }
 
-    const transcriptShort = rows
-      .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
-      .slice(-10)
-      .join("\n");
-
-    let raw: unknown;
+    // Appel API
+    let raw: any;
     try {
+      const transcriptShort = rows.map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`)).slice(-10).join("\n");
       const res = await fetch("/api/guide-eft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -470,14 +407,25 @@ Je vous souhaite d’être accompagné·e au plus vite.`
       return;
     }
 
-    let answer = "";
-    if (
-      raw && typeof raw === "object" && raw !== null &&
-      "answer" in raw && typeof (raw as { answer: unknown }).answer === "string"
-    ) {
-      answer = (raw as { answer: string }).answer;
+    const answer = (raw && typeof raw.answer === "string") ? raw.answer : "";
+
+    // Si l’API indique une FAQ → on n’avance PAS le flux EFT
+    if (raw && raw.kind === "faq") {
+      setRows(r => [...r, { who: "bot", text: answer }]);
+      setLoading(false);
+      return;
+    }
+    // Si l’API renvoie une crise
+    if (raw && raw.kind === "crisis") {
+      setRows(r => [...r, { who: "bot", text: answer }]);
+      setClosureKind('crisis');
+      setStage("Clôture");
+      setEtape(8);
+      setLoading(false);
+      return;
     }
 
+    // Double barrière locale
     if (isCrisis(answer)) {
       const now = new Date().toISOString();
       console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
@@ -490,6 +438,7 @@ Je vous souhaite d’être accompagné·e au plus vite.`
       return;
     }
 
+    // Affichage normal du flux EFT
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
     setRows(r => [...r, { who: "bot", text: cleaned }]);
 
@@ -584,7 +533,7 @@ Je vous souhaite d’être accompagné·e au plus vite.`
             </p>
           </div>
 
-          <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
+          <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden={true}></div>
 
           <div className="flex-1 flex flex-col items-center">
             <span className="block text-gray-700 text-center mb-2">
