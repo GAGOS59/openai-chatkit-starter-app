@@ -184,19 +184,19 @@ function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
 
   const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
-    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"] ,
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"] ,
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"] ,
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"] ,
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"] ,
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"] ,
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"] ,
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"] ,
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"] ,
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"] ,
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"] ,
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"] ,
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"] ,
     [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
   ];
 
@@ -247,7 +247,7 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
   const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) {
     return { generic: "Ce " + intake, short: "Ce " + intake, g };
-  }
+    }
   if (g === "f") {
     return { generic: "Cette " + intake, short: "Cette " + intake, g };
   }
@@ -290,7 +290,7 @@ function buildRappelPhrases(slots: Slots): string[] {
 }
 
 /* ---------- Safety (in/out) ---------- */
-  // Ajoute le flag 'u' si possible pour une meilleure gestion des accents
+// Ajoute le flag 'u' si possible pour une meilleure gestion des accents
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
   /\bsu[cs]sid[ea]\b/iu,                                 // fautes courantes
@@ -307,13 +307,11 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bje\s+suis\s+de\s+trop\b/iu,
   /\bje\s+me\s+sens\s+de\s+trop\b/iu,
 
-  // Tes ajouts
+  // Ajouts
   /\bid[ée]es?\s+noires?\b/iu,                           // idée noire / idees noires
   /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,         // me tuer / me tué / me tuerai...
   /\bme\s+pendre\b/iu
 ];
-
-
 
 function isCrisis(text: string): boolean {
   const t = text.toLowerCase();
@@ -332,6 +330,32 @@ En danger immédiat : appelez le 112.
 
 Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
+}
+
+/* ---------- Crisis gate helpers (server) ---------- */
+const YES_PATTERNS: RegExp[] = [
+  /\b(oui|ouais|yep|yes)\b/i,
+  /\b(plut[oô]t\s+)?oui\b/i,
+  /\b(carr[ée]ment|clairement)\b/i,
+  /\b(je\s+c(r|’|')ains\s+que\s+oui)\b/i,
+];
+
+const NO_PATTERNS: RegExp[] = [
+  /\b(non|nan|nope)\b/i,
+  /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
+  /\b(aucune?\s+id[ée]e\s+suicidaire)\b/i,
+  /\b(je\s+n['’]?ai\s+pas\s+d['’]?id[ée]es?\s+suicidaires?)\b/i,
+];
+
+function interpretYesNoServer(text: string): 'yes' | 'no' | 'unknown' {
+  if (YES_PATTERNS.some(rx => rx.test(text))) return 'yes';
+  if (NO_PATTERNS.some(rx => rx.test(text))) return 'no';
+  return 'unknown';
+}
+
+function lastBotAskedSuicideQuestion(transcript: string): boolean {
+  const t = (transcript || "").toLowerCase();
+  return /(^|\n)A:\s.*avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\b/.test(t);
 }
 
 /* ---------- SYSTEM (pour les étapes non déterministes) ---------- */
@@ -401,9 +425,24 @@ if (!isAllowedOrigin) {
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
 
-    // 🔒 Entrant
-    if (prompt && isCrisis(prompt)) {
-      return NextResponse.json({ answer: crisisMessage() });
+    // 🔒 Entrant — Gate: question d'abord, puis oui/non via transcript
+    if (prompt) {
+      const ynIfAny = interpretYesNoServer(prompt);
+      const askedBefore = lastBotAskedSuicideQuestion(
+        typeof raw.transcript === "string" ? raw.transcript : ""
+      );
+
+      if (askedBefore && ynIfAny === 'yes') {
+        return NextResponse.json({ answer: crisisMessage() });
+      }
+
+      if (askedBefore && ynIfAny === 'no') {
+        // L'utilisateur a dit NON après la question → on laisse passer vers le flux normal
+        // (ne rien retourner ici)
+      } else if (isCrisis(prompt)) {
+        // 1ère détection → on pose la question au lieu de pousser le message d'alerte
+        return NextResponse.json({ answer: "Avez-vous des idées suicidaires ? (oui / non)" });
+      }
     }
 
     // ------ Branche FAQ ------
@@ -626,3 +665,4 @@ return NextResponse.json({ answer: "Le service est temporairement indisponible (
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
 }
+
