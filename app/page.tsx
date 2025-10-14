@@ -24,9 +24,6 @@ type Slots = {
 };
 
 /* ---------- Helpers (client) ---------- */
-function clean(s: string): string {
-  return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
-}
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
@@ -385,58 +382,61 @@ Je vous souhaite d’être accompagné·e au plus vite.`
       }
     }
 
-    // Appel API
-    let raw: any;
-    try {
-      const transcriptShort = rows.map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`)).slice(-10).join("\n");
-      const res = await fetch("/api/guide-eft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: userText,
-          stage: stageForAPI,
-          etape: etapeForAPI,
-          transcript: transcriptShort,
-          slots: updated,
-        }),
-      });
-      raw = await res.json();
-    } catch {
-      setRows(r => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
-      setLoading(false);
-      return;
-    }
+    // Appel API — version typée (sans any)
+type GuideAPIResponse = {
+  answer: string;
+  kind?: 'faq' | 'crisis';
+};
 
-    const answer = (raw && typeof raw.answer === "string") ? raw.answer : "";
+let raw: GuideAPIResponse | null = null;
+try {
+  const transcriptShort = rows
+    .map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+    .slice(-10)
+    .join("\n");
 
-    // Si l’API indique une FAQ → on n’avance PAS le flux EFT
-    if (raw && raw.kind === "faq") {
-      setRows(r => [...r, { who: "bot", text: answer }]);
-      setLoading(false);
-      return;
-    }
-    // Si l’API renvoie une crise
-    if (raw && raw.kind === "crisis") {
-      setRows(r => [...r, { who: "bot", text: answer }]);
-      setClosureKind('crisis');
-      setStage("Clôture");
-      setEtape(8);
-      setLoading(false);
-      return;
-    }
+  const res = await fetch("/api/guide-eft", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: userText,
+      stage: stageForAPI,
+      etape: etapeForAPI,
+      transcript: transcriptShort,
+      slots: updated,
+    }),
+  });
 
-    // Double barrière locale
-    if (isCrisis(answer)) {
-      const now = new Date().toISOString();
-      console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
-      setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
-      setStage("Clôture");
-      setEtape(8);
-      setClosureKind('crisis');
-      setText("");
-      setLoading(false);
-      return;
-    }
+  const json = await res.json();
+  if (json && typeof json === "object" && typeof json.answer === "string") {
+    raw = { answer: json.answer, kind: json.kind as GuideAPIResponse["kind"] | undefined };
+  } else {
+    raw = { answer: "" };
+  }
+} catch {
+  setRows(r => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+  setLoading(false);
+  return;
+}
+
+const answer = raw?.answer ?? "";
+
+// Si l’API indique une FAQ → on n’avance PAS le flux EFT
+if (raw?.kind === "faq") {
+  setRows(r => [...r, { who: "bot", text: answer }]);
+  setLoading(false);
+  return;
+}
+
+// Si l’API renvoie une crise
+if (raw?.kind === "crisis") {
+  setRows(r => [...r, { who: "bot", text: answer }]);
+  setClosureKind('crisis');
+  setStage("Clôture");
+  setEtape(8);
+  setLoading(false);
+  return;
+}
 
     // Affichage normal du flux EFT
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
