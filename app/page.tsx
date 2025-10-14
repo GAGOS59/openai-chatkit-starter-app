@@ -137,10 +137,11 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
 }
 
 /* ---------- Liens cliquables dans le chat ---------- */
-function linkify(text: string): Array<string | JSX.Element> {
+function linkify(text: string): React.ReactNode[] {
   const URL_RX =
     /(https?:\/\/[^\s<>"'()]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>"']*)?)/gi;
-  const nodes: Array<string | JSX.Element> = [];
+
+  const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
