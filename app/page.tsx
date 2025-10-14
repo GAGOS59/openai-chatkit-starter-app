@@ -199,6 +199,7 @@ export default function Page() {
   // --- Crisis gate (client) ---
   const [askedSuicideCheck, setAskedSuicideCheck] = useState<boolean>(false);
   const [answeredNoAt, setAnsweredNoAt] = useState<number | null>(null);
+  const [closureKind, setClosureKind] = useState<'none'|'normal'|'crisis'>('none');
   const CRISIS_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2h
 
   const YES_PATTERNS: RegExp[] = [
@@ -221,6 +222,23 @@ export default function Page() {
     return 'unknown';
   }
 
+  function gentleCrisisFollowupMessage(): string {
+    return (
+`Merci pour votre message. 💛
+
+Dans la situation que vous traversez, il n’est pas prudent de tenter l’EFT seul·e.
+Votre sécurité et votre soutien sont prioritaires : rapprochez-vous d’un·e professionnel·le habilité·e
+ou d’un service d’aide immédiatement.
+
+En France :
+• 15 (SAMU) — urgence vitale
+• 3114 — ligne nationale de prévention du suicide, 24/7
+• 112 — urgence (UE)
+
+Je vous souhaite d’être accompagné·e au plus vite.`
+    );
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -235,6 +253,26 @@ export default function Page() {
 
     const nowMs = Date.now();
 
+    // Après clôture
+    if (stage === "Clôture") {
+      if (closureKind === 'crisis') {
+        setRows(r => [
+          ...r,
+          { who: "user", text: userText },
+          { who: "bot", text: gentleCrisisFollowupMessage() }
+        ]);
+        setText("");
+        setLoading(false);
+        return;
+      } else {
+        // Clôture normale : nouveau sujet possible → reset EFT
+        setStage("Intake");
+        setEtape(1);
+        setSlots({ round: 1 });
+        setClosureKind('none');
+      }
+    }
+
     // --- Porte de sécurité côté client ---
     if (askedSuicideCheck) {
       const yn = interpretYesNoClient(userText);
@@ -242,10 +280,11 @@ export default function Page() {
       setText("");
 
       if (yn === 'yes') {
-        // Alerte + clôture immédiate
+        // Alerte + clôture immédiate (type "crisis")
         setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
         setStage("Clôture");
         setEtape(8);
+        setClosureKind('crisis');
         setAskedSuicideCheck(false);
         setLoading(false);
         return;
@@ -284,13 +323,6 @@ export default function Page() {
       setAskedSuicideCheck(true);
       setLoading(false);
       return;
-    }
-
-    // Nouveau sujet après clôture → reset
-    if (stage === "Clôture") {
-      setStage("Intake");
-      setEtape(1);
-      setSlots({ round: 1 });
     }
 
     setRows(r => [...r, { who: "user", text: userText }]);
@@ -374,6 +406,7 @@ export default function Page() {
               "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
+          setClosureKind('normal');
           setStage("Clôture");
           setEtape(8);
           setLoading(false);
@@ -398,6 +431,7 @@ export default function Page() {
             "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
             "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
+        setClosureKind('normal');
         setStage("Clôture");
         setEtape(8);
         setLoading(false);
@@ -449,6 +483,7 @@ export default function Page() {
       setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
       setStage("Clôture");
       setEtape(8);
+      setClosureKind('crisis');
       setText("");
       setLoading(false);
       return;
@@ -559,7 +594,7 @@ export default function Page() {
               href="https://technique-eft.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text:white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
             >
               En savoir plus sur l’EFT
             </a>
