@@ -300,7 +300,6 @@ function lastBotAskedSuicideQuestion(transcript: string): boolean {
 }
 
 /* ---------- FAQ déterministe et exacte ---------- */
-// → élargie pour reconnaître SUD et “phrase de préparation / setup”
 function looksLikeFAQ(q: string): boolean {
   const t = clean(q).toLowerCase();
   if (!t) return false;
@@ -346,8 +345,7 @@ function faqAnswerStrict(q: string): string {
 • Sous le nez (SN)
 • Creux du menton (CM)
 • Clavicule (CL)
-• Sous le bras (SB)
-
+• Sous le bras (SB)`;
 
   const PREP_TXT =
 `Phrase de préparation (EFT classique) :
@@ -627,4 +625,6 @@ ${USER_BLOCK}`,
 
     return NextResponse.json({ answer });
   } catch {
-    return NextRes
+    return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
+  }
+}
