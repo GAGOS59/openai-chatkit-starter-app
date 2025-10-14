@@ -177,7 +177,6 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
-/* ---------- Component ---------- */
 export default function Page() {
   // Session
   const [stage, setStage] = useState<Stage>("Intake");
@@ -197,6 +196,31 @@ export default function Page() {
     if (chatRef.current) chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [rows]);
 
+  // --- Crisis gate (client) ---
+  const [askedSuicideCheck, setAskedSuicideCheck] = useState<boolean>(false);
+  const [answeredNoAt, setAnsweredNoAt] = useState<number | null>(null);
+  const CRISIS_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2h
+
+  const YES_PATTERNS: RegExp[] = [
+    /\b(oui|ouais|yep|yes)\b/i,
+    /\b(plut[oô]t\s+)?oui\b/i,
+    /\b(carr[ée]ment|clairement)\b/i,
+    /\b(je\s+c(r|’|')ains\s+que\s+oui)\b/i,
+  ];
+
+  const NO_PATTERNS: RegExp[] = [
+    /\b(non|nan|nope)\b/i,
+    /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
+    /\b(aucune?\s+id[ée]e\s+suicidaire)\b/i,
+    /\b(je\s+n['’]?ai\s+pas\s+d['’]?id[ée]es?\s+suicidaires?)\b/i,
+  ];
+
+  function interpretYesNoClient(text: string): 'yes' | 'no' | 'unknown' {
+    if (YES_PATTERNS.some(rx => rx.test(text))) return 'yes';
+    if (NO_PATTERNS.some(rx => rx.test(text))) return 'no';
+    return 'unknown';
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -209,18 +233,55 @@ export default function Page() {
       return;
     }
 
-    // 🔒 crise → coupe et clôture
-    if (isCrisis(userText)) {
-      const now = new Date().toISOString();
-      console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
+    const nowMs = Date.now();
+
+    // --- Porte de sécurité côté client ---
+    if (askedSuicideCheck) {
+      const yn = interpretYesNoClient(userText);
+      setRows(r => [...r, { who: "user", text: userText }]);
+      setText("");
+
+      if (yn === 'yes') {
+        // Alerte + clôture immédiate
+        setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
+        setStage("Clôture");
+        setEtape(8);
+        setAskedSuicideCheck(false);
+        setLoading(false);
+        return;
+      }
+      if (yn === 'no') {
+        // Mémoriser NON (cooldown) et revenir à l'Intake sans reposer la question
+        setAnsweredNoAt(nowMs);
+        setAskedSuicideCheck(false);
+        setStage("Intake");
+        setEtape(1);
+        setRows(r => [...r, { who: "bot", text:
+          "Merci pour votre réponse. Reprenons.\n\n" +
+          "Étape 1 — Sur quoi souhaitez-vous travailler ?\n" +
+          "• Si c’est une douleur : précisez la localisation (droite/gauche, zone exacte) et le type (lancinante, aiguë…).\n" +
+          "• Si c’est une émotion : où la sentez-vous dans le corps (poitrine, gorge, ventre…) et comment (serrement, pression…)?"
+        }]);
+        setLoading(false);
+        return; // on ne contacte pas l'API sur ce tour
+      }
+
+      // Réponse floue → clarifier
+      setRows(r => [...r, { who: "bot", text: "Je n’ai pas bien compris. Avez-vous des idées suicidaires en ce moment ? (oui / non)" }]);
+      setLoading(false);
+      return;
+    }
+
+    // Déclenchement initial : poser la question (si pas de cooldown)
+    const underCooldown = answeredNoAt !== null && (nowMs - answeredNoAt) < CRISIS_COOLDOWN_MS;
+    if (isCrisis(userText) && !underCooldown) {
       setRows(r => [
         ...r,
         { who: "user", text: userText },
-        { who: "bot", text: crisisMessage() }
+        { who: "bot", text: "Avez-vous des idées suicidaires ? (oui / non)" }
       ]);
       setText("");
-      setStage("Clôture");
-      setEtape(8);
+      setAskedSuicideCheck(true);
       setLoading(false);
       return;
     }
@@ -498,7 +559,7 @@ export default function Page() {
               href="https://technique-eft.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text:white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
             >
               En savoir plus sur l’EFT
             </a>
