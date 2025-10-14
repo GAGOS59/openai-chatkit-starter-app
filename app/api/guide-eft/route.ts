@@ -324,9 +324,10 @@ function crisisMessage(): string {
   return (
 `Message important
 Il semble que vous traversiez un moment très difficile.
-Je ne suis pas un service d'urgence, mais votre sécurité est prioritaire.
+Ne restez pas seul.e. Rapprochez-vous d'une personne ressource.
+Je ne peux pas vous accompagner sur des situations d'urgence et votre sécurité est prioritaire.
 
-En France : appelez immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
+En France : vous pouvez appeler immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
 En danger immédiat : appelez le 112.
 
 Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
