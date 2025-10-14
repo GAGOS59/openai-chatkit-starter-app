@@ -296,7 +296,8 @@ Je vous souhaite d’être accompagné·e au plus vite.`
         setStage("Intake");
         setEtape(1);
         setRows(r => [...r, { who: "bot", text:
-          "Merci pour votre réponse. Reprenons.\n\n" +
+          "Merci pour votre réponse.\n" +
+          "Je suis rassurée que ça ne soit pas le cas. Reprenons.\n\n" +
           "Étape 1 — Sur quoi souhaitez-vous travailler ?\n" +
           "• Si c’est une douleur : précisez la localisation (droite/gauche, zone exacte) et le type (lancinante, aiguë…).\n" +
           "• Si c’est une émotion : où la sentez-vous dans le corps (poitrine, gorge, ventre…) et comment (serrement, pression…)?"
