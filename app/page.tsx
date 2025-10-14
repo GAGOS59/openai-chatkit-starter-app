@@ -230,7 +230,7 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
 /* ---------- Colonne promo (mobile-first, centrée) ---------- */
 function PromoAside() {
   return (
-<aside className="rounded-2xl border bg-white p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition-shadow xl:sticky xl:top-6">
+    <aside className="rounded-2xl border bg-white p-5 shadow-sm xl:sticky xl:top-6">
       {/* Titre sur 2 lignes, centré */}
       <div className="text-center mb-4">
         <p className="text-sm text-gray-700 leading-snug">Pour aller plus loin avec</p>
@@ -249,7 +249,7 @@ function PromoAside() {
         </a>
       </div>
 
-      {/* Liens utiles (petite liste) */}
+      {/* Liens utiles */}
       <ul className="text-sm text-gray-700 space-y-1 mb-5">
         <li className="text-center">
           Site de référence :{" "}
@@ -403,11 +403,11 @@ export default function Page() {
     }
 
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
-const ctxRaw = (updated.context ?? slots.context ?? "").trim();
-const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
-const aspect = buildAspect(intakeText, ctxShort);
-updated.aspect = aspect;
-setSlots(updated);
+    const ctxRaw = (updated.context ?? slots.context ?? "").trim();
+    const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
+    const aspect = buildAspect(intakeText, ctxShort);
+    updated.aspect = aspect;
+    setSlots(updated);
 
     // Étape suivante
     let stageForAPI: Stage = stage;
@@ -520,7 +520,7 @@ setSlots(updated);
     }
 
     // Si l’API indique une FAQ → on n’avance PAS le flux EFT
-    if ((raw as Extract<ApiResponse, { answer: string }>).kind === "faq") {
+    if ((raw as Extract<ApiResponse, { answer: string; kind?: string }>).kind === "faq") {
       setRows(r => [...r, { who: "bot", text: answer }]);
       setLoading(false);
       return;
@@ -568,20 +568,19 @@ setSlots(updated);
           {/* Chat */}
           <div
             ref={chatRef}
-className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+            className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
           >
             <div className="space-y-3">
               {rows.map((r, i) => (
                 <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
                   <div
-  className={
-    (r.who === "bot"
-      ? "bg-gray-50 text-gray-900 border-gray-200"
-      : "bg-blue-50 text-blue-900 border-blue-200") +
-    " max-w-[80%] rounded-3xl border px-4 py-3 shadow-md"
-  }
->
-
+                    className={
+                      (r.who === "bot"
+                        ? "bg-gray-50 text-gray-900 border-gray-200"
+                        : "bg-blue-50 text-blue-900 border-blue-200") +
+                      " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"
+                    }
+                  >
                     {renderPretty(r.text)}
                   </div>
                 </div>
@@ -621,12 +620,11 @@ className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border b
 
         {/* Promo : s’affiche sous le chat (mobile/tablette) et passe à droite dès xl */}
         <div className="xl:col-span-1 xl:max-h-[72vh] xl:overflow-auto">
-  <PromoAside />
-</div>
-
+          <PromoAside />
+        </div>
       </div>
 
-     
+      {/* Note de prudence (sans gros CTA doublons) */}
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
         <p className="text-sm leading-relaxed">
