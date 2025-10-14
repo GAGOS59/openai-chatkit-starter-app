@@ -300,14 +300,37 @@ function lastBotAskedSuicideQuestion(transcript: string): boolean {
 }
 
 /* ---------- FAQ déterministe et exacte ---------- */
+// → élargie pour reconnaître SUD et “phrase de préparation / setup”
 function looksLikeFAQ(q: string): boolean {
   const t = clean(q).toLowerCase();
   if (!t) return false;
-  // vrai “chat FAQ” (phrases interrogatives ou mots-clés génériques EFT)
+
+  // Interrogations générales
   if (/[?]$/.test(t)) return true;
-  if (/(qu['’]?est-ce\s+que|c['’]?est\s+quoi|comment\s+(faire|pratiquer)|points?|où\s+tapoter|ou\s+tapoter|séquence|sequence|où|ou)\b/i.test(t)) return true;
-  if (!/(mal|douleur|peur|col[eè]re|tristesse|honte|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)/i.test(t)
-      && /(eft|technique|méthode|principe|définition|tapoter)/i.test(t)) return true;
+
+  // Thèmes EFT généraux + points
+  if (/(qu['’]?est-ce\s+que|c['’]?est\s+quoi|comment\s+(faire|pratiquer)|points?|où\s+tapoter|ou\s+tapoter|séquence|sequence|où|ou)\b/i.test(t)) {
+    return true;
+  }
+
+  // SUD
+  if (/\b(sud|intensit[eé]|0\s*[-–]\s*10|0\s*à\s*10|score\s*(?:sud)?|echelle|échelle)\b/i.test(t)) {
+    return true;
+  }
+
+  // Phrase de préparation / setup / rappel
+  if (/\b(phrase\s+de\s+pr[eé]paration|setup|formul(er|ation)|construire\s+la\s+phrase|rappel\s+sur\s+la\s+phrase|point\s+karat[eé]|pk)\b/i.test(t)) {
+    return true;
+  }
+
+  // Mot “eft” présent sans marqueurs de douleur/émotion → FAQ probable
+  if (
+    /(eft|technique|méthode|principe|définition|tapoter)/i.test(t) &&
+    !/(mal|douleur|peur|col[eè]re|tristesse|honte|stress|anxi[ée]t[ée]|angoisse|inqui[èe]tude)/i.test(t)
+  ) {
+    return true;
+  }
+
   return false;
 }
 
@@ -316,15 +339,32 @@ function faqAnswerStrict(q: string): string {
 
   const POINTS_TXT =
 `En EFT classique (Gary Craig), les points de la ronde sont :
+• Sommet de la tête (ST)
 • Début du sourcil (DS)
 • Coin de l’œil (CO)
 • Sous l’œil (SO)
 • Sous le nez (SN)
-• Menton (CH)
+• Creux du menton (CM)
 • Clavicule (CL)
 • Sous le bras (SB)
-• Sommet de la tête (ST)
-👉 Pas de “poignet” ni “bras” en EFT classique.`;
+
+
+  const PREP_TXT =
+`Phrase de préparation (EFT classique) :
+• Structure : « Même si [problème spécifique], je m’accepte profondément et complètement. »
+• Point Karaté (PK) : répéter 3 fois en tapotant la tranche de la main.
+• Rester spécifique, factuel, neutre (pas d’“affirmations positives” insérées).
+Exemples :
+• Émotion : « Même si je ressens cette peur dans la poitrine quand je pense à la réunion, je m’accepte profondément et complètement. »
+• Sensation : « Même si j’ai cette tension à la nuque liée au dossier en retard, je m’accepte profondément et complètement. »
+• Situation : « Même si je me sens débordé·e en pensant à [X], je m’accepte profondément et complètement. »`;
+
+  const SUD_TXT =
+`SUD = Subjective Units of Distress (échelle 0–10).
+• 0 = aucune gêne ; 10 = maximum d’intensité.
+• On note un SUD avant la ronde, puis après, pour suivre l’évolution.
+• Si tu hésites entre deux chiffres, choisis “au feeling”.
+• Objectif : rester précis·e et observer la tendance (↓ stable ↑).`;
 
   if (/(qu['’]?est-ce\s+que|c['’]?est\s+quoi).*eft|^eft$/.test(t)) {
     return (
@@ -336,7 +376,7 @@ function faqAnswerStrict(q: string): string {
     return (
 `Pour pratiquer l’EFT classique :
 1) Choisis un sujet précis (émotion/sensation/souvenir) et note ton SUD (0–10).
-2) Phrase de préparation (Point Karaté ×3) : « Même si [problème], je m’accepte profondément et complètement. »
+2) Phrase de préparation (Point Karaté ×3) : « Même si je ou j'ai [problème], je m’accepte profondément et complètement. »
 3) Ronde : tapote chaque point en répétant un rappel court (ex. « cette peur dans la poitrine »).
 4) Réévalue le SUD. Si >0, refais une ronde en restant spécifique.
 ${POINTS_TXT}`
@@ -347,9 +387,17 @@ ${POINTS_TXT}`
     return POINTS_TXT;
   }
 
+  if (/\b(sud|intensit[eé]|0\s*[-–]\s*10|0\s*à\s*10|score\s*(?:sud)?|echelle|échelle)\b/.test(t)) {
+    return SUD_TXT;
+  }
+
+  if (/\b(phrase\s+de\s+pr[eé]paration|setup|formul(er|ation)|construire\s+la\s+phrase|rappel\s+sur\s+la\s+phrase|point\s+karat[eé]|pk)\b/.test(t)) {
+    return PREP_TXT;
+  }
+
   // fallback neutre, sans risque d’erreur
   return (
-`Je peux répondre brièvement sur l’EFT classique de Gary Craig (définition, points, déroulé d’une ronde). Dis-moi si tu veux la liste exacte des points, un mini-pas-à-pas, ou un rappel sur la phrase de préparation.`
+`Je peux répondre brièvement sur l’EFT classique de Gary Craig : définition, points de la ronde, SUD (0–10) et phrase de préparation. Dis-moi : “points”, “SUD”, ou “phrase de préparation”, et je te donne le rappel précis.`
   );
 }
 
@@ -386,7 +434,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ answer: crisisMessage(), kind: "crisis" });
       }
       if (askedBefore && ynIfAny === "no") {
-        // L’utilisateur a dit NON → on laisse poursuivre le flux normal
+        // NON → on poursuit
       } else if (isCrisis(prompt)) {
         return NextResponse.json({ answer: "Avez-vous des idées suicidaires ? (oui / non)", kind: "gate" });
       }
@@ -395,7 +443,6 @@ export async function POST(req: Request) {
     // ------ Branche FAQ déterministe ------
     if (prompt && looksLikeFAQ(prompt)) {
       const ans = faqAnswerStrict(prompt);
-      // Double barrière (au cas où la FAQ contiendrait un mot clé sensible)
       if (ans && isCrisis(ans)) {
         return NextResponse.json({ answer: crisisMessage(), kind: "crisis" });
       }
@@ -580,6 +627,4 @@ ${USER_BLOCK}`,
 
     return NextResponse.json({ answer });
   } catch {
-    return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
-  }
-}
+    return NextRes
