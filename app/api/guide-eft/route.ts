@@ -184,19 +184,19 @@ function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
 
   const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"] ,
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"] ,
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"] ,
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"] ,
-    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"] ,
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"] ,
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"] ,
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"] ,
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"] ,
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"] ,
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"] ,
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"] ,
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"] ,
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
     [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
   ];
 
@@ -247,7 +247,7 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
   const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) {
     return { generic: "Ce " + intake, short: "Ce " + intake, g };
-    }
+  }
   if (g === "f") {
     return { generic: "Cette " + intake, short: "Cette " + intake, g };
   }
@@ -665,4 +665,3 @@ return NextResponse.json({ answer: "Le service est temporairement indisponible (
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
 }
-
