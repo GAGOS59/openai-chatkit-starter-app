@@ -620,9 +620,10 @@ className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border b
         </div>
 
         {/* Promo : s’affiche sous le chat (mobile/tablette) et passe à droite dès xl */}
-        <div className="xl:col-span-1">
-          <PromoAside />
-        </div>
+        <div className="xl:col-span-1 xl:max-h-[72vh] xl:overflow-auto">
+  <PromoAside />
+</div>
+
       </div>
 
      
