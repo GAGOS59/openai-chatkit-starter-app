@@ -375,11 +375,11 @@ export default function Page() {
     }
 
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
-    the const ctxRaw = (updated.context ?? slots.context ?? "").trim();
-    const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
-    const aspect = buildAspect(intakeText, ctxShort);
-    updated.aspect = aspect;
-    setSlots(updated);
+const ctxRaw = (updated.context ?? slots.context ?? "").trim();
+const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
+const aspect = buildAspect(intakeText, ctxShort);
+updated.aspect = aspect;
+setSlots(updated);
 
     // Étape suivante
     let stageForAPI: Stage = stage;
@@ -604,7 +604,7 @@ export default function Page() {
               href="https://ecole-eft-france.fr/pages/formations-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg:white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
             >
               Découvrir nos formations
             </a>
@@ -625,7 +625,7 @@ export default function Page() {
               href="https://technique-eft.com/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text:white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
+              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
             >
               En savoir plus sur l’EFT
             </a>
