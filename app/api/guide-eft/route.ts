@@ -317,9 +317,9 @@ function crisisMessage(): string {
   return (
 `Message important
 Il semble que vous traversiez un moment très difficile.
-Je ne suis pas un service d'urgence, mais votre sécurité est prioritaire.
+Je ne peux pas vous accompagner dans les situations d'urgence et votre sécurité est prioritaire.
 
-En France : appelez immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
+En France : vous pouvez appeler immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
 En danger immédiat : appelez le 112.
 
 Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
@@ -537,7 +537,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
 - CO : ${p[2]}
 - SO : ${p[3]}
 - SN : ${p[4]}
-- MT : ${p[5]}
+- CM : ${p[5]}
 - CL : ${p[6]}
 - SB : ${p[7]}
 Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
