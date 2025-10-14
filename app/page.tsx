@@ -227,15 +227,31 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   return t;
 }
 
-/* ---------- Composant promo (sticky seulement dès xl) ---------- */
+/* ---------- Colonne promo (mobile-first, centrée) ---------- */
 function PromoAside() {
   return (
-    <aside className="rounded-2xl border bg-white p-4 shadow-sm xl:sticky xl:top-6">
-      <h3 className="text-base font-semibold mb-2">
-        Pour aller plus loin avec Geneviève Gagos
-      </h3>
-      <ul className="list-disc pl-5 space-y-1 text-sm">
-        <li>
+    <aside className="rounded-2xl border bg-white p-5 shadow-sm xl:sticky xl:top-6">
+      {/* Titre sur 2 lignes, centré */}
+      <div className="text-center mb-4">
+        <p className="text-sm text-gray-700 leading-snug">Pour aller plus loin avec</p>
+        <h3 className="text-xl font-bold leading-tight break-words">Geneviève Gagos</h3>
+      </div>
+
+      {/* Bouton Livres */}
+      <div className="flex justify-center mb-4">
+        <a
+          href="https://technique-eft.com/livres-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50 transition"
+        >
+          Livres EFT
+        </a>
+      </div>
+
+      {/* Liens utiles (petite liste) */}
+      <ul className="text-sm text-gray-700 space-y-1 mb-5">
+        <li className="text-center">
           Site de référence :{" "}
           <a
             href="https://technique-eft.com/"
@@ -243,32 +259,43 @@ function PromoAside() {
             rel="noopener noreferrer"
             className="underline hover:no-underline"
           >
-            https://technique-eft.com/
+            Technique-EFT.com
           </a>
         </li>
-        <li>
-          Mes livres :{" "}
-          <a
-            href="https://technique-eft.com/livres-eft.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:no-underline"
-          >
-            https://technique-eft.com/livres-eft.html
-          </a>
-        </li>
-        <li>
-          Se former à son rythme : École EFT France —{" "}
+      </ul>
+
+      <div className="h-px bg-gray-200 my-4" />
+
+      {/* Deux CTA empilés, centrés */}
+      <div className="space-y-3">
+        <div className="text-center">
           <a
             href="https://ecole-eft-france.fr/pages/formations-eft.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:no-underline"
+            className="inline-block w-full rounded-xl border bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] transition"
           >
             Découvrir nos formations
           </a>
-        </li>
-      </ul>
+          <p className="text-xs text-gray-600 mt-1">
+            Formations adaptées à vos besoins, proposées par l’École EFT France.
+          </p>
+        </div>
+
+        <div className="text-center">
+          <a
+            href="https://technique-eft.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block w-full rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50 transition"
+          >
+            En savoir plus sur l’EFT
+          </a>
+          <p className="text-xs text-gray-600 mt-1">
+            Articles, ressources et actualités sur Technique-EFT.com.
+          </p>
+        </div>
+      </div>
     </aside>
   );
 }
@@ -597,43 +624,7 @@ setSlots(updated);
         </div>
       </div>
 
-      {/* CTA + Note */}
-      <div className="mt-6">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-          <div className="flex-1 flex flex-col items-center">
-            <a
-              href="https://ecole-eft-france.fr/pages/formations-eft.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            >
-              Découvrir nos formations
-            </a>
-            <p className="text-sm text-gray-600 mt-2 text-center">
-              Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
-              découvrez les formations proposées par <strong>l’École EFT France</strong>.
-            </p>
-          </div>
-
-          <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
-
-          <div className="flex-1 flex flex-col items-center">
-            <span className="block text-gray-700 text-center mb-2">
-              Pour en apprendre plus sur l’EFT,<br />
-              retrouvez-moi sur le site <strong>Technique-EFT.com</strong>
-            </span>
-            <a
-              href="https://technique-eft.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            >
-              En savoir plus sur l’EFT
-            </a>
-          </div>
-        </div>
-      </div>
-
+     
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
         <p className="text-sm leading-relaxed">
