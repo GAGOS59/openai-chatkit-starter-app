@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
 // --- DEMO (facultatif) ---
-const SHOW_DEMO = true; // passe à false pour masquer le panneau
+const SHOW_DEMO = false; // passe à false pour masquer le panneau
 
 const DEMO_PRESETS = [
   {
