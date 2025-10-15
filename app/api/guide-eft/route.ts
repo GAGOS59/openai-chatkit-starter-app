@@ -389,6 +389,37 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
 `Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       return NextResponse.json({ answer: txt });
     }
+/** Extrait le nom-tête (premier mot pertinent) pour accorder l'article et la liaison */
+function headNoun(phrase: string): string {
+  const t = phrase.trim().toLowerCase()
+    .replace(/^j['’]ai\s+/i, "")
+    .replace(/^je\s+/i, "")
+    .replace(/^(ce|cette|le|la|les|un|une)\s+/i, "")
+    .replace(/^mal\s+/, "mal "); // on garde "mal" s'il est vraiment le tête
+  const m = t.match(/^(mal|douleur|peur|gêne|gene|tension|serrement|pression|chaleur|vide|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude)\b/);
+  return m ? m[1] : t.split(/\s+/)[0];
+}
+
+/** Article correct (ce/cette) selon le nom-tête */
+function articleFor(nounPhrase: string): "ce" | "cette" {
+  const n = headNoun(nounPhrase);
+  const fem = new Set(["douleur","peur","gêne","gene","tension","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude"]);
+  if (n === "mal") return "ce";
+  return fem.has(n) ? "cette" : "ce";
+}
+
+/** Rend le contexte plus fluide après “lié(e) à …” (ex: “fatiguée en fin de journée” → “la fatigue en fin de journée”) */
+function humanizeContextForLinking(ctx: string): string {
+  let c = clean(ctx);
+  // adjectif → nom
+  c = c.replace(/^\s*fatigu[ée]?(s)?\b/i, "la fatigue$1");
+  c = c.replace(/^\s*stress[ée]?(s)?\b/i, "le stress$1");
+  // “quand je …” → on conserve la clause entière
+  // Si ça commence déjà par une préposition (“quand, pendant, avant, après, lors de, en …”), on garde tel quel :
+  if (/^(quand|pendant|avant|après|lors\s+de|en\s+|au\s+travail|à\s+l'école|a\s+l'ecole)/i.test(c)) return c;
+  // Sinon on s'assure d'avoir une tournure nominale naturelle
+  return c;
+}
 
     // Étape 5 — Setup (déterministe)
     if (etape === 5) {
