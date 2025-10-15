@@ -2,6 +2,50 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
+// --- DEMO (facultatif) ---
+const SHOW_DEMO = true; // passe à false pour masquer le panneau
+
+const DEMO_PRESETS = [
+  {
+    label: "Douleur au dos → lombaires",
+    steps: [
+      "douleur au dos",
+      "douleur sourde aux lombaires",
+      "fatiguée en fin de journée",
+      "5",
+      "OK",
+      "3",
+      "OK",
+      "0"
+    ],
+  },
+  {
+    label: "Peur des hauteurs",
+    steps: [
+      "peur des hauteurs",
+      "serrement dans la poitrine",
+      "quand je regarde par-dessus une rambarde",
+      "7",
+      "OK",
+      "4",
+      "OK",
+      "1",
+      "OK",
+      "0"
+    ],
+  },
+];
+
+// petit utilitaire pour insérer du texte dans l’input
+function useDemoHelpers(
+  setText: React.Dispatch<React.SetStateAction<string>>
+) {
+  return {
+    fill: (value: string) => setText(value),
+  };
+}
+
+
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
 type Stage =
@@ -281,6 +325,7 @@ export default function Page() {
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const demo = useDemoHelpers(setText);
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -508,6 +553,36 @@ export default function Page() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Colonne principale */}
         <div className="xl:col-span-2 space-y-4">
+
+          {SHOW_DEMO && (
+  <div className="rounded-xl border bg-white p-3 shadow-sm">
+    <div className="text-sm font-semibold mb-2">Mode démo (facultatif)</div>
+    <div className="flex flex-wrap gap-2">
+      {DEMO_PRESETS.map((preset, idx) => (
+        <div key={idx} className="flex items-center gap-2">
+          <span className="text-xs text-gray-600">{preset.label}</span>
+          <div className="flex gap-1">
+            {preset.steps.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => demo.fill(s)}
+                className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
+                title={`Insérer: ${s}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+    <p className="text-xs text-gray-500 mt-2">
+      Clique sur un numéro pour pré-remplir le champ, puis appuie sur <strong>Envoyer</strong>.
+    </p>
+  </div>
+)}
+
           {/* Chat */}
           <div
             ref={chatRef}
