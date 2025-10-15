@@ -238,30 +238,6 @@ function buildRappelPhrases(slots: Slots): string[] {
   return phrases.slice(0, 8);
 }
 
-/* ---------- Helpers Setup (accords & contexte naturel) ---------- */
-function headNoun(phrase: string): string {
-  const t = phrase.trim().toLowerCase()
-    .replace(/^j['’]ai\s+/i, "")
-    .replace(/^je\s+/i, "")
-    .replace(/^(ce|cette|le|la|les|un|une)\s+/i, "")
-    .replace(/^mal\s+/, "mal ");
-  const m = t.match(/^(mal|douleur|peur|gêne|gene|tension|serrement|pression|chaleur|vide|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude)\b/);
-  return m ? m[1] : t.split(/\s+/)[0];
-}
-function articleFor(nounPhrase: string): "ce" | "cette" {
-  const n = headNoun(nounPhrase);
-  const fem = new Set(["douleur","peur","gêne","gene","tension","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude"]);
-  if (n === "mal") return "ce";
-  return fem.has(n) ? "cette" : "ce";
-}
-function humanizeContextForLinking(ctx: string): string {
-  let c = clean(ctx);
-  c = c.replace(/^\s*fatigu[ée]?(s)?\b/i, "la fatigue$1");
-  c = c.replace(/^\s*stress[ée]?(s)?\b/i, "le stress$1");
-  if (/^(quand|pendant|avant|après|lors\s+de|en\s+|au\s+travail|à\s+l'école|a\s+l'ecole)/i.test(c)) return c;
-  return c;
-}
-
 /* ---------- Safety (in/out) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
@@ -347,7 +323,7 @@ export async function POST(req: Request) {
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
 
-    // 🔒 Gate de sécurité (question préalable)
+    // 🔒 Gate de sécurité
     if (prompt) {
       const ynIfAny = interpretYesNoServer(prompt);
       const askedBefore = lastBotAskedSuicideQuestion(typeof raw.transcript === "string" ? raw.transcript : "");
@@ -362,14 +338,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // ------ Flux guidé EFT uniquement ------
+    // ------ Flux guidé EFT (déterministe pour 1,3,4,5,6,8) ------
     const stage = (raw.stage as Stage) ?? "Intake";
     const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage);
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    // Étape 1
+    // Étape 1 — Intake
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -394,26 +370,28 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
 `Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
       return NextResponse.json({ answer: txt });
     }
-// Étape 3 — Contexte (déterministe)
-if (etape === 3) {
-  const intakeNorm = clean(slots.intake ?? prompt ?? "");
-  const txt =
+
+    // Étape 3 — Contexte (circonstances)
+    if (etape === 3) {
+      const intakeRaw = slots.intake ?? prompt ?? "";
+      const intakeNorm = clean(intakeRaw);
+      const txt =
 `Étape 3 — En quelques mots, à quoi c’est lié ou quand cela se manifeste pour « ${intakeNorm} » ?
 (Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
-  return NextResponse.json({ answer: txt });
-}
+      return NextResponse.json({ answer: txt });
+    }
 
-// Étape 4 — Évaluation (déterministe)
-if (etape === 4) {
-  const intakeNorm = clean(slots.intake ?? "");
-  const ctxPretty = clean(slots.context ?? "");
-  const cible = ctxPretty ? ` en pensant à « ${ctxPretty} »` : "";
-  const txt =
-`Étape 4 — Pense à « ${intakeNorm} »${cible}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
-  return NextResponse.json({ answer: txt });
-}
+    // Étape 4 — Évaluation (SUD)
+    if (etape === 4) {
+      const intakeNorm = clean(slots.intake ?? "");
+      const ctx = clean(slots.context ?? "");
+      const ctxPart = ctx ? ` en pensant à « ${ctx} »` : "";
+      const txt =
+`Étape 4 — Pense à « ${intakeNorm} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+      return NextResponse.json({ answer: txt });
+    }
 
-    // Étape 5 — Setup (déterministe)
+    // Étape 5 — Setup
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
@@ -445,16 +423,16 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
         .replace(/^(ce|cette)\s+/i, "");
 
       const kind = classifyIntake(intakeOrig || base);
-      const ctxPretty = ctx ? humanizeContextForLinking(readableContext(ctx, kind)) : "";
+      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
 
-      const head = headNoun(base);
-      const liaison = (head === "douleur" || head === "peur" || head === "gêne" || head === "gene" || head === "tension")
-        ? "liée à" : "lié à";
-      const aspectPretty = (base + (ctxPretty ? ` ${liaison} ${ctxPretty}` : "")).replace(/\s{2,}/g, " ").trim();
+      const g = detectGender(base);
+      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+      const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
+      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
+      const article = emotionArticle(base);
 
-      const art = articleFor(base);
       const txt =
-`Étape 5 — Setup : « Même si j’ai ${art} ${aspectPretty}, je m’accepte profondément et complètement. »
+`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
@@ -485,8 +463,78 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
- 
-    
+    // --- LLM pour autres étapes (p. ex. Réévaluation 7) ---
+    const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
+    const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
+
+    const USER_BLOCK =
+`[CONTEXTE]
+Étape demandée: ${etape}
+Slots:
+- intake="${(slots.intake ?? "").toString()}"
+- duration="${(slots.duration ?? "").toString()}"
+- context="${(slots.context ?? "").toString()}"
+- sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
+- round=${Number.isFinite(slots.round) ? slots.round : "NA"}
+- aspect="${(slots.aspect ?? "").toString()}"
+
+[DERNIER MESSAGE UTILISATEUR]
+${prompt}
+
+[HISTORIQUE (court)]
+${transcript}
+
+[INSTRUCTION]
+Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        input: `Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
+Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
+- Pas de fillers. Utiliser uniquement les mots fournis (slots).
+- Une seule consigne par message (sauf Setup: 2 lignes max).
+- Commencer par "Étape {N} — ".
+
+${USER_BLOCK}`,
+        temperature: 0.2,
+        max_output_tokens: 260,
+      }),
+      signal: controller.signal,
+    }).catch(() => { throw new Error("Upstream error"); });
+    clearTimeout(timer);
+
+    if (!res || !res.ok) {
+      return NextResponse.json({ answer: "Le service est temporairement indisponible (502)." }, { status: 502 });
+    }
+
+    const json = await res.json();
+    const answer =
+      (json?.output?.[0]?.content?.[0]?.text) ??
+      (json?.choices?.[0]?.message?.content) ??
+      (json?.content?.[0]?.text) ??
+      "";
+
+    // 🔒 Sortant
+    const FORBIDDEN_OUTPUT: RegExp[] = [
+      ...CRISIS_PATTERNS,
+      /\bsuicid\w*/i,
+      /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
+    ];
+    const unsafeOut = answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer));
+    if (unsafeOut) {
+      return NextResponse.json({ answer: crisisMessage(), kind: "crisis" });
+    }
+
+    return NextResponse.json({ answer });
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
