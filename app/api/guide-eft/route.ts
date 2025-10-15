@@ -485,78 +485,8 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // --- LLM pour les autres étapes (texte court) ---
-    const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
-    const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
-
-    const USER_BLOCK =
-`[CONTEXTE]
-Étape demandée: ${etape}
-Slots:
-- intake="${(slots.intake ?? "").toString()}"
-- duration="${(slots.duration ?? "").toString()}"
-- context="${((slots.context ?? "")).toString()}"
-- sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
-- round=${Number.isFinite(slots.round) ? slots.round : "NA"}
-- aspect="${(slots.aspect ?? "").toString()}"
-
-[DERNIER MESSAGE UTILISATEUR]
-${prompt}
-
-[HISTORIQUE (court)]
-${(typeof raw.transcript === "string" ? raw.transcript : "").trim()}
-
-[INSTRUCTION]
-Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        input: `Tu es l'assistante EFT officielle de l'École EFT France (Gary Craig).
-Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic.
-- Pas de fillers. Utiliser uniquement les mots fournis (slots).
-- Une seule consigne par message (sauf Setup: 2 lignes max).
-- Commencer par "Étape {N} — ".
-
-${USER_BLOCK}`,
-        temperature: 0.2,
-        max_output_tokens: 260,
-      }),
-      signal: controller.signal,
-    }).catch(() => { throw new Error("Upstream error"); });
-    clearTimeout(timer);
-
-    if (!res || !res.ok) {
-      return NextResponse.json({ answer: "Le service est temporairement indisponible (502)." }, { status: 502 });
-    }
-
-    const json = await res.json();
-    const answer =
-      (json?.output?.[0]?.content?.[0]?.text) ??
-      (json?.choices?.[0]?.message?.content) ??
-      (json?.content?.[0]?.text) ??
-      "";
-
-    // 🔒 Sortant
-    const FORBIDDEN_OUTPUT: RegExp[] = [
-      ...CRISIS_PATTERNS,
-      /\bsuicid\w*/i,
-      /\b(euthanasie|me\s+tuer|me\s+supprimer)\b/i,
-    ];
-    const unsafeOut = answer && FORBIDDEN_OUTPUT.some((rx) => rx.test(answer));
-    if (unsafeOut) {
-      return NextResponse.json({ answer: crisisMessage(), kind: "crisis" });
-    }
-
-    return NextResponse.json({ answer });
+ 
+    
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
