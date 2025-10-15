@@ -32,20 +32,15 @@ type GuideRequest = {
   slots?: Slots;
 };
 
-/* ---------- Utils génériques ---------- */
+/* ---------- Utils généraux ---------- */
 function clean(s: string): string {
-  return (s || "").replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
+  return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
 }
 
-function shortContext(s: string): string {
-  const t = clean(s);
-  if (!t) return "";
-  return t.split(" ").slice(0, 14).join(" ");
-}
-
-/** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) */
+/** Normalise l’intake ("j'ai mal aux ...", "j’ai une douleur ...", "j’ai peur ...") */
 function normalizeIntake(input: string): string {
-  const s = clean(input);
+  const s = input.trim().replace(/\s+/g, " ");
+
   const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
 
@@ -63,24 +58,52 @@ function normalizeIntake(input: string): string {
   return s;
 }
 
+function splitContext(ctx: string): string[] {
+  return ctx
+    .split(/[,.;]|(?:\s(?:et|quand|parce que|car|puisque|lorsque|depuis|depuis que)\s)/gi)
+    .map((p) => clean(p))
+    .filter((p) => p.length > 0)
+    .slice(0, 6);
+}
+
+function detectGender(intakeRaw: string): "m" | "f" {
+  const s = clean(intakeRaw).toLowerCase();
+  if (s.startsWith("mal") || s.startsWith("serrement") || s.startsWith("truc")) return "m";
+  if (
+    s.startsWith("douleur") || s.startsWith("peur") || s.startsWith("gêne") || s.startsWith("gene") ||
+    s.startsWith("tension") || s.startsWith("colère") || s.startsWith("colere") ||
+    s.startsWith("crispation") || s.startsWith("tristesse")
+  ) return "f";
+  return "f";
+}
+
+function isEmotionIntake(raw: string): boolean {
+  const t = clean(raw).toLowerCase();
+  if (/^je\s+suis\b/i.test(t)) return true;
+  return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/.test(t);
+}
+
+function emotionArticle(noun: string): "ce" | "cette" {
+  const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
+  const fem = new Set([
+    "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude",
+    "douleur","gêne","gene","tension"
+  ]);
+  return fem.has(n) ? "cette" : "ce";
+}
+
 function normalizeEmotionNoun(s: string): string {
   const raw = clean(s);
   const t = raw.toLowerCase();
-
-  // Si déjà spécifique, on ne touche pas
   if (/\bpeur\s+(de|du|des|d’|d')\s+.+/i.test(t)) return raw;
   if (/\bcol[eè]re\s+(contre|envers|à\s+propos\s+de)\s+.+/i.test(t)) return raw;
   if (/\b(honte|culpabilit[eé])\s+(de|d’|d')\s+.+/i.test(t)) return raw;
-
-  // Nettoyage des formes verbales courantes
   const x = t
     .replace(/^j['’]?\s*eprouve\s+/, "")
     .replace(/^je\s+me\s+sens\s+/, "")
     .replace(/^je\s+ressens\s+/, "")
     .replace(/^je\s+suis\s+en\s+/, "")
     .replace(/^je\s+suis\s+/, "");
-
-  // Normalisation des noms d’émotion
   const map: Array<[RegExp, string]> = [
     [/col[eè]re/, "colère"],
     [/triste(sse)?/, "tristesse"],
@@ -95,35 +118,37 @@ function normalizeEmotionNoun(s: string): string {
   return raw;
 }
 
-
+/* ---------- Classification Intake & aides ---------- */
 type IntakeKind = "physique" | "emotion" | "situation";
 function classifyIntake(intakeRaw: string): IntakeKind {
   const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
-  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raideur|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
+  const phys = /\b(mal|douleur|tension|gêne|gene|crispation|br[ûu]lure|brulure|tiraillement|raid(e|eur)|contracture|piq[uû]re|aiguille|spasme|serrement|inflammation)\b/;
   if (phys.test(s)) return "physique";
   const emo = /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/;
   if (emo.test(s)) return "emotion";
   return "situation";
 }
 
-function detectGender(intakeRaw: string): "m" | "f" {
+function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
-  if (s.startsWith("mal") || s.startsWith("serrement") || s.startsWith("truc")) return "m";
-  if (
-    s.startsWith("douleur") || s.startsWith("peur") || s.startsWith("gêne") || s.startsWith("gene") ||
-    s.startsWith("tension") || s.startsWith("colère") || s.startsWith("colere") ||
-    s.startsWith("crispation") || s.startsWith("tristesse")
-  ) return "f";
-  return "f";
-}
-
-function emotionArticle(noun: string): "ce" | "cette" {
-  const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
-  const fem = new Set([
-    "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude",
-    "douleur","gêne","gene","tension"
-  ]);
-  return fem.has(n) ? "cette" : "ce";
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
+  ];
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
 }
 
 function readableContext(ctx: string, kind?: IntakeKind): string {
@@ -158,17 +183,9 @@ function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   return " qui reste encore un peu";
 }
 
-function splitContext(ctx: string): string[] {
-  return clean(ctx)
-    .split(/[,.;]|(?:\s(?:et|quand|parce que|car|puisque|lorsque|depuis|depuis que)\s)/gi)
-    .map((p) => clean(p))
-    .filter((p) => p.length > 0)
-    .slice(0, 6);
-}
-
 function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" | "f" } {
   const intakePrim = clean(normalizeIntake(_raw));
-  const intake = clean(intakePrim);
+  const intake = clean(normalizeEmotionNoun(intakePrim));
   const g = detectGender(intake);
   if (g === "m" && /^mal\b/i.test(intake)) return { generic: "Ce " + intake, short: "Ce " + intake, g };
   if (g === "f") return { generic: "Cette " + intake, short: "Cette " + intake, g };
@@ -178,14 +195,15 @@ function baseFromIntake(_raw: string): { generic: string; short: string; g: "m" 
 function buildRappelPhrases(slots: Slots): string[] {
   let intake = clean(normalizeIntake(slots.intake ?? ""));
   intake = intake.replace(/^(?:je\s+suis|je\s+me\s+sens|je\s+ressens|j['’]ai)\s+/i, "");
+  intake = clean(normalizeEmotionNoun(intake));
   const ctx = clean(slots.context ?? "");
   const { generic, short, g } = baseFromIntake(intake);
   const sudQ = sudQualifierFromNumber(slots.sud, g);
   const round = slots.round ?? 1;
   const contextParts = ctx ? splitContext(ctx) : [];
   const roundMod = typeof slots.sud === "number" && slots.sud > 0 && round > 1
-    ? (slots.sud >= 7 ? " toujours" : " encore")
-    : "";
+      ? (slots.sud >= 7 ? " toujours" : " encore")
+      : "";
   const qOrRound = sudQ || roundMod;
 
   const phrases: string[] = [];
@@ -205,23 +223,28 @@ function buildRappelPhrases(slots: Slots): string[] {
   return phrases.slice(0, 8);
 }
 
-/* ---------- Sécurité (in/out) ---------- */
+/* ---------- Sécurité suicide (in/out) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
   /\bsu[cs]sid[ea]\b/iu,
   /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
   /\bje\s+ne\s+veux\s+plus\s+vivre\b/iu,
   /j['’]?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,
+  /j['’]?\s*en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/iu,
   /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/iu,
   /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/iu,
+  /\b(foutre|jeter)\s+en\s+l[’']?air\b/iu,
   /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/iu,
+  /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/iu,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
+  /\bje\s+suis\s+de\s+trop\b/iu,
+  /\bje\s+me\s+sens\s+de\s+trop\b/iu,
   /\bid[ée]es?\s+noires?\b/iu,
   /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
   /\bme\s+pendre\b/iu
 ];
-
 function isCrisis(text: string): boolean {
-  const t = (text || "").toLowerCase();
+  const t = text.toLowerCase();
   return CRISIS_PATTERNS.some((rx) => rx.test(t));
 }
 
@@ -239,6 +262,7 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
+/* ---------- YES/NO helpers (server) ---------- */
 const YES_PATTERNS: RegExp[] = [
   /\b(oui|ouais|yep|yes)\b/i,
   /\b(plut[oô]t\s+)?oui\b/i,
@@ -253,8 +277,8 @@ const NO_PATTERNS: RegExp[] = [
 ];
 
 function interpretYesNoServer(text: string): "yes" | "no" | "unknown" {
-  if (YES_PATTERNS.some(rx => rx.test(text))) return "yes";
-  if (NO_PATTERNS.some(rx => rx.test(text))) return "no";
+  if (YES_PATTERNS.some((rx) => rx.test(text))) return "yes";
+  if (NO_PATTERNS.some((rx) => rx.test(text))) return "no";
   return "unknown";
 }
 
@@ -263,7 +287,7 @@ function lastBotAskedSuicideQuestion(transcript: string): boolean {
   return /(^|\n)A:\s.*avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\b/.test(t);
 }
 
-/* ---------- Handler sans LLM / sans FAQ ---------- */
+/* ---------- Handler ---------- */
 export async function POST(req: Request) {
   try {
     // CORS simple
@@ -281,120 +305,127 @@ export async function POST(req: Request) {
 
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
-    const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : 1;
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
+    const stage = (raw.stage as Stage) ?? "Intake";
+    const etape = Number.isFinite(raw.etape) ? Math.min(8, Math.max(1, Number(raw.etape))) : 1;
     const slots: Slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
-    const etape = Math.min(8, Math.max(1, etapeClient));
 
-    // 🔒 Gate de sécurité (question préalable)
+    /* ------ Barrière de sécurité (entrée) ------ */
     if (prompt) {
-      const ynIfAny = interpretYesNoServer(prompt);
+      const yn = interpretYesNoServer(prompt);
       const askedBefore = lastBotAskedSuicideQuestion(transcript);
 
-      if (askedBefore && ynIfAny === "yes") {
+      if (askedBefore && yn === "yes") {
         return NextResponse.json({ answer: crisisMessage(), kind: "crisis" });
       }
-      if (askedBefore && ynIfAny === "no") {
-        // NON → on poursuit
+      if (askedBefore && yn === "no") {
+        // OK → on poursuit sans message spécial
       } else if (isCrisis(prompt)) {
         return NextResponse.json({ answer: "Avez-vous des idées suicidaires ? (oui / non)", kind: "gate" });
       }
     }
 
-    // ---- Étapes déterministes (sans LLM) ----
+    /* ------ Étapes déterministes (sans LLM, sans FAQ) ------ */
 
-    // Étape 1 — Intake (précisions)
+    // Étape 1 — Intake → précision selon le type
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
       const kind = classifyIntake(intakeNorm);
 
       if (kind === "physique") {
-        const hints =
-" (lombaires, milieu du dos, entre les omoplates…)";
+        const hints = hintsForLocation(intakeNorm);
         const txt =
-`Tu dis « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
+`Étape 1 — Tu dis « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
 et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
         return NextResponse.json({ answer: txt });
       }
 
       if (kind === "emotion") {
         const txt =
-`Tu dis « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
+`Étape 1 — Tu dis « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
 Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         return NextResponse.json({ answer: txt });
       }
 
       const txt =
-`À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
+`Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — Contexte (circconstances)
+    // Étape 3 — Contexte : question courte avec exemples
     if (etape === 3) {
-      const intake = clean(slots.intake ?? "");
+      const intakeNorm = clean(slots.intake ?? "");
       const txt =
-`Merci. En quelques mots, à quoi c’est lié ou quand cela se manifeste pour « ${intake} » ?
+`Étape 3 — Merci. En quelques mots, à quoi c’est lié ou quand cela se manifeste pour « ${intakeNorm} » ?
 (Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
       return NextResponse.json({ answer: txt });
     }
 
     // Étape 4 — Évaluation (SUD)
     if (etape === 4) {
-      const intake = clean(slots.intake ?? "");
-      const ctxShort = shortContext(slots.context ?? "");
-      const txt = ctxShort
-        ? `Pense à « ${intake} » en pensant à « ${ctxShort} ». Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`
-        : `Pense à « ${intake} ». Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+      const intakeNorm = clean(slots.intake ?? "");
+      const ctxNorm = clean(slots.context ?? "");
+      const ctxPart = ctxNorm ? ` en pensant à « ${ctxNorm} »` : "";
+      const txt =
+`Étape 4 — Pense à « ${intakeNorm} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       return NextResponse.json({ answer: txt });
     }
 
-   if (etape === 5) {
-  const intakeOrig = clean(slots.intake ?? "");
-  const aspectRaw  = clean((slots.aspect ?? slots.intake ?? ""));
+    // Étape 5 — Setup (Point Karaté ×3)
+    if (etape === 5) {
+      const intakeOrig = clean(slots.intake ?? "");
+      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+      // Découper "lié(e) à ..." si présent
+      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+      let base = aspectRaw;
+      let ctx = "";
+      if (m) {
+        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+        base = aspectRaw.slice(0, idx).trim();
+        ctx  = aspectRaw.slice(idx + m[0].length).trim();
+      }
 
-  // Extraire base / ctx depuis "… liée à …" s'il est déjà présent
-  let base = aspectRaw;
-  let ctx = "";
-  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-  if (m) {
-    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-    base = aspectRaw.slice(0, idx).trim();
-    ctx  = aspectRaw.slice(idx + m[0].length).trim();
-  }
+      // Nettoyage (retire "je...", "j'ai...", "ce/cette ...", normalise les noms d’émotions)
+      base = normalizeEmotionNoun(base)
+        .replace(/^j['’]?\s*ai\s+/, "")
+        .replace(/^je\s+/, "")
+        .replace(/^(ce|cette)\s+/i, "");
 
-  // Nettoyage de base (retire "je...", "j'ai...", "ce/cette ...", normalise les noms d’émotions)
-  base = normalizeEmotionNoun(base)
-    .replace(/^j['’]?\s*ai\s+/, "")
-    .replace(/^je\s+/, "")
-    .replace(/^(ce|cette)\s+/i, "");
+      const kind = classifyIntake(intakeOrig || base);
+      const ctxPretty = ctx ? readableContext(ctx, kind) : readableContext(slots.context ?? "", kind);
 
-  const kind = classifyIntake(intakeOrig || base);
+      const g = detectGender(base);
+      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+      const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
+      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
+      const article = emotionArticle(base);
 
-  // Si on a capté un ctx via "liée à", on le privilégie ; sinon on retombe sur slots.context
-  const ctxPretty = (ctx ? readableContext(ctx, kind) : readableContext(slots.context ?? "", kind));
+      // Si l’intake est formulé comme émotion stricte "je suis ..." → formulation dédiée
+      if (isEmotionIntake(intakeOrig)) {
+        const emoNoun = normalizeEmotionNoun(intakeOrig);
+        const emoArticle = emotionArticle(emoNoun);
+        const txt =
+`Étape 5 — Setup : « Même si j’ai ${emoArticle} ${emoNoun}${ctxPretty ? " " + (hasCauseWord ? "" : "liée à ") + ctxPretty : ""}, je m’accepte profondément et complètement. »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
+        return NextResponse.json({ answer: txt });
+      }
 
-  const g = detectGender(base);
-  const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
-  const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
-  const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
-  const article = emotionArticle(base);
-
-  const txt =
+      const txt =
 `Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
+      return NextResponse.json({ answer: txt });
+    }
 
-  return NextResponse.json({ answer: txt });
-}
-
-
-
-    // Étape 6 — Ronde (rappels ST → SB)
+    // Étape 6 — Ronde (ST → SB) + demande de SUD
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
-`- ST : ${p[0]}
+`Étape 6 —
+
+- ST : ${p[0]}
 - DS : ${p[1]}
 - CO : ${p[2]}
 - SO : ${p[3]}
@@ -406,16 +437,23 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 — Clôture
-    if (etape === 8) {
-      const txt =
-"Bravo pour le travail fourni. Félicitations pour cette belle avancée.\nMaintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\nSi tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\nRappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
+    // Étape 7 — Réévaluation (SUD simple)
+    if (etape === 7) {
+      const txt = "Étape 7 — Indique ton SUD actuel entre 0 et 10 (0 = aucune gêne, 10 = maximum).";
       return NextResponse.json({ answer: txt });
     }
 
-    // Par défaut, rien
-    return NextResponse.json({ answer: "" });
+    // Étape 8 — Clôture
+    if (etape === 8) {
+      const txt =
+"Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
+      return NextResponse.json({ answer: txt });
+    }
+
+    // Fallback (devrait être rare)
+    return NextResponse.json({ answer: "Étape non reconnue." });
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
   }
 }
+
