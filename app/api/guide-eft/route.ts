@@ -422,56 +422,54 @@ function humanizeContextForLinking(ctx: string): string {
 }
 
     // Étape 5 — Setup (déterministe)
-    if (etape === 5) {
-      const intakeOrig = clean(slots.intake ?? "");
-      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+if (etape === 5) {
+  const intakeOrig = clean(slots.intake ?? "");
+  const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
 
-      if (isEmotionIntake(intakeOrig)) {
-        const emo = parseEmotionPhrase(intakeOrig);
-        const setupLine =
-          emo.mode === "adj"
-            ? `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`
-            : `Même si j’ai ${(emo.article ?? emotionArticle(emo.text))} ${emo.text}, je m’accepte profondément et complètement.`;
-        const txt =
+  // Cas émotion “je suis … / j’ai de la …” → déjà géré
+  if (isEmotionIntake(intakeOrig)) {
+    const emo = parseEmotionPhrase(intakeOrig);
+    const setupLine =
+      emo.mode === "adj"
+        ? `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`
+        : `Même si j’ai ${(emo.article ?? emotionArticle(emo.text))} ${emo.text}, je m’accepte profondément et complètement.`;
+    const txt =
 `Étape 5 — Setup : « ${setupLine} »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-        return NextResponse.json({ answer: txt });
-      }
+    return NextResponse.json({ answer: txt });
+  }
 
-      let base = aspectRaw, ctx  = "";
-      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-      if (m) {
-        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-        base = aspectRaw.slice(0, idx).trim();
-        ctx  = aspectRaw.slice(idx + m[0].length).trim();
-      }
+  // Cas sensation/douleur — on reconstruit l’aspect proprement
+  let base = aspectRaw, ctx  = "";
+  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+  if (m) {
+    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+    base = aspectRaw.slice(0, idx).trim();
+    ctx  = aspectRaw.slice(idx + m[0].length).trim();
+  }
 
-      base = normalizeEmotionNoun(base)
-        .replace(/^j['’]?\s*ai\s+/, "")
-        .replace(/^je\s+/, "")
-        .replace(/^(ce|cette)\s+/i, "");
+  base = normalizeEmotionNoun(base)
+    .replace(/^j['’]?\s*ai\s+/, "")
+    .replace(/^je\s+/, "")
+    .replace(/^(ce|cette)\s+/i, "");
 
-      const kind = classifyIntake(intakeOrig || base);
-      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
+  const kind = classifyIntake(intakeOrig || base);
+  const ctxPretty = ctx ? humanizeContextForLinking(readableContext(ctx, kind)) : "";
 
-      const g = detectGender(base);
-      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
-      const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
-      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
-      const article = emotionArticle(base);
+  const gHead = headNoun(base);                    // ex: “douleur” ou “mal”
+  const liaison = (gHead === "douleur" || gHead === "peur" || gHead === "gêne" || gHead === "gene" || gHead === "tension") ? "liée à" : "lié à";
+  const aspectPretty = (base + (ctxPretty ? ` ${liaison} ${ctxPretty}` : "")).replace(/\s{2,}/g, " ").trim();
 
-      const txt =
-`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
+  const art = articleFor(base);                    // ce/cette
+  const txt =
+`Étape 5 — Setup : « Même si j’ai ${art} ${aspectPretty}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-      return NextResponse.json({ answer: txt });
-    }
+  return NextResponse.json({ answer: txt });
+}
 
-    // Étape 6 — Ronde (déterministe)
-    if (etape === 6) {
-      const p = buildRappelPhrases(slots);
-      const txt =
+    
 `Étape 6 —
 
 - ST : ${p[0]}
