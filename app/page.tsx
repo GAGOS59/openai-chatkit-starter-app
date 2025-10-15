@@ -485,7 +485,7 @@ export default function Page() {
       .slice(-10)
       .join("\n");
 
-    let raw: ApiResponse | undefined;
+        let raw: ApiResponse | undefined;
     try {
       const res = await fetch("/api/guide-eft", {
         method: "POST",
@@ -498,7 +498,37 @@ export default function Page() {
           slots: updated,
         }),
       });
+
       raw = (await res.json()) as ApiResponse;
+
+      // --- Gestion spéciale sécurité : question fermée ("gate") / crise ("crisis")
+      if (raw && "answer" in raw) {
+        const srvAnswer = raw.answer;
+        const kind = raw.kind;
+
+        if (kind === "gate") {
+          // Afficher la question fermée et NE PAS avancer le flux EFT
+          setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
+          setLoading(false);
+          return;
+        }
+
+        if (kind === "crisis") {
+          // Message d’alerte + clôture
+          setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
+          setStage("Clôture");
+          setEtape(8);
+          setText("");
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+      setLoading(false);
+      return;
+    }
+
 
       // Erreur formelle côté API ?
       if ("error" in raw) {
