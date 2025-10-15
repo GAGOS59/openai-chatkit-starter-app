@@ -345,7 +345,7 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    // Étape 1
+    // Étape 1 — précision de la zone/sensation
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -371,7 +371,26 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 5 — Setup
+    // Étape 3 — Contexte (déterministe)
+    if (etape === 3) {
+      const intake = clean(slots.intake ?? "");
+      const txt =
+`Étape 3 — Merci. En quelques mots, à quoi c’est lié ou quand cela se manifeste pour « ${intake} » ?
+(Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
+      return NextResponse.json({ answer: txt });
+    }
+
+    // Étape 4 — Évaluation SUD (déterministe)
+    if (etape === 4) {
+      const intake = clean(slots.intake ?? "");
+      const ctx = clean(slots.context ?? "");
+      const ctxPart = ctx ? ` en pensant à « ${ctx} »` : "";
+      const txt =
+`Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+      return NextResponse.json({ answer: txt });
+    }
+
+    // Étape 5 — Setup (déterministe)
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
@@ -418,7 +437,7 @@ Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 6 — ronde
+    // Étape 6 — Ronde (déterministe)
     if (etape === 6) {
       const p = buildRappelPhrases(slots);
       const txt =
@@ -436,14 +455,14 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 — clôture
+    // Étape 8 — Clôture (déterministe)
     if (etape === 8) {
       const txt =
 "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
-    // --- LLM pour les autres étapes (texte court) ---
+    // --- LLM pour les autres étapes (très courts) : ici 2 et 7 si jamais utilisés ---
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
 
@@ -465,7 +484,8 @@ ${prompt}
 ${transcript}
 
 [INSTRUCTION]
-Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
+Produis UNIQUEMENT le texte de l'étape, concis, au bon format.
+Rappels : ne pas demander de SUD en Étape 3 ; demander un SUD uniquement en Étape 4 ou 7.`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
@@ -483,10 +503,13 @@ Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic
 - Pas de fillers. Utiliser uniquement les mots fournis (slots).
 - Une seule consigne par message (sauf Setup: 2 lignes max).
 - Commencer par "Étape {N} — ".
+- Étape 3 = question de contexte (pas de SUD).
+- Étape 4 = demander un SUD (0–10).
+- Étape 7 = demander un SUD (0–10).
 
 ${USER_BLOCK}`,
         temperature: 0.2,
-        max_output_tokens: 260,
+        max_output_tokens: 220,
       }),
       signal: controller.signal,
     }).catch(() => { throw new Error("Upstream error"); });
