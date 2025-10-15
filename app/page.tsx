@@ -45,7 +45,6 @@ function useDemoHelpers(
   };
 }
 
-
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
 type Stage =
@@ -67,8 +66,10 @@ type Slots = {
   aspect?: string;
 };
 
-
-
+/* Réponse typée de l’API (FAQ retirée) */
+type ApiResponse =
+  | { answer: string; kind?: "gate" | "crisis" }
+  | { error: string };
 
 /* ---------- Helpers (client) ---------- */
 function shortContext(s: string): string {
@@ -498,64 +499,64 @@ export default function Page() {
         }),
       });
       raw = (await res.json()) as ApiResponse;
-      
-      // --- Traiter les “kinds” renvoyés par l’API ---
-const kind = ("answer" in (raw ?? {})) ? (raw as { answer: string; kind?: "gate" | "crisis" }).kind : undefined;
 
-if (kind === "gate") {
-  // Le serveur pose la question fermée : on l’affiche et on n’avance PAS le flux EFT
-  setRows(r => [...r, { who: "bot", text: answer }]);
-  setLoading(false);
-  return;
-}
+      // Erreur formelle côté API ?
+      if ("error" in raw) {
+        setRows(r => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+        setLoading(false);
+        return;
+      }
 
-if (kind === "crisis") {
-  // Le serveur a reçu “oui” après la question : message d’alerte + clôture
-  setRows(r => [...r, { who: "bot", text: answer }]);
-  setStage("Clôture");
-  setEtape(8);
-  setText("");
-  setLoading(false);
-  return;
-}
+      // Réponse OK
+      const answer: string = "answer" in raw ? raw.answer : "";
+      const kind: "gate" | "crisis" | undefined = "answer" in raw ? raw.kind : undefined;
 
+      if (kind === "gate") {
+        // Le serveur pose la question fermée : on l’affiche et on n’avance PAS le flux EFT
+        setRows(r => [...r, { who: "bot", text: answer }]);
+        setLoading(false);
+        return;
+      }
+      if (kind === "crisis") {
+        // Le serveur a reçu “oui” après la question : message d’alerte + clôture
+        setRows(r => [...r, { who: "bot", text: answer }]);
+        setStage("Clôture");
+        setEtape(8);
+        setText("");
+        setLoading(false);
+        return;
+      }
+
+      // Sécurité (au cas où)
+      if (isCrisis(answer)) {
+        const now = new Date().toISOString();
+        console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
+        setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
+        setStage("Clôture");
+        setEtape(8);
+        setText("");
+        setLoading(false);
+        return;
+      }
+
+      // Affichage normal
+      const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
+      setRows(r => [...r, { who: "bot", text: cleaned }]);
+
+      // Avancer localement
+      if (stage === "Intake") {
+        setStage("Contexte"); setEtape(3);
+      } else {
+        setStage(stageForAPI);
+        setEtape(etapeForAPI);
+      }
+
+      setLoading(false);
     } catch {
       setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
       setLoading(false);
       return;
     }
-
-    if (raw && "error" in raw) {
-      setRows((r: Row[]) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
-      setLoading(false);
-      return;
-    }
-
-    const answer: string = raw && "answer" in raw ? raw.answer : "";
-
-    if (isCrisis(answer)) {
-      const now = new Date().toISOString();
-      console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
-      setRows((r: Row[]) => [...r, { who: "bot", text: crisisMessage() }]);
-      setStage("Clôture");
-      setEtape(8);
-      setText("");
-      setLoading(false);
-      return;
-    }
-
-    const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
-    setRows((r: Row[]) => [...r, { who: "bot", text: cleaned }]);
-
-    // Avancer localement
-    if (stage === "Intake") {
-      setStage("Contexte"); setEtape(3);
-    } else {
-      setStage(stageForAPI);
-      setEtape(etapeForAPI);
-    }
-
-    setLoading(false);
   }
 
   return (
@@ -584,33 +585,33 @@ if (kind === "crisis") {
         <div className="xl:col-span-2 space-y-4">
 
           {SHOW_DEMO && (
-  <div className="rounded-xl border bg-white p-3 shadow-sm">
-    <div className="text-sm font-semibold mb-2">Mode démo (facultatif)</div>
-    <div className="flex flex-wrap gap-2">
-      {DEMO_PRESETS.map((preset, idx) => (
-        <div key={idx} className="flex items-center gap-2">
-          <span className="text-xs text-gray-600">{preset.label}</span>
-          <div className="flex gap-1">
-            {preset.steps.map((s, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => demo.fill(s)}
-                className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
-                title={`Insérer: ${s}`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-    <p className="text-xs text-gray-500 mt-2">
-      Clique sur un numéro pour pré-remplir le champ, puis appuie sur <strong>Envoyer</strong>.
-    </p>
-  </div>
-)}
+            <div className="rounded-xl border bg-white p-3 shadow-sm">
+              <div className="text-sm font-semibold mb-2">Mode démo (facultatif)</div>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_PRESETS.map((preset, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">{preset.label}</span>
+                    <div className="flex gap-1">
+                      {preset.steps.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => demo.fill(s)}
+                          className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
+                          title={`Insérer: ${s}`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Clique sur un numéro pour pré-remplir le champ, puis appuie sur <strong>Envoyer</strong>.
+              </p>
+            </div>
+          )}
 
           {/* Chat */}
           <div
