@@ -205,27 +205,36 @@ function renderPretty(s: string) {
   );
 }
 
-/** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
+/** Supprime "Étape X —" et "Setup :" de l'affichage, et n'habille le Setup que si l'API ne l'a pas déjà fait */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
 
-  // Retirer tous les "Étape N —" en début de ligne (partout)
+  // Retirer "Étape N —" partout
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
 
-  // Enlever "Setup :" en début de ligne si présent
-  t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-
-  // Habillage du Setup
-  if (stage === "Setup") {
-    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-    t =
-      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
-      `« ${core} »\n` +
-      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
+  // Si ce n’est pas un Setup, on sort
+  if (stage !== "Setup") {
+    return t;
   }
 
-  return t;
+  // Si l’API a déjà fait la mise en forme (présence de "Point Karaté" ou guillemets), on ne recompose pas
+  const alreadyFormatted = /Point\s+Karat[ée]|tranche\s+de\s+la\s+main|«.+»/i.test(t);
+  if (alreadyFormatted) {
+    // Évite le petit guillemet surnuméraire éventuel en fin de bloc
+    t = t.replace(/»\s*»$/g, "»");
+    return t;
+  }
+
+  // Sinon : on normalise un Setup nu
+  t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
+  const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+  return (
+    "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
+    `« ${core} »\n` +
+    "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois."
+  );
 }
+
 
 /* ---------- Colonne promo ---------- */
 function PromoAside() {
