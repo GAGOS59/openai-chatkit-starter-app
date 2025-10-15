@@ -72,6 +72,13 @@ type ApiResponse =
   | { answer: string; kind?: "gate" | "crisis" }
   | { error: string };
 
+if ((raw as { answer?: string; kind?: string })?.kind === "gate") {
+  const gateText = (raw as { answer?: string }).answer || "Avez-vous des idées suicidaires ? (oui / non)";
+  setRows(r => [...r, { who: "bot", text: gateText }]);
+  setLoading(false);
+  return; // on reste sur l’étape en cours
+}
+
 /* ---------- Helpers (client) ---------- */
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
