@@ -185,10 +185,10 @@ function readableContext(ctx: string, kind?: IntakeKind): string {
       c = "au fait que " + c;
     }
     c = c
-      .replace(/\bau\s+fait\s+que\s+il\b/gim, "au fait qu'il")
-      .replace(/\bau\s+fait\s+que\s+elle\b/gim, "au fait qu'elle")
-      .replace(/\bau\s+fait\s+que\s+ils\b/gim, "au fait qu'ils")
-      .replace(/\bau\s+fait\s+que\s+elles\b/gim, "au fait qu'elles");
+      .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
+      .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
+      .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
+      .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
   }
   return c;
 }
@@ -236,6 +236,30 @@ function buildRappelPhrases(slots: Slots): string[] {
   else phrases.push(`${short}.`);
   phrases.push(`${generic}.`);
   return phrases.slice(0, 8);
+}
+
+/* ---------- Helpers Setup (accords & contexte naturel) ---------- */
+function headNoun(phrase: string): string {
+  const t = phrase.trim().toLowerCase()
+    .replace(/^j['’]ai\s+/i, "")
+    .replace(/^je\s+/i, "")
+    .replace(/^(ce|cette|le|la|les|un|une)\s+/i, "")
+    .replace(/^mal\s+/, "mal ");
+  const m = t.match(/^(mal|douleur|peur|gêne|gene|tension|serrement|pression|chaleur|vide|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude)\b/);
+  return m ? m[1] : t.split(/\s+/)[0];
+}
+function articleFor(nounPhrase: string): "ce" | "cette" {
+  const n = headNoun(nounPhrase);
+  const fem = new Set(["douleur","peur","gêne","gene","tension","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude"]);
+  if (n === "mal") return "ce";
+  return fem.has(n) ? "cette" : "ce";
+}
+function humanizeContextForLinking(ctx: string): string {
+  let c = clean(ctx);
+  c = c.replace(/^\s*fatigu[ée]?(s)?\b/i, "la fatigue$1");
+  c = c.replace(/^\s*stress[ée]?(s)?\b/i, "le stress$1");
+  if (/^(quand|pendant|avant|après|lors\s+de|en\s+|au\s+travail|à\s+l'école|a\s+l'ecole)/i.test(c)) return c;
+  return c;
 }
 
 /* ---------- Safety (in/out) ---------- */
@@ -299,7 +323,7 @@ function lastBotAskedSuicideQuestion(transcript: string): boolean {
   return /(^|\n)A:\s.*avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\b/.test(t);
 }
 
-/* ---------- Handler ---------- */
+/* ---------- Handler (FAQ retirée) ---------- */
 export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
@@ -338,14 +362,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // ------ Flux guidé EFT UNIQUEMENT ------
+    // ------ Flux guidé EFT uniquement ------
     const stage = (raw.stage as Stage) ?? "Intake";
     const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : stepFromStage(stage);
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Math.min(8, Math.max(1, etapeClient));
 
-    // Étape 1 — précision de la zone/sensation
+    // Étape 1
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -371,105 +395,57 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — Contexte (déterministe)
-    if (etape === 3) {
-      const intake = clean(slots.intake ?? "");
-      const txt =
-`Étape 3 — Merci. En quelques mots, à quoi c’est lié ou quand cela se manifeste pour « ${intake} » ?
-(Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
-      return NextResponse.json({ answer: txt });
-    }
-
-    // Étape 4 — Évaluation SUD (déterministe)
-    if (etape === 4) {
-      const intake = clean(slots.intake ?? "");
-      const ctx = clean(slots.context ?? "");
-      const ctxPart = ctx ? ` en pensant à « ${ctx} »` : "";
-      const txt =
-`Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
-      return NextResponse.json({ answer: txt });
-    }
-/** Extrait le nom-tête (premier mot pertinent) pour accorder l'article et la liaison */
-function headNoun(phrase: string): string {
-  const t = phrase.trim().toLowerCase()
-    .replace(/^j['’]ai\s+/i, "")
-    .replace(/^je\s+/i, "")
-    .replace(/^(ce|cette|le|la|les|un|une)\s+/i, "")
-    .replace(/^mal\s+/, "mal "); // on garde "mal" s'il est vraiment le tête
-  const m = t.match(/^(mal|douleur|peur|gêne|gene|tension|serrement|pression|chaleur|vide|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude)\b/);
-  return m ? m[1] : t.split(/\s+/)[0];
-}
-
-/** Article correct (ce/cette) selon le nom-tête */
-function articleFor(nounPhrase: string): "ce" | "cette" {
-  const n = headNoun(nounPhrase);
-  const fem = new Set(["douleur","peur","gêne","gene","tension","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude"]);
-  if (n === "mal") return "ce";
-  return fem.has(n) ? "cette" : "ce";
-}
-
-/** Rend le contexte plus fluide après “lié(e) à …” (ex: “fatiguée en fin de journée” → “la fatigue en fin de journée”) */
-function humanizeContextForLinking(ctx: string): string {
-  let c = clean(ctx);
-  // adjectif → nom
-  c = c.replace(/^\s*fatigu[ée]?(s)?\b/i, "la fatigue$1");
-  c = c.replace(/^\s*stress[ée]?(s)?\b/i, "le stress$1");
-  // “quand je …” → on conserve la clause entière
-  // Si ça commence déjà par une préposition (“quand, pendant, avant, après, lors de, en …”), on garde tel quel :
-  if (/^(quand|pendant|avant|après|lors\s+de|en\s+|au\s+travail|à\s+l'école|a\s+l'ecole)/i.test(c)) return c;
-  // Sinon on s'assure d'avoir une tournure nominale naturelle
-  return c;
-}
-
     // Étape 5 — Setup (déterministe)
-if (etape === 5) {
-  const intakeOrig = clean(slots.intake ?? "");
-  const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+    if (etape === 5) {
+      const intakeOrig = clean(slots.intake ?? "");
+      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
 
-  // Cas émotion “je suis … / j’ai de la …” → déjà géré
-  if (isEmotionIntake(intakeOrig)) {
-    const emo = parseEmotionPhrase(intakeOrig);
-    const setupLine =
-      emo.mode === "adj"
-        ? `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`
-        : `Même si j’ai ${(emo.article ?? emotionArticle(emo.text))} ${emo.text}, je m’accepte profondément et complètement.`;
-    const txt =
+      if (isEmotionIntake(intakeOrig)) {
+        const emo = parseEmotionPhrase(intakeOrig);
+        const setupLine =
+          emo.mode === "adj"
+            ? `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`
+            : `Même si j’ai ${(emo.article ?? emotionArticle(emo.text))} ${emo.text}, je m’accepte profondément et complètement.`;
+        const txt =
 `Étape 5 — Setup : « ${setupLine} »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  // Cas sensation/douleur — on reconstruit l’aspect proprement
-  let base = aspectRaw, ctx  = "";
-  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-  if (m) {
-    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-    base = aspectRaw.slice(0, idx).trim();
-    ctx  = aspectRaw.slice(idx + m[0].length).trim();
-  }
+      let base = aspectRaw, ctx  = "";
+      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+      if (m) {
+        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+        base = aspectRaw.slice(0, idx).trim();
+        ctx  = aspectRaw.slice(idx + m[0].length).trim();
+      }
 
-  base = normalizeEmotionNoun(base)
-    .replace(/^j['’]?\s*ai\s+/, "")
-    .replace(/^je\s+/, "")
-    .replace(/^(ce|cette)\s+/i, "");
+      base = normalizeEmotionNoun(base)
+        .replace(/^j['’]?\s*ai\s+/, "")
+        .replace(/^je\s+/, "")
+        .replace(/^(ce|cette)\s+/i, "");
 
-  const kind = classifyIntake(intakeOrig || base);
-  const ctxPretty = ctx ? humanizeContextForLinking(readableContext(ctx, kind)) : "";
+      const kind = classifyIntake(intakeOrig || base);
+      const ctxPretty = ctx ? humanizeContextForLinking(readableContext(ctx, kind)) : "";
 
-  const gHead = headNoun(base);                    // ex: “douleur” ou “mal”
-  const liaison = (gHead === "douleur" || gHead === "peur" || gHead === "gêne" || gHead === "gene" || gHead === "tension") ? "liée à" : "lié à";
-  const aspectPretty = (base + (ctxPretty ? ` ${liaison} ${ctxPretty}` : "")).replace(/\s{2,}/g, " ").trim();
+      const head = headNoun(base);
+      const liaison = (head === "douleur" || head === "peur" || head === "gêne" || head === "gene" || head === "tension")
+        ? "liée à" : "lié à";
+      const aspectPretty = (base + (ctxPretty ? ` ${liaison} ${ctxPretty}` : "")).replace(/\s{2,}/g, " ").trim();
 
-  const art = articleFor(base);                    // ce/cette
-  const txt =
+      const art = articleFor(base);
+      const txt =
 `Étape 5 — Setup : « Même si j’ai ${art} ${aspectPretty}, je m’accepte profondément et complètement. »
 Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-  return NextResponse.json({ answer: txt });
-}
+      return NextResponse.json({ answer: txt });
+    }
 
-    
+    // Étape 6 — ronde
+    if (etape === 6) {
+      const p = buildRappelPhrases(slots);
+      const txt =
 `Étape 6 —
 
 - ST : ${p[0]}
@@ -484,14 +460,14 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 8 — Clôture (déterministe)
+    // Étape 8 — clôture
     if (etape === 8) {
       const txt =
 "Étape 8 — Bravo pour le travail fourni. Félicitations pour cette belle avancée. Prends un moment pour t'hydrater et te reposer. Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical.";
       return NextResponse.json({ answer: txt });
     }
 
-    // --- LLM pour les autres étapes (très courts) : ici 2 et 7 si jamais utilisés ---
+    // --- LLM pour les autres étapes (texte court) ---
     const base = (process.env.LLM_BASE_URL || "").trim() || "https://api.openai.com";
     const endpoint = `${base.replace(/\/+$/, "")}/v1/responses`;
 
@@ -501,7 +477,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
 Slots:
 - intake="${(slots.intake ?? "").toString()}"
 - duration="${(slots.duration ?? "").toString()}"
-- context="${(slots.context ?? "").toString()}"
+- context="${((slots.context ?? "")).toString()}"
 - sud=${Number.isFinite(slots.sud) ? slots.sud : "NA"}
 - round=${Number.isFinite(slots.round) ? slots.round : "NA"}
 - aspect="${(slots.aspect ?? "").toString()}"
@@ -510,11 +486,10 @@ Slots:
 ${prompt}
 
 [HISTORIQUE (court)]
-${transcript}
+${(typeof raw.transcript === "string" ? raw.transcript : "").trim()}
 
 [INSTRUCTION]
-Produis UNIQUEMENT le texte de l'étape, concis, au bon format.
-Rappels : ne pas demander de SUD en Étape 3 ; demander un SUD uniquement en Étape 4 ou 7.`;
+Produis UNIQUEMENT le texte de l'étape, concis, au bon format.`;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 15000);
@@ -532,13 +507,10 @@ Style: clair, bienveillant, concis. Aucune recherche Internet. Pas de diagnostic
 - Pas de fillers. Utiliser uniquement les mots fournis (slots).
 - Une seule consigne par message (sauf Setup: 2 lignes max).
 - Commencer par "Étape {N} — ".
-- Étape 3 = question de contexte (pas de SUD).
-- Étape 4 = demander un SUD (0–10).
-- Étape 7 = demander un SUD (0–10).
 
 ${USER_BLOCK}`,
         temperature: 0.2,
-        max_output_tokens: 220,
+        max_output_tokens: 260,
       }),
       signal: controller.signal,
     }).catch(() => { throw new Error("Upstream error"); });
