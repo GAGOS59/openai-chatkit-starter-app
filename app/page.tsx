@@ -23,11 +23,12 @@ type Slots = {
   aspect?: string;
 };
 
-/* ---------- Helpers (client) ---------- */
-function clean(s: string): string {
-  return s.replace(/\s+/g, " ").replace(/\s+([,;:.!?])/g, "$1").trim();
-}
+/* Réponse typée de l’API (FAQ retirée) */
+type ApiResponse =
+  | { answer: string; kind?: "gate" | "crisis" }
+  | { error: string };
 
+/* ---------- Helpers (client) ---------- */
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
@@ -97,48 +98,6 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   return `${intake} ${liaison} ${cleaned}`;
 }
 
-/** Rendu de texte avec listes et paragraphes simples */
-function renderPretty(s: string) {
-  const paragraphs = s.split(/\n\s*\n/);
-  return (
-    <div className="space-y-3">
-      {paragraphs.map((p, i) => {
-        if (/^(?:- |\u2022 |\* )/m.test(p)) {
-          const items = p.split(/\n/).filter(Boolean).map(t => t.replace(/^(- |\u2022 |\* )/, ""));
-          return (
-            <ul key={i} className="list-disc pl-5 space-y-1">
-              {items.map((li, j) => <li key={j} className="whitespace-pre-wrap">{li}</li>)}
-            </ul>
-          );
-        }
-        return <p key={i} className="whitespace-pre-line leading-relaxed">{p}</p>;
-      })}
-    </div>
-  );
-}
-
-/** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
-function cleanAnswerForDisplay(ans: string, stage: Stage): string {
-  let t = (ans || "").trim();
-
-  // Retirer tous les "Étape N —" en début de ligne (partout)
-  t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
-
-  // Enlever "Setup :" en début de ligne si présent
-  t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-
-  // Habillage du Setup
-  if (stage === "Setup") {
-    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-    t =
-      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
-      `« ${core} »\n` +
-      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
-  }
-
-  return t;
-}
-
 /* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
@@ -177,6 +136,162 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
+/* ---------- Liens cliquables ---------- */
+function linkify(text: string): React.ReactNode[] {
+  const URL_RX =
+    /(https?:\/\/[^\s<>"'()]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>"']*)?)/gi;
+
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = URL_RX.exec(text)) !== null) {
+    const url = match[0];
+    const start = match.index;
+
+    if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+
+    const href = url.startsWith("http")
+      ? url
+      : `https://${url.replace(/^www\./i, "www.")}`;
+
+    nodes.push(
+      <a
+        key={`${start}-${href}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:no-underline"
+      >
+        {url}
+      </a>
+    );
+
+    lastIndex = start + url.length;
+  }
+
+  if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
+  return nodes;
+}
+
+/** Rendu de texte avec listes et paragraphes simples (+ liens cliquables) */
+function renderPretty(s: string) {
+  const paragraphs = s.split(/\n\s*\n/);
+  return (
+    <div className="space-y-3">
+      {paragraphs.map((p, i) => {
+        if (/^(?:- |\u2022 |\* )/m.test(p)) {
+          const items = p
+            .split(/\n/)
+            .filter(Boolean)
+            .map((t) => t.replace(/^(- |\u2022 |\* )/, ""));
+          return (
+            <ul key={i} className="list-disc pl-5 space-y-1">
+              {items.map((li, j) => (
+                <li key={j} className="whitespace-pre-wrap">
+                  {linkify(li)}
+                </li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p key={i} className="whitespace-pre-line leading-relaxed">
+            {linkify(p)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
+function cleanAnswerForDisplay(ans: string, stage: Stage): string {
+  let t = (ans || "").trim();
+
+  // Retirer tous les "Étape N —" en début de ligne (partout)
+  t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
+
+  // Enlever "Setup :" en début de ligne si présent
+  t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
+
+  // Habillage du Setup
+  if (stage === "Setup") {
+    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+    t =
+      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
+      `« ${core} »\n` +
+      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
+  }
+
+  return t;
+}
+
+/* ---------- Colonne promo ---------- */
+function PromoAside() {
+  return (
+    <aside className="rounded-2xl border bg-white p-5 shadow-sm xl:sticky xl:top-6">
+      <div className="text-center mb-4">
+        <p className="text-sm text-gray-700 leading-snug">Pour aller plus loin avec</p>
+        <h3 className="text-xl font-bold leading-tight break-words">Geneviève Gagos</h3>
+      </div>
+      <div className="flex justify-center mb-4">
+        <a
+          href="https://technique-eft.com/livres-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50 transition"
+        >
+          Livres EFT
+        </a>
+      </div>
+      <ul className="text-sm text-gray-700 space-y-1 mb-5">
+        <li className="text-center">
+          Site de référence :{" "}
+          <a
+            href="https://technique-eft.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:no-underline"
+          >
+            Technique-EFT.com
+          </a>
+        </li>
+      </ul>
+      <div className="h-px bg-gray-200 my-4" />
+      <div className="space-y-3">
+        <div className="text-center">
+          <a
+            href="https://ecole-eft-france.fr/pages/formations-eft.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block w-full rounded-xl border bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] transition"
+          >
+            Découvrir nos formations
+          </a>
+          <p className="text-xs text-gray-600 mt-1">
+            Formations adaptées à vos besoins, proposées par l’École EFT France.
+          </p>
+        </div>
+        <div className="text-center">
+          <a
+            href="https://technique-eft.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block w-full rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50 transition"
+          >
+            En savoir plus sur l’EFT
+          </a>
+          <p className="text-xs text-gray-600 mt-1">
+            Articles, ressources et actualités sur Technique-EFT.com.
+          </p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/* ---------- Component ---------- */
 export default function Page() {
   // Session
   const [stage, setStage] = useState<Stage>("Intake");
@@ -196,49 +311,6 @@ export default function Page() {
     if (chatRef.current) chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [rows]);
 
-  // --- Crisis gate (client) ---
-  const [askedSuicideCheck, setAskedSuicideCheck] = useState<boolean>(false);
-  const [answeredNoAt, setAnsweredNoAt] = useState<number | null>(null);
-  const [closureKind, setClosureKind] = useState<'none'|'normal'|'crisis'>('none');
-  const CRISIS_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2h
-
-  const YES_PATTERNS: RegExp[] = [
-    /\b(oui|ouais|yep|yes)\b/i,
-    /\b(plut[oô]t\s+)?oui\b/i,
-    /\b(carr[ée]ment|clairement)\b/i,
-    /\b(je\s+c(r|’|')ains\s+que\s+oui)\b/i,
-  ];
-
-  const NO_PATTERNS: RegExp[] = [
-    /\b(non|nan|nope)\b/i,
-    /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
-    /\b(aucune?\s+id[ée]e\s+suicidaire)\b/i,
-    /\b(je\s+n['’]?ai\s+pas\s+d['’]?id[ée]es?\s+suicidaires?)\b/i,
-  ];
-
-  function interpretYesNoClient(text: string): 'yes' | 'no' | 'unknown' {
-    if (YES_PATTERNS.some(rx => rx.test(text))) return 'yes';
-    if (NO_PATTERNS.some(rx => rx.test(text))) return 'no';
-    return 'unknown';
-  }
-
-  function gentleCrisisFollowupMessage(): string {
-    return (
-`Merci pour votre message. 💛
-
-Dans la situation que vous traversez, il n’est pas prudent de tenter l’EFT seul·e.
-Votre sécurité et votre soutien sont prioritaires : rapprochez-vous d’un·e professionnel·le habilité·e
-ou d’un service d’aide immédiatement.
-
-En France :
-• 15 (SAMU) — urgence vitale
-• 3114 — ligne nationale de prévention du suicide, 24/7
-• 112 — urgence (UE)
-
-Je vous souhaite d’être accompagné·e au plus vite.`
-    );
-  }
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (loading) return;
@@ -251,79 +323,27 @@ Je vous souhaite d’être accompagné·e au plus vite.`
       return;
     }
 
-    const nowMs = Date.now();
-
-    // Après clôture
-    if (stage === "Clôture") {
-      if (closureKind === 'crisis') {
-        setRows(r => [
-          ...r,
-          { who: "user", text: userText },
-          { who: "bot", text: gentleCrisisFollowupMessage() }
-        ]);
-        setText("");
-        setLoading(false);
-        return;
-      } else {
-        // Clôture normale : nouveau sujet possible → reset EFT
-        setStage("Intake");
-        setEtape(1);
-        setSlots({ round: 1 });
-        setClosureKind('none');
-      }
-    }
-
-    // --- Porte de sécurité côté client ---
-    if (askedSuicideCheck) {
-      const yn = interpretYesNoClient(userText);
-      setRows(r => [...r, { who: "user", text: userText }]);
-      setText("");
-
-      if (yn === 'yes') {
-        // Alerte + clôture immédiate (type "crisis")
-        setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
-        setStage("Clôture");
-        setEtape(8);
-        setClosureKind('crisis');
-        setAskedSuicideCheck(false);
-        setLoading(false);
-        return;
-      }
-      if (yn === 'no') {
-        // Mémoriser NON (cooldown) et revenir à l'Intake sans reposer la question
-        setAnsweredNoAt(nowMs);
-        setAskedSuicideCheck(false);
-        setStage("Intake");
-        setEtape(1);
-        setRows(r => [...r, { who: "bot", text:
-          "Merci pour votre réponse.\n" +
-          "Je suis rassurée que ça ne soit pas le cas. Reprenons.\n\n" +
-          "Étape 1 — Sur quoi souhaitez-vous travailler ?\n" +
-          "• Si c’est une douleur : précisez la localisation (droite/gauche, zone exacte) et le type (lancinante, aiguë…).\n" +
-          "• Si c’est une émotion : où la sentez-vous dans le corps (poitrine, gorge, ventre…) et comment (serrement, pression…)?"
-        }]);
-        setLoading(false);
-        return; // on ne contacte pas l'API sur ce tour
-      }
-
-      // Réponse floue → clarifier
-      setRows(r => [...r, { who: "bot", text: "Je n’ai pas bien compris. Avez-vous des idées suicidaires en ce moment ? (oui / non)" }]);
-      setLoading(false);
-      return;
-    }
-
-    // Déclenchement initial : poser la question (si pas de cooldown)
-    const underCooldown = answeredNoAt !== null && (nowMs - answeredNoAt) < CRISIS_COOLDOWN_MS;
-    if (isCrisis(userText) && !underCooldown) {
+    // 🔒 crise → coupe et clôture
+    if (isCrisis(userText)) {
+      const now = new Date().toISOString();
+      console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
       setRows(r => [
         ...r,
         { who: "user", text: userText },
-        { who: "bot", text: "Avez-vous des idées suicidaires ? (oui / non)" }
+        { who: "bot", text: crisisMessage() }
       ]);
       setText("");
-      setAskedSuicideCheck(true);
+      setStage("Clôture");
+      setEtape(8);
       setLoading(false);
       return;
+    }
+
+    // Nouveau sujet après clôture → reset
+    if (stage === "Clôture") {
+      setStage("Intake");
+      setEtape(1);
+      setSlots({ round: 1 });
     }
 
     setRows(r => [...r, { who: "user", text: userText }]);
@@ -407,7 +427,6 @@ Je vous souhaite d’être accompagné·e au plus vite.`
               "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
               "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
-          setClosureKind('normal');
           setStage("Clôture");
           setEtape(8);
           setLoading(false);
@@ -432,7 +451,6 @@ Je vous souhaite d’être accompagné·e au plus vite.`
             "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
             "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
-        setClosureKind('normal');
         setStage("Clôture");
         setEtape(8);
         setLoading(false);
@@ -450,7 +468,7 @@ Je vous souhaite d’être accompagné·e au plus vite.`
       .slice(-10)
       .join("\n");
 
-    let raw: unknown;
+    let raw: ApiResponse | undefined;
     try {
       const res = await fetch("/api/guide-eft", {
         method: "POST",
@@ -463,33 +481,36 @@ Je vous souhaite d’être accompagné·e au plus vite.`
           slots: updated,
         }),
       });
-      raw = await res.json();
+      raw = (await res.json()) as ApiResponse;
     } catch {
       setRows(r => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
       setLoading(false);
       return;
     }
 
-    let answer = "";
-    if (
-      raw && typeof raw === "object" && raw !== null &&
-      "answer" in raw && typeof (raw as { answer: unknown }).answer === "string"
-    ) {
-      answer = (raw as { answer: string }).answer;
+    // Gestion des erreurs API formelles
+    if (raw && "error" in raw) {
+      setRows(r => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+      setLoading(false);
+      return;
     }
 
+    // Réponse normale
+    const answer = raw && "answer" in raw ? raw.answer : "";
+
+    // Sécurité côté client si jamais
     if (isCrisis(answer)) {
       const now = new Date().toISOString();
       console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
       setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
       setStage("Clôture");
       setEtape(8);
-      setClosureKind('crisis');
       setText("");
       setLoading(false);
       return;
     }
 
+    // Flux EFT normal (plus de branche FAQ)
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
     setRows(r => [...r, { who: "bot", text: cleaned }]);
 
@@ -505,7 +526,7 @@ Je vous souhaite d’être accompagné·e au plus vite.`
   }
 
   return (
-    <main className="mx-auto max-w-3xl p-6 space-y-6">
+    <main className="mx-auto max-w-5xl p-6 space-y-6">
       {/* Bandeau */}
       <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <div className="flex items-center justify-between gap-4">
@@ -524,85 +545,70 @@ Je vous souhaite d’être accompagné·e au plus vite.`
         </div>
       </div>
 
-      {/* Chat */}
-      <div ref={chatRef} className="h-96 overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm">
-        <div className="space-y-3">
-          {rows.map((r, i) => (
-            <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
-              <div className={(r.who === "bot" ? "bg-gray-50 text-gray-900 border-gray-200" : "bg-blue-50 text-blue-900 border-blue-200") + " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"}>
-                {renderPretty(r.text)}
-              </div>
+      {/* Grille : 1 colonne (mobile/tablette) ; 3 colonnes dès xl → promo à droite */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Colonne principale : Chat + Form (occupe 2 colonnes dès xl) */}
+        <div className="xl:col-span-2 space-y-4">
+          {/* Chat */}
+          <div
+            ref={chatRef}
+            className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+          >
+            <div className="space-y-3">
+              {rows.map((r, i) => (
+                <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
+                  <div
+                    className={
+                      (r.who === "bot"
+                        ? "bg-gray-50 text-gray-900 border-gray-200"
+                        : "bg-blue-50 text-blue-900 border-blue-200") +
+                      " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"
+                    }
+                  >
+                    {renderPretty(r.text)}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {/* Formulaire */}
+          <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1">
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
+                placeholder="Sur quoi souhaitez-vous essayer l’EFT…"
+                aria-label="Saisissez votre message pour l’assistante EFT"
+                disabled={loading}
+              />
+              {(stage === "Évaluation" || stage === "Réévaluation") && (
+                <p className="text-sm text-gray-500 mt-1">
+                  👉 Indiquez un nombre entre <strong>0</strong> et <strong>10</strong> pour évaluer l’intensité de votre ressenti.
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !text.trim()}
+              className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]"
+            >
+              {loading ? "Envoi..." : "Envoyer"}
+            </button>
+          </form>
+
+          {error && <div className="text-red-600 mt-2">{error}</div>}
+        </div>
+
+        {/* Promo : s’affiche sous le chat (mobile/tablette) et passe à droite dès xl */}
+        <div className="xl:col-span-1 xl:max-h-[72vh] xl:overflow-auto">
+          <PromoAside />
         </div>
       </div>
 
-      {/* Formulaire */}
-      <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2">
-        <div className="flex-1">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
-            placeholder="Sur quoi souhaitez-vous essayer l’EFT…"
-            aria-label="Saisissez votre message pour l’assistante EFT"
-            disabled={loading}
-          />
-          {(stage === "Évaluation" || stage === "Réévaluation") && (
-            <p className="text-sm text-gray-500 mt-1">
-              👉 Indiquez un nombre entre <strong>0</strong> et <strong>10</strong> pour évaluer l’intensité de votre ressenti.
-            </p>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading || !text.trim()}
-          className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]"
-        >
-          {loading ? "Envoi..." : "Envoyer"}
-        </button>
-      </form>
-
-      {error && <div className="text-red-600 mt-2">{error}</div>}
-
-      {/* CTA + Note */}
-      <div className="mt-6">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-          <div className="flex-1 flex flex-col items-center">
-            <a
-              href="https://ecole-eft-france.fr/pages/formations-eft.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            >
-              Découvrir nos formations
-            </a>
-            <p className="text-sm text-gray-600 mt-2 text-center">
-              Pour aller plus loin dans la pratique et la transmission de l’EFT,<br />
-              découvrez les formations proposées par <strong>l’École EFT France</strong>.
-            </p>
-          </div>
-
-          <div className="hidden sm:flex h-16 border-l mx-4 border-gray-300" aria-hidden="true"></div>
-
-          <div className="flex-1 flex flex-col items-center">
-            <span className="block text-gray-700 text-center mb-2">
-              Pour en apprendre plus sur l’EFT,<br />
-              retrouvez-moi sur le site <strong>Technique-EFT.com</strong>
-            </span>
-            <a
-              href="https://technique-eft.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block rounded-xl border border-[#0f3d69] text-[#0f3d69] px-4 py-2 font-semibold hover:bg-[#0f3d69] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition"
-            >
-              En savoir plus sur l’EFT
-            </a>
-          </div>
-        </div>
-      </div>
-
+      {/* Note de prudence */}
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
         <p className="text-sm leading-relaxed">
