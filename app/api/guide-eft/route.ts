@@ -248,7 +248,6 @@ export async function POST(req: Request) {
 
     const raw = (await req.json().catch(() => ({}))) as Partial<GuideRequest>;
     const prompt = typeof raw.prompt === "string" ? raw.prompt.slice(0, 2000) : "";
-    const stage = (raw.stage as Stage) ?? "Intake";
     const etapeClient = Number.isFinite(raw.etape) ? Number(raw.etape) : 1;
     const transcript = typeof raw.transcript === "string" ? raw.transcript.slice(0, 4000) : "";
     const slots: Slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
@@ -317,25 +316,40 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 5 — Setup
     if (etape === 5) {
-      const intakeOrig = clean(slots.intake ?? "");
-      let base = clean(normalizeIntake(slots.aspect ?? slots.intake ?? ""));
-      const kind = classifyIntake(intakeOrig || base);
-      const ctxPretty = readableContext(slots.context ?? "", kind);
-      const g = detectGender(base);
-      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
-      const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
-      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
-      const article = emotionArticle(base);
+  const intakeOrig = clean(slots.intake ?? "");
+  const aspectRaw  = clean((slots.aspect ?? slots.intake ?? ""));
 
-      const setupLine = `Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement.`;
-      const txt =
-`Setup : « ${setupLine} »
-Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-      return NextResponse.json({ answer: txt });
-    }
+  // Extraire base / ctx depuis "… liée à …" s'il est déjà présent
+  let base = aspectRaw;
+  let ctx = "";
+  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+  if (m) {
+    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+    base = aspectRaw.slice(0, idx).trim();
+    ctx  = aspectRaw.slice(idx + m[0].length).trim();
+  }
+
+  // Nettoyage de base (retire "je...", "j'ai...", "ce/cette ...", normalise les noms d’émotions)
+  base = normalizeEmotionNoun(base)
+    .replace(/^j['’]?\s*ai\s+/, "")
+    .replace(/^je\s+/, "")
+    .replace(/^(ce|cette)\s+/i, "");
+
+  const kind = classifyIntake(intakeOrig || base);
+
+  // Si on a capté un ctx via "liée à", on le privilégie ; sinon on retombe sur slots.context
+  const ctxPretty = (ctx ? readableContext(ctx, kind) : readableContext(slots.context ?? "", kind));
+
+  const g = detectGender(base);
+  const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+  const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
+  const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
+  const article = emotionArticle(base);
+
+  // … (et tu enchaînes avec la construction du message / return)
+}
+
 
     // Étape 6 — Ronde (rappels ST → SB)
     if (etape === 6) {
