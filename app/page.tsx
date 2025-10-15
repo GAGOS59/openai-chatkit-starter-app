@@ -67,17 +67,22 @@ type Slots = {
   aspect?: string;
 };
 
-/* Réponse typée de l’API */
-type ApiResponse =
-  | { answer: string; kind?: "gate" | "crisis" }
-  | { error: string };
-
-if ((raw as { answer?: string; kind?: string })?.kind === "gate") {
-  const gateText = (raw as { answer?: string }).answer || "Avez-vous des idées suicidaires ? (oui / non)";
-  setRows(r => [...r, { who: "bot", text: gateText }]);
+// 🔒 crise → coupe et clôture
+if (isCrisis(userText)) {
+  const now = new Date().toISOString();
+  console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
+  setRows(r => [
+    ...r,
+    { who: "user", text: userText },
+    { who: "bot", text: crisisMessage() }
+  ]);
+  setText("");
+  setStage("Clôture");
+  setEtape(8);
   setLoading(false);
-  return; // on reste sur l’étape en cours
+  return;
 }
+
 
 /* ---------- Helpers (client) ---------- */
 function shortContext(s: string): string {
