@@ -67,21 +67,7 @@ type Slots = {
   aspect?: string;
 };
 
-// 🔒 crise → coupe et clôture
-if (isCrisis(userText)) {
-  const now = new Date().toISOString();
-  console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
-  setRows(r => [
-    ...r,
-    { who: "user", text: userText },
-    { who: "bot", text: crisisMessage() }
-  ]);
-  setText("");
-  setStage("Clôture");
-  setEtape(8);
-  setLoading(false);
-  return;
-}
+
 
 
 /* ---------- Helpers (client) ---------- */
@@ -148,13 +134,23 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
 
 /* ---------- Safety (client) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
-  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/i,
-  /\bsu[cs]sid[ea]\b/i,
-  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/i,
-  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
-  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/i,
-  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/i,
-  /\bid[ée]es?\s+noires?\b/i,
+  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
+  /\bsu[cs]sid[ea]\b/iu,
+  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/iu,
+  /j['’]?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,
+  /j['’]?\s*en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/iu,
+  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/iu,
+  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/iu,
+  /\b(foutre|jeter)\s+en\s+l[’']?air\b/iu,
+  /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/iu,
+  /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/iu,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
+  /\bje\s+suis\s+de\s+trop\b/iu,
+  /\bje\s+me\s+sens\s+de\s+trop\b/iu,
+  /\bid[ée]es?\s+noires?\b/iu,
+  /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
+  /\bme\s+pendre\b/iu
 ];
 
 function isCrisis(text: string): boolean {
@@ -502,6 +498,27 @@ export default function Page() {
         }),
       });
       raw = (await res.json()) as ApiResponse;
+      
+      // --- Traiter les “kinds” renvoyés par l’API ---
+const kind = ("answer" in (raw ?? {})) ? (raw as { answer: string; kind?: "gate" | "crisis" }).kind : undefined;
+
+if (kind === "gate") {
+  // Le serveur pose la question fermée : on l’affiche et on n’avance PAS le flux EFT
+  setRows(r => [...r, { who: "bot", text: answer }]);
+  setLoading(false);
+  return;
+}
+
+if (kind === "crisis") {
+  // Le serveur a reçu “oui” après la question : message d’alerte + clôture
+  setRows(r => [...r, { who: "bot", text: answer }]);
+  setStage("Clôture");
+  setEtape(8);
+  setText("");
+  setLoading(false);
+  return;
+}
+
     } catch {
       setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
       setLoading(false);
