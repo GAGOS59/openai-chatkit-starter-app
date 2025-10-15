@@ -523,15 +523,15 @@ export default function Page() {
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
     setRows(r => [...r, { who: "bot", text: cleaned }]);
 
-    // Avancer localement
-    if (stageForAPI === "Intake" && etapeForAPI === 1) {
-      setStage("Durée");
-      setEtape(2);
-    } else {
-      setStage(stageForAPI);
-      setEtape(etapeForAPI);
-    }
-    setLoading(false);
+    // Avancer localement (flux rigide)
+if (stageForAPI === "Intake" && etapeForAPI === 1) {
+  setStage("Contexte");   // on saute "Durée"
+  setEtape(3);
+} else {
+  setStage(stageForAPI);
+  setEtape(etapeForAPI);
+}
+setLoading(false);
   }
 
   return (
