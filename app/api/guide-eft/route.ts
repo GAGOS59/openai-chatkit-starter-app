@@ -181,7 +181,7 @@ function readableContext(ctx: string, kind?: IntakeKind): string {
   }
   if (!/^(parce que|car|puisque)\b/i.test(c)) {
     const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
-    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
+    if (needsQue et !/^au\s+fait\s+que\b/i.test(c)) {
       c = "au fait que " + c;
     }
     c = c
@@ -355,35 +355,4 @@ export async function POST(req: Request) {
         const hints = hintsForLocation(intakeNorm);
         const txt =
 `Étape 1 — Tu dis « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
-et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
-        return NextResponse.json({ answer: txt });
-      }
-
-      if (kind === "emotion") {
-        const txt =
-`Étape 1 — Tu dis « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
-Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
-        return NextResponse.json({ answer: txt });
-      }
-
-      const txt =
-`Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
-      return NextResponse.json({ answer: txt });
-    }
-
-    // Étape 5 — Setup
-    if (etape === 5) {
-      const intakeOrig = clean(slots.intake ?? "");
-      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
-
-      if (isEmotionIntake(intakeOrig)) {
-        const emo = parseEmotionPhrase(intakeOrig);
-        const setupLine =
-          emo.mode === "adj"
-            ? `Même si je suis ${emo.text}, je m’accepte profondément et complètement.`
-            : `Même si j’ai ${(emo.article ?? emotionArticle(emo.text))} ${emo.text}, je m’accepte profondément et complètement.`;
-        const txt =
-`Étape 5 — Setup : « ${setupLine} »
-Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
-        return NextRe
+et le type de do
