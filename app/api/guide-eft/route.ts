@@ -63,6 +63,39 @@ function normalizeIntake(input: string): string {
   return s;
 }
 
+function normalizeEmotionNoun(s: string): string {
+  const raw = clean(s);
+  const t = raw.toLowerCase();
+
+  // Si déjà spécifique, on ne touche pas
+  if (/\bpeur\s+(de|du|des|d’|d')\s+.+/i.test(t)) return raw;
+  if (/\bcol[eè]re\s+(contre|envers|à\s+propos\s+de)\s+.+/i.test(t)) return raw;
+  if (/\b(honte|culpabilit[eé])\s+(de|d’|d')\s+.+/i.test(t)) return raw;
+
+  // Nettoyage des formes verbales courantes
+  const x = t
+    .replace(/^j['’]?\s*eprouve\s+/, "")
+    .replace(/^je\s+me\s+sens\s+/, "")
+    .replace(/^je\s+ressens\s+/, "")
+    .replace(/^je\s+suis\s+en\s+/, "")
+    .replace(/^je\s+suis\s+/, "");
+
+  // Normalisation des noms d’émotion
+  const map: Array<[RegExp, string]> = [
+    [/col[eè]re/, "colère"],
+    [/triste(sse)?/, "tristesse"],
+    [/honte/, "honte"],
+    [/culpabl(e|it[eé])/, "culpabilité"],
+    [/stress[ée]?/, "stress"],
+    [/anxieux|anxieuse|anxi[eé]t[eé]/, "anxiété"],
+    [/angoiss[eé]/, "angoisse"],
+    [/peur/, "peur"],
+  ];
+  for (const [rx, noun] of map) if (rx.test(x)) return noun;
+  return raw;
+}
+
+
 type IntakeKind = "physique" | "emotion" | "situation";
 function classifyIntake(intakeRaw: string): IntakeKind {
   const s = clean(normalizeIntake(intakeRaw)).toLowerCase();
@@ -316,7 +349,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       return NextResponse.json({ answer: txt });
     }
 
-    if (etape === 5) {
+   if (etape === 5) {
   const intakeOrig = clean(slots.intake ?? "");
   const aspectRaw  = clean((slots.aspect ?? slots.intake ?? ""));
 
@@ -347,8 +380,14 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
   const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
   const article = emotionArticle(base);
 
-  // … (et tu enchaînes avec la construction du message / return)
+  const txt =
+`Étape 5 — Setup : « Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement. »
+Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
+
+  return NextResponse.json({ answer: txt });
 }
+
 
 
     // Étape 6 — Ronde (rappels ST → SB)
