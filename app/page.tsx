@@ -205,36 +205,27 @@ function renderPretty(s: string) {
   );
 }
 
-/** Supprime "Étape X —" et "Setup :" de l'affichage, et n'habille le Setup que si l'API ne l'a pas déjà fait */
+/** Supprime "Étape X —" et "Setup :" de l'affichage, et habille le Setup */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
 
-  // Retirer "Étape N —" partout
+  // Retirer tous les "Étape N —" en début de ligne (partout)
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
 
-  // Si ce n’est pas un Setup, on sort
-  if (stage !== "Setup") {
-    return t;
-  }
-
-  // Si l’API a déjà fait la mise en forme (présence de "Point Karaté" ou guillemets), on ne recompose pas
-  const alreadyFormatted = /Point\s+Karat[ée]|tranche\s+de\s+la\s+main|«.+»/i.test(t);
-  if (alreadyFormatted) {
-    // Évite le petit guillemet surnuméraire éventuel en fin de bloc
-    t = t.replace(/»\s*»$/g, "»");
-    return t;
-  }
-
-  // Sinon : on normalise un Setup nu
+  // Enlever "Setup :" en début de ligne si présent
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-  const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-  return (
-    "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
-    `« ${core} »\n` +
-    "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois."
-  );
-}
 
+  // Habillage du Setup
+  if (stage === "Setup") {
+    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+    t =
+      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
+      `« ${core} »\n` +
+      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
+  }
+
+  return t;
+}
 
 /* ---------- Colonne promo ---------- */
 function PromoAside() {
@@ -409,13 +400,12 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // Étape suivante
+    // Étape suivante -> stageForAPI/etapeForAPI
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      stageForAPI = "Intake";
-      etapeForAPI = 1;
+      stageForAPI = "Intake";         etapeForAPI = 1;
     }
     else if (stage === "Durée")       { stageForAPI = "Contexte";     etapeForAPI = 3; }
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
@@ -523,15 +513,20 @@ export default function Page() {
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
     setRows(r => [...r, { who: "bot", text: cleaned }]);
 
-    // Avancer localement (flux rigide)
-if (stageForAPI === "Intake" && etapeForAPI === 1) {
-  setStage("Contexte");   // on saute "Durée"
-  setEtape(3);
-} else {
-  setStage(stageForAPI);
-  setEtape(etapeForAPI);
-}
-setLoading(false);
+    // Avancer localement (progression standard)
+    if (stageForAPI === "Intake" && etapeForAPI === 1) {
+      // Après l'Intake, on va sur la localisation/type
+      setStage("Durée");
+      setEtape(2);
+    } else if (stageForAPI === "Contexte" && etapeForAPI === 3) {
+      // Après les circonstances, on va sur l'évaluation SUD
+      setStage("Évaluation");
+      setEtape(4);
+    } else {
+      setStage(stageForAPI);
+      setEtape(etapeForAPI);
+    }
+    setLoading(false);
   }
 
   return (
