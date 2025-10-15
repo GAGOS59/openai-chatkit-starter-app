@@ -3,43 +3,21 @@
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
 // --- DEMO (facultatif) ---
-const SHOW_DEMO = false; // passe à false pour masquer le panneau
+const SHOW_DEMO = false; // passe à true pour afficher le panneau
 
 const DEMO_PRESETS = [
   {
     label: "Douleur au dos → lombaires",
-    steps: [
-      "douleur au dos",
-      "douleur sourde aux lombaires",
-      "fatiguée en fin de journée",
-      "5",
-      "OK",
-      "3",
-      "OK",
-      "0"
-    ],
+    steps: ["douleur au dos", "douleur sourde aux lombaires", "fatiguée en fin de journée", "5", "OK", "3", "OK", "0"],
   },
   {
     label: "Peur des hauteurs",
-    steps: [
-      "peur des hauteurs",
-      "serrement dans la poitrine",
-      "quand je regarde par-dessus une rambarde",
-      "7",
-      "OK",
-      "4",
-      "OK",
-      "1",
-      "OK",
-      "0"
-    ],
+    steps: ["peur des hauteurs", "serrement dans la poitrine", "quand je regarde par-dessus une rambarde", "7", "OK", "4", "OK", "1", "OK", "0"],
   },
 ];
 
 // petit utilitaire pour insérer du texte dans l’input
-function useDemoHelpers(
-  setText: React.Dispatch<React.SetStateAction<string>>
-) {
+function useDemoHelpers(setText: React.Dispatch<React.SetStateAction<string>>) {
   return {
     fill: (value: string) => setText(value),
   };
@@ -66,7 +44,7 @@ type Slots = {
   aspect?: string;
 };
 
-/* Réponse typée de l’API (FAQ retirée) */
+/* ---------- Réponse typée de l’API (FAQ retirée) ---------- */
 type ApiResponse =
   | { answer: string; kind?: "gate" | "crisis" }
   | { error: string };
@@ -385,7 +363,7 @@ export default function Page() {
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
     } else if (stage === "Durée") {
-      // On n’utilise pas "Durée" pour la progression : on passe directement au Contexte après Intake
+      // On n’utilise pas "Durée" pour la progression
       updated.duration = userText;
     } else if (stage === "Contexte") {
       updated.context = userText;
@@ -420,7 +398,7 @@ export default function Page() {
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      // Après la réponse de précision, on demande le contexte (étape 3)
+      // Après la précision, on demande le contexte
       stageForAPI = "Contexte";
       etapeForAPI = 3;
     }
@@ -485,7 +463,8 @@ export default function Page() {
       .slice(-10)
       .join("\n");
 
-        let raw: ApiResponse | undefined;
+    // --- Appel API + gestion "gate/crisis" correctement typée ---
+    let raw: ApiResponse | undefined;
     try {
       const res = await fetch("/api/guide-eft", {
         method: "POST",
@@ -501,20 +480,17 @@ export default function Page() {
 
       raw = (await res.json()) as ApiResponse;
 
-      // --- Gestion spéciale sécurité : question fermée ("gate") / crise ("crisis")
       if (raw && "answer" in raw) {
         const srvAnswer = raw.answer;
         const kind = raw.kind;
 
         if (kind === "gate") {
-          // Afficher la question fermée et NE PAS avancer le flux EFT
           setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
           setLoading(false);
           return;
         }
 
         if (kind === "crisis") {
-          // Message d’alerte + clôture
           setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
           setStage("Clôture");
           setEtape(8);
@@ -529,64 +505,41 @@ export default function Page() {
       return;
     }
 
-
-      // Erreur formelle côté API ?
-      if ("error" in raw) {
-        setRows(r => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
-        setLoading(false);
-        return;
-      }
-
-      // Réponse OK
-      const answer: string = "answer" in raw ? raw.answer : "";
-      const kind: "gate" | "crisis" | undefined = "answer" in raw ? raw.kind : undefined;
-
-      if (kind === "gate") {
-        // Le serveur pose la question fermée : on l’affiche et on n’avance PAS le flux EFT
-        setRows(r => [...r, { who: "bot", text: answer }]);
-        setLoading(false);
-        return;
-      }
-      if (kind === "crisis") {
-        // Le serveur a reçu “oui” après la question : message d’alerte + clôture
-        setRows(r => [...r, { who: "bot", text: answer }]);
-        setStage("Clôture");
-        setEtape(8);
-        setText("");
-        setLoading(false);
-        return;
-      }
-
-      // Sécurité (au cas où)
-      if (isCrisis(answer)) {
-        const now = new Date().toISOString();
-        console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
-        setRows(r => [...r, { who: "bot", text: crisisMessage() }]);
-        setStage("Clôture");
-        setEtape(8);
-        setText("");
-        setLoading(false);
-        return;
-      }
-
-      // Affichage normal
-      const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
-      setRows(r => [...r, { who: "bot", text: cleaned }]);
-
-      // Avancer localement
-      if (stage === "Intake") {
-        setStage("Contexte"); setEtape(3);
-      } else {
-        setStage(stageForAPI);
-        setEtape(etapeForAPI);
-      }
-
-      setLoading(false);
-    } catch {
-      setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+    // Gestion des erreurs API formelles
+    if (raw && "error" in raw) {
+      setRows((r: Row[]) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
       setLoading(false);
       return;
     }
+
+    // Réponse normale
+    const answer: string = raw && "answer" in raw ? raw.answer : "";
+
+    // Sécurité côté client si jamais
+    if (isCrisis(answer)) {
+      const now = new Date().toISOString();
+      console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
+      setRows((r: Row[]) => [...r, { who: "bot", text: crisisMessage() }]);
+      setStage("Clôture");
+      setEtape(8);
+      setText("");
+      setLoading(false);
+      return;
+    }
+
+    const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
+    setRows((r: Row[]) => [...r, { who: "bot", text: cleaned }]);
+
+    // Avancer localement : après Intake → Contexte
+    if (stage === "Intake") {
+      setStage("Contexte");
+      setEtape(3);
+    } else {
+      setStage(stageForAPI);
+      setEtape(etapeForAPI);
+    }
+
+    setLoading(false);
   }
 
   return (
@@ -720,3 +673,4 @@ export default function Page() {
     </main>
   );
 }
+
