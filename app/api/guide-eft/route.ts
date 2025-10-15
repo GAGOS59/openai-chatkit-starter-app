@@ -394,6 +394,24 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
 `Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
       return NextResponse.json({ answer: txt });
     }
+// Étape 3 — Contexte (déterministe)
+if (etape === 3) {
+  const intakeNorm = clean(slots.intake ?? prompt ?? "");
+  const txt =
+`Étape 3 — En quelques mots, à quoi c’est lié ou quand cela se manifeste pour « ${intakeNorm} » ?
+(Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
+  return NextResponse.json({ answer: txt });
+}
+
+// Étape 4 — Évaluation (déterministe)
+if (etape === 4) {
+  const intakeNorm = clean(slots.intake ?? "");
+  const ctxPretty = clean(slots.context ?? "");
+  const cible = ctxPretty ? ` en pensant à « ${ctxPretty} »` : "";
+  const txt =
+`Étape 4 — Pense à « ${intakeNorm} »${cible}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+  return NextResponse.json({ answer: txt });
+}
 
     // Étape 5 — Setup (déterministe)
     if (etape === 5) {
