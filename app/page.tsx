@@ -180,14 +180,14 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-  if (stage === "Setup") {
-    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-    t =
-      "Reste bien connecté·e à ton ressenti \n" +
-      et en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois, dis à voix haute :\n" +
-      `« ${core} »`" 
+if (stage === "Setup") {
+  const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+  t = `Reste bien connecté·e à ton ressenti
+et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois, à voix haute :
+« ${core} »`;
+}
+
     
-  }
   return t;
 }
 
