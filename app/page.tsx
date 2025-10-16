@@ -2,8 +2,8 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
-// --- DEMO (facultatif) ---
-const SHOW_DEMO = false; // passe à true pour afficher le panneau
+/* ---------- DEMO (facultatif) ---------- */
+const SHOW_DEMO = false;
 
 const DEMO_PRESETS = [
   {
@@ -16,11 +16,8 @@ const DEMO_PRESETS = [
   },
 ];
 
-// petit utilitaire pour insérer du texte dans l’input
 function useDemoHelpers(setText: React.Dispatch<React.SetStateAction<string>>) {
-  return {
-    fill: (value: string) => setText(value),
-  };
+  return { fill: (value: string) => setText(value) };
 }
 
 /* ---------- Types UI ---------- */
@@ -44,7 +41,7 @@ type Slots = {
   aspect?: string;
 };
 
-/* ---------- Réponse typée de l’API (FAQ retirée) ---------- */
+/* ---------- Réponse typée de l’API (sans FAQ/LLM) ---------- */
 type ApiResponse =
   | { answer: string; kind?: "gate" | "crisis" }
   | { error: string };
@@ -63,6 +60,7 @@ function parseSUD(s: string): number | null {
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
 
+/** Normalise « j’ai mal… / j’ai peur… » → « mal … / peur … » */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
 
@@ -102,6 +100,7 @@ function normalizeContextForAspect(ctx: string): string {
   return c;
 }
 
+/** Construit l’aspect court « intake + (lié(e) à + contexte court) » */
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const intake = normalizeIntake(intakeTextRaw);
   if (!ctxShort) return intake;
@@ -129,7 +128,7 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bje\s+me\s+sens\s+de\s+trop\b/iu,
   /\bid[ée]es?\s+noires?\b/iu,
   /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
-  /\bme\s+pendre\b/iu
+  /\bme\s+pendre\b/iu,
 ];
 
 function isCrisis(text: string): boolean {
@@ -166,9 +165,7 @@ function linkify(text: string): React.ReactNode[] {
 
     if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
 
-    const href = url.startsWith("http")
-      ? url
-      : `https://${url.replace(/^www\./i, "www.")}`;
+    const href = url.startsWith("http") ? url : `https://${url.replace(/^www\./i, "www.")}`;
 
     nodes.push(
       <a
@@ -331,15 +328,9 @@ export default function Page() {
       return;
     }
 
-    // 🔒 crise → coupe et clôture
+    // 🔒 crise → coupe et clôture immed.
     if (isCrisis(userText)) {
-      const now = new Date().toISOString();
-      console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
-      setRows((r: Row[]) => [
-        ...r,
-        { who: "user", text: userText },
-        { who: "bot", text: crisisMessage() }
-      ]);
+      setRows((r: Row[]) => [...r, { who: "user", text: userText }, { who: "bot", text: crisisMessage() }]);
       setText("");
       setStage("Clôture");
       setEtape(8);
@@ -363,8 +354,7 @@ export default function Page() {
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
     } else if (stage === "Durée") {
-      // On n’utilise pas "Durée" pour la progression
-      updated.duration = userText;
+      updated.duration = userText; // on n'utilise pas Durée pour avancer
     } else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
@@ -398,39 +388,33 @@ export default function Page() {
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      // Après la précision, on demande le contexte
-      stageForAPI = "Contexte";
-      etapeForAPI = 3;
+      // après précision, demander le contexte
+      stageForAPI = "Contexte"; etapeForAPI = 3;
     }
     else if (stage === "Contexte") {
-      stageForAPI = "Évaluation";     etapeForAPI = 4;
+      stageForAPI = "Évaluation"; etapeForAPI = 4;
     }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
-      stageForAPI = "Setup";          etapeForAPI = 5;
+      stageForAPI = "Setup"; etapeForAPI = 5;
     }
     else if (stage === "Setup") {
-      stageForAPI = "Tapping";        etapeForAPI = 6;
+      stageForAPI = "Tapping"; etapeForAPI = 6;
     }
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
-          setRows((r: Row[]) => [...r, {
-            who: "bot",
-            text:
-              "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-              "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-              "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
-              "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+          setRows((r: Row[]) => [...r, { who: "bot", text:
+            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
-          setStage("Clôture");
-          setEtape(8);
-          setLoading(false);
-          return;
+          setStage("Clôture"); setEtape(8); setLoading(false); return;
         } else {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots((s: Slots) => ({ ...s, round: nextRound }));
-          stageForAPI = "Setup";      etapeForAPI = 5;   // repasser par Setup ajusté
+          stageForAPI = "Setup"; etapeForAPI = 5; // repasser par Setup ajusté
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -438,23 +422,18 @@ export default function Page() {
     }
     else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        setRows((r: Row[]) => [...r, {
-          who: "bot",
-          text:
-            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
-            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+        setRows((r: Row[]) => [...r, { who: "bot", text:
+          "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+          "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+          "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+          "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
-        setStage("Clôture");
-        setEtape(8);
-        setLoading(false);
-        return;
+        setStage("Clôture"); setEtape(8); setLoading(false); return;
       } else if (updated.sud > 0) {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
         setSlots((s: Slots) => ({ ...s, round: nextRound }));
-        stageForAPI = "Setup";        etapeForAPI = 5;
+        stageForAPI = "Setup"; etapeForAPI = 5;
       }
     }
 
@@ -463,7 +442,6 @@ export default function Page() {
       .slice(-10)
       .join("\n");
 
-    // --- Appel API + gestion "gate/crisis" correctement typée ---
     let raw: ApiResponse | undefined;
     try {
       const res = await fetch("/api/guide-eft", {
@@ -477,69 +455,66 @@ export default function Page() {
           slots: updated,
         }),
       });
-
       raw = (await res.json()) as ApiResponse;
-
-      if (raw && "answer" in raw) {
-        const srvAnswer = raw.answer;
-        const kind = raw.kind;
-
-        if (kind === "gate") {
-          setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
-          setLoading(false);
-          return;
-        }
-
-        if (kind === "crisis") {
-          setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
-          setStage("Clôture");
-          setEtape(8);
-          setText("");
-          setLoading(false);
-          return;
-        }
-      }
     } catch {
       setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
       setLoading(false);
       return;
     }
 
-    // Gestion des erreurs API formelles
+    // --- Gestion des erreurs API formelles ---
     if (raw && "error" in raw) {
       setRows((r: Row[]) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
       setLoading(false);
       return;
     }
 
-    // Réponse normale
-    const answer: string = raw && "answer" in raw ? raw.answer : "";
+    // --- Réponse normale + gestion gate/crisis AVANT toute progression ---
+    if (raw && "answer" in raw) {
+      const srvAnswer = raw.answer;
+      const kind = raw.kind;
 
-    // Sécurité côté client si jamais
-    if (isCrisis(answer)) {
-      const now = new Date().toISOString();
-      console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
-      setRows((r: Row[]) => [...r, { who: "bot", text: crisisMessage() }]);
-      setStage("Clôture");
-      setEtape(8);
-      setText("");
+      if (kind === "gate") {
+        // poser la question fermée (oui/non), ne pas avancer
+        setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
+        setLoading(false);
+        return;
+      }
+      if (kind === "crisis") {
+        // “oui” → message d’alerte + clôture
+        setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
+        setStage("Clôture");
+        setEtape(8);
+        setText("");
+        setLoading(false);
+        return;
+      }
+
+      // sécurité côté client (par prudence)
+      if (isCrisis(srvAnswer)) {
+        setRows((r: Row[]) => [...r, { who: "bot", text: crisisMessage() }]);
+        setStage("Clôture");
+        setEtape(8);
+        setText("");
+        setLoading(false);
+        return;
+      }
+
+      const cleaned = cleanAnswerForDisplay(srvAnswer, stageForAPI);
+      setRows((r: Row[]) => [...r, { who: "bot", text: cleaned }]);
+
+      // Avancer localement
+      if (stage === "Intake") {
+        setStage("Contexte"); setEtape(3);
+      } else {
+        setStage(stageForAPI);
+        setEtape(etapeForAPI);
+      }
       setLoading(false);
-      return;
-    }
-
-    const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
-    setRows((r: Row[]) => [...r, { who: "bot", text: cleaned }]);
-
-    // Avancer localement : après Intake → Contexte
-    if (stage === "Intake") {
-      setStage("Contexte");
-      setEtape(3);
     } else {
-      setStage(stageForAPI);
-      setEtape(etapeForAPI);
+      setRows((r: Row[]) => [...r, { who: "bot", text: "Réponse inattendue du service." }]);
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
@@ -550,9 +525,7 @@ export default function Page() {
           <div>
             <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
             <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
-            <p className="text-sm mt-1 opacity-90">
-              Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
-            </p>
+            <p className="text-sm mt-1 opacity-90">Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.</p>
           </div>
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
@@ -659,10 +632,8 @@ export default function Page() {
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
         <p className="text-sm leading-relaxed">
-          Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
-          psychologique ou professionnel.<br />
-          L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
-          des informations ou protocoles présentés.<br />
+          Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical, psychologique ou professionnel.<br />
+          L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application des informations ou protocoles présentés.<br />
           Chaque utilisateur reste responsable de sa pratique et de ses choix.
           <br /><br />
           <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
@@ -673,4 +644,3 @@ export default function Page() {
     </main>
   );
 }
-
