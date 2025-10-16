@@ -236,8 +236,9 @@ function PromoAside() {
           <p className="text-xs text-gray-600 mt-1">
             Formations adaptées à vos besoins, proposées par l’École EFT France.
           </p>
+          <hr>
         </div>
-        <hr>
+        
         <div className="text-center">
           <a
             href="https://technique-eft.com/"
