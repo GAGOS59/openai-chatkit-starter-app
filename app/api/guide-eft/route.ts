@@ -305,31 +305,51 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Number.isFinite(raw.etape) ? Math.min(8, Math.max(1, Number(raw.etape))) : 1;
 
-    /* ---- Barrière de sécurité oui/non ---- */
-    if (prompt) {
-      const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
-      const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
+    // ---- Barrière de sécurité oui/non (robuste) ----
+if (prompt) {
+  const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
+  const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
 
-      if (askedBefore && ynIfAny === "yes") {
-        return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
-      }
-      if (askedBefore && ynIfAny === "no") {
-  return NextResponse.json({
-    answer:
-      "Merci pour votre réponse. Je suis rassurée. Reprenons.\n\n" +
-      "En quoi puis-je vous aider aujourd'hui ?",
-    kind: "resume" as const,
-  });
+  // 1) Si on a déjà posé la question ET que la personne répond "oui" → message de crise, on coupe.
+  if (askedBefore && ynIfAny === 'yes') {
+    return NextResponse.json({ answer: crisisMessage(), kind: 'crisis' as const });
+  }
+
+  // 2) Si on a déjà posé la question ET que la personne répond "non" → accusé + retour à l’accueil.
+  if (askedBefore && ynIfAny === 'no') {
+    return NextResponse.json({
+      answer:
+        "Merci pour votre réponse. Reprenons.\n\n" +
+        "Bonjour et bienvenue. En quoi puis-je vous aider ?",
+      kind: 'resume' as const,
+    });
+  }
+
+  // 3) Si la personne tape "oui"/"non" alors qu'on n'a pas (ou mal) détecté la question juste avant :
+  //    - "oui" → on (re)pose explicitement la question fermée
+  if (!askedBefore && ynIfAny === 'yes') {
+    return NextResponse.json({
+      answer: "Avez-vous des idées suicidaires ? (oui / non)",
+      kind: 'gate' as const,
+    });
+  }
+  //    - "non" → on repart proprement à l’accueil
+  if (!askedBefore && ynIfAny === 'no') {
+    return NextResponse.json({
+      answer: "Merci. Reprenons.\n\nBonjour et bienvenue. En quoi puis-je vous aider ?",
+      kind: 'resume' as const,
+    });
+  }
+
+  // 4) Si le message lui-même contient un indicateur de crise → poser la question fermée
+  if (isCrisis(prompt)) {
+    return NextResponse.json({
+      answer: "Avez-vous des idées suicidaires ? (oui / non)",
+      kind: 'gate' as const,
+    });
+  }
 }
 
-    
-      if (!askedBefore && isCrisis(prompt)) {
-        return NextResponse.json({
-          answer: "Avez-vous des idées suicidaires ? (oui / non)",
-          kind: "gate" as const,
-        });
-      }
-    }
 
     /* ---- Étapes EFT (déterministes) ---- */
 
