@@ -183,9 +183,9 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   if (stage === "Setup") {
     const core = t.replace(/^«\s*|\s*»$/g, "").trim();
     t =
-      "Reste bien connecté·e à ton ressenti et dis à voix haute :\n" +
+      "Reste bien connecté·e à ton ressenti et n tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois, dis à voix haute :\n" +
       `« ${core} »\n` +
-      "En tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois.";
+     ;
   }
   return t;
 }
