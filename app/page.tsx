@@ -42,6 +42,17 @@ function parseSUD(s: string): number | null {
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
 
+/** Le dernier BOT a-t-il posé la question fermée "Avez-vous des idées suicidaires ? (oui / non)" ? */
+function lastBotAskedSuicideQuestionClient(rows: Row[]): boolean {
+  // On regarde les 3 derniers messages BOT pour être large
+  const t = rows
+    .slice(-3)
+    .filter((r) => r.who === "bot")
+    .map((r) => r.text.toLowerCase())
+    .join("\n");
+  return /avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\s*\?\s*\(oui\s*\/\s*non\)/i.test(t);
+}
+
 /** Normalise « j’ai mal… », « j’ai peur… », « j’ai une douleur… », etc. */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
@@ -318,6 +329,80 @@ export default function Page() {
 
     setRows((r: Row[]) => [...r, { who: "user", text: userText }]);
     setText("");
+// 🛑 Si le BOT venait de poser la question fermée, on NE traite PAS ce message comme une étape EFT.
+// On envoie la réponse brute au serveur et on attend "gate/crisis/resume".
+const gateWasJustAsked = lastBotAskedSuicideQuestionClient(rows);
+if (gateWasJustAsked) {
+  // On n’avance pas d’étape, on n’altère pas les slots.
+  // On interroge juste l’API telle quelle (stage/etape inchangés).
+  const transcriptShort = rows
+    .map((r: Row) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+    .slice(-10)
+    .join("\n");
+
+  let raw: ApiResponse | undefined;
+  try {
+    const res = await fetch("/api/guide-eft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: userText,
+        stage,        // on garde l’étape courante telle quelle
+        etape,        // idem
+        transcript: transcriptShort,
+        slots,        // on ne touche pas aux slots ici
+      }),
+    });
+    raw = (await res.json()) as ApiResponse;
+  } catch {
+    setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+    setLoading(false);
+    return;
+  }
+
+  if (raw && "error" in raw) {
+    setRows((r: Row[]) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+    setLoading(false);
+    return;
+  }
+
+  const answer: string = raw && "answer" in raw ? raw.answer : "";
+  const kind: "gate" | "crisis" | "resume" | undefined =
+    raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
+
+  // Affiche le texte renvoyé
+  setRows((r) => [...r, { who: "bot", text: answer }]);
+
+  // crisis → clôture
+  if (kind === "crisis") {
+    setStage("Clôture");
+    setEtape(8);
+    setText("");
+    setLoading(false);
+    return;
+  }
+
+  // resume → accusé + retour à l’accueil (ne PAS utiliser "non" comme intake)
+  if (kind === "resume") {
+    setRows((r) => [...r, { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" }]);
+    setStage("Intake");
+    setEtape(1);
+    setSlots({ round: 1 });
+    setText("");
+    setLoading(false);
+    return;
+  }
+
+  // gate (re-question fermée) → ne pas avancer
+  if (kind === "gate") {
+    setLoading(false);
+    return;
+  }
+
+  // Par prudence : s’il n’y a aucun kind, on ne fait rien (ne pas avancer)
+  setLoading(false);
+  return;
+}
 
     // MÀJ slots
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
