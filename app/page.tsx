@@ -457,11 +457,74 @@ export default function Page() {
         }),
       });
       raw = (await res.json()) as ApiResponse;
-    } catch {
-      setRows((r) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
-      setLoading(false);
-      return;
-    }
+
+// --- Traiter en priorité les cas spéciaux renvoyés par le serveur ---
+if (raw && "answer" in raw) {
+  const answer = raw.answer;
+  const kind = raw.kind as "gate" | "crisis" | "resume" | undefined;
+
+  if (kind === "gate") {
+    // Le serveur pose la question fermée (oui/non) → on l'affiche et on N'AVANCE PAS le flux
+    setRows((r) => [...r, { who: "bot", text: answer }]);
+    setLoading(false);
+    return;
+  }
+
+  if (kind === "crisis") {
+    // L'utilisateur a répondu "oui" → message d'alerte + clôture
+    setRows((r) => [...r, { who: "bot", text: answer }]);
+    setStage("Clôture");
+    setEtape(8);
+    setText("");
+    setLoading(false);
+    return;
+  }
+
+  if (kind === "resume") {
+    // L'utilisateur a répondu "non" → accusé de réception + on repart à l'étape 1
+    setRows((r) => [...r, { who: "bot", text: answer }]);
+    setStage("Intake");
+    setEtape(1);
+    setSlots({ round: 1 });
+    setLoading(false);
+    return;
+  }
+}
+
+// --- Gestion d’erreur API formelle (si pas de answer/kind ci-dessus) ---
+if (raw && "error" in raw) {
+  setRows((r) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+  setLoading(false);
+  return;
+}
+
+// --- Flux standard ---
+const answer: string = raw && "answer" in raw ? raw.answer : "";
+
+// Sécurité côté client (au cas où)
+if (isCrisis(answer)) {
+  const now = new Date().toISOString();
+  console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
+  setRows((r) => [...r, { who: "bot", text: crisisMessage() }]);
+  setStage("Clôture");
+  setEtape(8);
+  setText("");
+  setLoading(false);
+  return;
+}
+
+const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
+setRows((r) => [...r, { who: "bot", text: cleaned }]);
+
+// Avancer localement (inchangé)
+if (stageForAPI === "Contexte" && etapeForAPI === 3) {
+  setStage("Contexte"); setEtape(3);
+} else {
+  setStage(stageForAPI);
+  setEtape(etapeForAPI);
+}
+setLoading(false);
+
 
     // Gestion d’erreur API formelle
     if (!raw || ("error" in raw)) {
