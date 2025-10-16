@@ -2,24 +2,6 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
-/* ---------- DEMO (facultatif) ---------- */
-const SHOW_DEMO = false;
-
-const DEMO_PRESETS = [
-  {
-    label: "Douleur au dos → lombaires",
-    steps: ["douleur au dos", "douleur sourde aux lombaires", "fatiguée en fin de journée", "5", "OK", "3", "OK", "0"],
-  },
-  {
-    label: "Peur des hauteurs",
-    steps: ["peur des hauteurs", "serrement dans la poitrine", "quand je regarde par-dessus une rambarde", "7", "OK", "4", "OK", "1", "OK", "0"],
-  },
-];
-
-function useDemoHelpers(setText: React.Dispatch<React.SetStateAction<string>>) {
-  return { fill: (value: string) => setText(value) };
-}
-
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
 type Stage =
@@ -41,7 +23,7 @@ type Slots = {
   aspect?: string;
 };
 
-/* ---------- Réponse typée de l’API (sans FAQ/LLM) ---------- */
+/* Réponse typée de l’API (sans FAQ, avec barrières gate/crisis) */
 type ApiResponse =
   | { answer: string; kind?: "gate" | "crisis" }
   | { error: string };
@@ -60,7 +42,7 @@ function parseSUD(s: string): number | null {
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
 
-/** Normalise « j’ai mal… / j’ai peur… » → « mal … / peur … » */
+/** Normalise une entrée du type « j’ai mal au/à la… » → « mal … », « j’ai une douleur … » → « douleur … » */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
 
@@ -81,6 +63,7 @@ function normalizeIntake(input: string): string {
   return s;
 }
 
+/** Masculin/féminin minimal pour la liaison quand on construit l’aspect */
 function isMasculine(intake: string): boolean {
   const t = intake.toLowerCase().trim();
   if (t.startsWith("mal ")) return true;
@@ -88,6 +71,7 @@ function isMasculine(intake: string): boolean {
   return true;
 }
 
+/** Nettoyage léger du contexte pour l’aspect (supprime les « je/j’ai » en tête) */
 function normalizeContextForAspect(ctx: string): string {
   let c = ctx.trim();
   c = c.replace(/^je\s+/i, "");
@@ -100,7 +84,7 @@ function normalizeContextForAspect(ctx: string): string {
   return c;
 }
 
-/** Construit l’aspect court « intake + (lié(e) à + contexte court) » */
+/** Construit l’aspect court « intake + (lié(e) à + contexte court) » pour le serveur */
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const intake = normalizeIntake(intakeTextRaw);
   if (!ctxShort) return intake;
@@ -128,14 +112,12 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bje\s+me\s+sens\s+de\s+trop\b/iu,
   /\bid[ée]es?\s+noires?\b/iu,
   /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
-  /\bme\s+pendre\b/iu,
+  /\bme\s+pendre\b/iu
 ];
-
 function isCrisis(text: string): boolean {
   const t = text.toLowerCase();
-  return CRISIS_PATTERNS.some((rx: RegExp) => rx.test(t));
+  return CRISIS_PATTERNS.some((rx) => rx.test(t));
 }
-
 function crisisMessage(): string {
   return (
 `Message important
@@ -165,7 +147,9 @@ function linkify(text: string): React.ReactNode[] {
 
     if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
 
-    const href = url.startsWith("http") ? url : `https://${url.replace(/^www\./i, "www.")}`;
+    const href = url.startsWith("http")
+      ? url
+      : `https://${url.replace(/^www\./i, "www.")}`;
 
     nodes.push(
       <a
@@ -186,19 +170,20 @@ function linkify(text: string): React.ReactNode[] {
   return nodes;
 }
 
+/** Rendu de texte avec listes et paragraphes simples (+ liens cliquables) */
 function renderPretty(s: string) {
   const paragraphs: string[] = s.split(/\n\s*\n/);
   return (
     <div className="space-y-3">
-      {paragraphs.map((p: string, i: number) => {
+      {paragraphs.map((p, i) => {
         if (/^(?:- |\u2022 |\* )/m.test(p)) {
-          const items: string[] = p
+          const items = p
             .split(/\n/)
             .filter(Boolean)
-            .map((t: string) => t.replace(/^(- |\u2022 |\* )/, ""));
+            .map((t) => t.replace(/^(- |\u2022 |\* )/, ""));
           return (
             <ul key={i} className="list-disc pl-5 space-y-1">
-              {items.map((li: string, j: number) => (
+              {items.map((li, j) => (
                 <li key={j} className="whitespace-pre-wrap">
                   {linkify(li)}
                 </li>
@@ -309,7 +294,6 @@ export default function Page() {
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const demo = useDemoHelpers(setText);
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -328,9 +312,15 @@ export default function Page() {
       return;
     }
 
-    // 🔒 crise → coupe et clôture immed.
+    // 🔒 crise → coupe et clôture immédiate
     if (isCrisis(userText)) {
-      setRows((r: Row[]) => [...r, { who: "user", text: userText }, { who: "bot", text: crisisMessage() }]);
+      const now = new Date().toISOString();
+      console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
+      setRows((r) => [
+        ...r,
+        { who: "user", text: userText },
+        { who: "bot", text: crisisMessage() }
+      ]);
       setText("");
       setStage("Clôture");
       setEtape(8);
@@ -345,22 +335,24 @@ export default function Page() {
       setSlots({ round: 1 });
     }
 
-    setRows((r: Row[]) => [...r, { who: "user", text: userText }]);
+    setRows((r) => [...r, { who: "user", text: userText }]);
     setText("");
 
-    // MÀJ slots
+    // MÀJ slots (client)
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
     } else if (stage === "Durée") {
-      updated.duration = userText; // on n'utilise pas Durée pour avancer
+      // (on ne s’en sert pas pour la progression)
+      updated.duration = userText;
     } else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
       const sud0 = parseSUD(userText);
-      if (sud0 !== null) updated.sud = sud0;
-      else {
+      if (sud0 !== null) {
+        updated.sud = sud0;
+      } else {
         setError("👉 Merci d’indiquer un score SUD valide entre 0 et 10.");
         setLoading(false);
         return;
@@ -383,38 +375,42 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // Étape suivante (client → API)
+    // Étape suivante (client → intention pour API)
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      // après précision, demander le contexte
-      stageForAPI = "Contexte"; etapeForAPI = 3;
+      stageForAPI = "Contexte";     etapeForAPI = 3;
     }
     else if (stage === "Contexte") {
-      stageForAPI = "Évaluation"; etapeForAPI = 4;
+      stageForAPI = "Évaluation";   etapeForAPI = 4;
     }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
-      stageForAPI = "Setup"; etapeForAPI = 5;
+      stageForAPI = "Setup";        etapeForAPI = 5;
     }
     else if (stage === "Setup") {
-      stageForAPI = "Tapping"; etapeForAPI = 6;
+      stageForAPI = "Tapping";      etapeForAPI = 6;
     }
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
-          setRows((r: Row[]) => [...r, { who: "bot", text:
-            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
-            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+          setRows((r) => [...r, {
+            who: "bot",
+            text:
+              "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+              "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+              "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+              "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
           }]);
-          setStage("Clôture"); setEtape(8); setLoading(false); return;
+          setStage("Clôture");
+          setEtape(8);
+          setLoading(false);
+          return;
         } else {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
-          setSlots((s: Slots) => ({ ...s, round: nextRound }));
-          stageForAPI = "Setup"; etapeForAPI = 5; // repasser par Setup ajusté
+          setSlots((s) => ({ ...s, round: nextRound }));
+          stageForAPI = "Setup";    etapeForAPI = 5; // repasser par Setup ajusté
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -422,26 +418,27 @@ export default function Page() {
     }
     else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        setRows((r: Row[]) => [...r, { who: "bot", text:
-          "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
-          "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
-          "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
-          "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+        setRows((r) => [...r, {
+          who: "bot",
+          text:
+            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
         }]);
-        setStage("Clôture"); setEtape(8); setLoading(false); return;
+        setStage("Clôture");
+        setEtape(8);
+        setLoading(false);
+        return;
       } else if (updated.sud > 0) {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
-        setSlots((s: Slots) => ({ ...s, round: nextRound }));
-        stageForAPI = "Setup"; etapeForAPI = 5;
+        setSlots((s) => ({ ...s, round: nextRound }));
+        stageForAPI = "Setup";      etapeForAPI = 5;
       }
     }
 
-    const transcriptShort = rows
-      .map((r: Row) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
-      .slice(-10)
-      .join("\n");
-
+    // --- Appel API déterministe ---
     let raw: ApiResponse | undefined;
     try {
       const res = await fetch("/api/guide-eft", {
@@ -451,70 +448,74 @@ export default function Page() {
           prompt: userText,
           stage: stageForAPI,
           etape: etapeForAPI,
-          transcript: transcriptShort,
+          transcript:
+            rows
+              .map((r) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+              .slice(-10)
+              .join("\n"),
           slots: updated,
         }),
       });
       raw = (await res.json()) as ApiResponse;
     } catch {
-      setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+      setRows((r) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
       setLoading(false);
       return;
     }
 
-    // --- Gestion des erreurs API formelles ---
-    if (raw && "error" in raw) {
-      setRows((r: Row[]) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+    // Gestion d’erreur API formelle
+    if (!raw || ("error" in raw)) {
+      setRows((r) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
       setLoading(false);
       return;
     }
 
-    // --- Réponse normale + gestion gate/crisis AVANT toute progression ---
-    if (raw && "answer" in raw) {
-      const srvAnswer = raw.answer;
-      const kind = raw.kind;
+    const answer: string = raw.answer;
+    const kind: "gate" | "crisis" | undefined = raw.kind;
 
-      if (kind === "gate") {
-        // poser la question fermée (oui/non), ne pas avancer
-        setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
-        setLoading(false);
-        return;
-      }
-      if (kind === "crisis") {
-        // “oui” → message d’alerte + clôture
-        setRows((r: Row[]) => [...r, { who: "bot", text: srvAnswer }]);
-        setStage("Clôture");
-        setEtape(8);
-        setText("");
-        setLoading(false);
-        return;
-      }
-
-      // sécurité côté client (par prudence)
-      if (isCrisis(srvAnswer)) {
-        setRows((r: Row[]) => [...r, { who: "bot", text: crisisMessage() }]);
-        setStage("Clôture");
-        setEtape(8);
-        setText("");
-        setLoading(false);
-        return;
-      }
-
-      const cleaned = cleanAnswerForDisplay(srvAnswer, stageForAPI);
-      setRows((r: Row[]) => [...r, { who: "bot", text: cleaned }]);
-
-      // Avancer localement
-      if (stage === "Intake") {
-        setStage("Contexte"); setEtape(3);
-      } else {
-        setStage(stageForAPI);
-        setEtape(etapeForAPI);
-      }
+    // --- Branches gate/crisis AVANT toute progression ---
+    if (kind === "gate") {
+      // Le serveur pose la question fermée → on l’affiche et on NE progresse PAS
+      setRows((r) => [...r, { who: "bot", text: answer }]);
       setLoading(false);
+      return;
+    }
+    if (kind === "crisis") {
+      // L’utilisateur a répondu OUI → message de crise et clôture
+      setRows((r) => [...r, { who: "bot", text: answer }]);
+      setStage("Clôture");
+      setEtape(8);
+      setText("");
+      setLoading(false);
+      return;
+    }
+
+    // Sécurité côté client si jamais
+    if (isCrisis(answer)) {
+      const now = new Date().toISOString();
+      console.warn(`⚠️ [${now}] Mot sensible détecté dans la réponse (client). Clôture sécurisée.`);
+      setRows((r) => [...r, { who: "bot", text: crisisMessage() }]);
+      setStage("Clôture");
+      setEtape(8);
+      setText("");
+      setLoading(false);
+      return;
+    }
+
+    // Affichage normal
+    const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
+    setRows((r) => [...r, { who: "bot", text: cleaned }]);
+
+    // Avancer localement (aligné avec l’intention envoyée)
+    if (stage === "Intake") {
+      setStage("Contexte");
+      setEtape(3);
     } else {
-      setRows((r: Row[]) => [...r, { who: "bot", text: "Réponse inattendue du service." }]);
-      setLoading(false);
+      setStage(stageForAPI);
+      setEtape(etapeForAPI);
     }
+
+    setLoading(false);
   }
 
   return (
@@ -525,7 +526,9 @@ export default function Page() {
           <div>
             <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
             <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
-            <p className="text-sm mt-1 opacity-90">Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.</p>
+            <p className="text-sm mt-1 opacity-90">
+              Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
+            </p>
           </div>
           <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
@@ -535,47 +538,17 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Grille */}
+      {/* Grille : 1 colonne (mobile/tablette) ; 3 colonnes dès xl → promo à droite */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Colonne principale */}
+        {/* Colonne principale : Chat + Form (2 colonnes dès xl) */}
         <div className="xl:col-span-2 space-y-4">
-
-          {SHOW_DEMO && (
-            <div className="rounded-xl border bg-white p-3 shadow-sm">
-              <div className="text-sm font-semibold mb-2">Mode démo (facultatif)</div>
-              <div className="flex flex-wrap gap-2">
-                {DEMO_PRESETS.map((preset, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-600">{preset.label}</span>
-                    <div className="flex gap-1">
-                      {preset.steps.map((s, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => demo.fill(s)}
-                          className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
-                          title={`Insérer: ${s}`}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Clique sur un numéro pour pré-remplir le champ, puis appuie sur <strong>Envoyer</strong>.
-              </p>
-            </div>
-          )}
-
           {/* Chat */}
           <div
             ref={chatRef}
             className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
           >
             <div className="space-y-3">
-              {rows.map((r: Row, i: number) => (
+              {rows.map((r, i) => (
                 <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
                   <div
                     className={
@@ -622,7 +595,7 @@ export default function Page() {
           {error && <div className="text-red-600 mt-2">{error}</div>}
         </div>
 
-        {/* Promo */}
+        {/* Promo : s’affiche sous le chat (mobile/tablette) et passe à droite dès xl */}
         <div className="xl:col-span-1 xl:max-h-[72vh] xl:overflow-auto">
           <PromoAside />
         </div>
@@ -632,8 +605,10 @@ export default function Page() {
       <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
         <p className="text-sm leading-relaxed">
-          Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical, psychologique ou professionnel.<br />
-          L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application des informations ou protocoles présentés.<br />
+          Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
+          psychologique ou professionnel.<br />
+          L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
+          des informations ou protocoles présentés.<br />
           Chaque utilisateur reste responsable de sa pratique et de ses choix.
           <br /><br />
           <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
