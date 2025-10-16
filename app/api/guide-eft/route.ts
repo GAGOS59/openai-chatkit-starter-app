@@ -316,7 +316,7 @@ export async function POST(req: Request) {
       if (askedBefore && ynIfAny === "no") {
         return NextResponse.json({
           answer:
-            "Merci pour votre réponse. Reprenons.\n\n" +
+            "Merci pour votre réponse. Me voilà rassurée. Reprenons.\n\n" +
             "Étape 1 — Sur quoi souhaitez-vous travailler aujourd’hui ? (émotion, sensation ou situation)",
           kind: "resume" as const,
         });
@@ -353,7 +353,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       }
 
       const txt =
-`Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens (émotion/sensation) et où dans le corps (poitrine, ventre, gorge…) ?`;
+`Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens dans ton corps et où cela se situe-t-il (poitrine, ventre, gorge…) ?`;
       return NextResponse.json({ answer: txt });
     }
 
@@ -361,7 +361,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
     if (etape === 3) {
       const intake = clean(slots.intake ?? "");
       const txt =
-`Étape 3 — Merci. En quelques mots, à quoi c’est lié ou quand cela se manifeste pour « ${intake} » ?
+`Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi ou quand cela se manifeste-t-il pour « ${intake} » ?
 (Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
       return NextResponse.json({ answer: txt });
     }
