@@ -237,6 +237,7 @@ function PromoAside() {
             Formations adaptées à vos besoins, proposées par l’École EFT France.
           </p>
         </div>
+        <hr>
         <div className="text-center">
           <a
             href="https://technique-eft.com/"
