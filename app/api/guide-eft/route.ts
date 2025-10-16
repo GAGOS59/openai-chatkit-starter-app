@@ -383,7 +383,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
     if (etape === 3) {
       const intake = clean(slots.intake ?? "");
       const txt =
-`Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi ou quand cela se manifeste-t-il pour « ${intake} » ?
+`Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi et quand cela se manifeste-t-il ?
 (Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
       return NextResponse.json({ answer: txt });
     }
