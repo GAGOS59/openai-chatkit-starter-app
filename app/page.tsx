@@ -369,31 +369,47 @@ if (answeringGate) {
   const answer = raw && "answer" in raw ? raw.answer : "";
   const kind = raw && "answer" in raw ? raw.kind : undefined;
 
-  // Affiche la réponse serveur (accusé de réception ou message d’alerte)
-  setRows((r) => [...r, { who: "bot", text: answer }]);
+  // --- Traiter les “kinds” renvoyés par l’API AVANT toute progression ---
+const answer: string =
+  raw && "answer" in raw ? raw.answer : "";
 
-  // Si "crisis" → on clôture.
-  if (kind === "crisis") {
-    setStage("Clôture");
-    setEtape(8);
-    setText("");
-    setLoading(false);
-    return;
-  }
+const kind: "gate" | "crisis" | "resume" | undefined =
+  raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
 
-  // Si "resume" → accusé de réception pour "non", puis on REPART proprement à l’étape 1.
-  if (kind === "resume") {
-    setStage("Intake");
-    setEtape(1);
-    setSlots({ round: 1 });
-    setLoading(false);
-    return;
-  }
-
-  // (sinon, c’était juste la question gate renvoyée — on n’avance pas)
+// 1) Question fermée (gate) → on affiche, on n'avance PAS le flux
+if (kind === "gate") {
+  setRows(r => [...r, { who: "bot", text: answer }]);
   setLoading(false);
   return;
 }
+
+// 2) Crise confirmée (oui) → message d’aide + clôture
+if (kind === "crisis") {
+  setRows(r => [...r, { who: "bot", text: answer }]);
+  setStage("Clôture");
+  setEtape(8);
+  setText("");
+  setLoading(false);
+  return;
+}
+
+// 3) NON → accusé de réception + retour à l’accueil (reset propre)
+if (kind === "resume") {
+  setRows(r => [
+    ...r,
+    { who: "bot", text: answer },
+    { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" },
+  ]);
+  setStage("Intake");
+  setEtape(1);
+  setSlots({ round: 1 });
+  setText("");
+  setLoading(false);
+  return;
+}
+
+// 4) Pas de kind spécial → on continue le flux EFT normal plus bas
+
 
     // MÀJ slots
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
