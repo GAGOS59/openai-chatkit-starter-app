@@ -2,6 +2,24 @@
 "use client";
 import React, { useRef, useState, useEffect, FormEvent } from "react";
 
+/* ---------- DEMO (facultatif) ---------- */
+const SHOW_DEMO = false;
+
+const DEMO_PRESETS: Array<{ label: string; steps: string[] }> = [
+  {
+    label: "Douleur au dos → lombaires",
+    steps: ["douleur au dos", "douleur sourde aux lombaires", "fatiguée en fin de journée", "5", "OK", "3", "OK", "0"],
+  },
+  {
+    label: "Peur des hauteurs",
+    steps: ["peur des hauteurs", "serrement dans la poitrine", "quand je regarde par-dessus une rambarde", "7", "OK", "4", "OK", "1", "OK", "0"],
+  },
+];
+
+function useDemoHelpers(setText: React.Dispatch<React.SetStateAction<string>>) {
+  return { fill: (value: string) => setText(value) };
+}
+
 /* ---------- Types UI ---------- */
 type Row = { who: "bot" | "user"; text: string };
 type Stage =
@@ -23,7 +41,7 @@ type Slots = {
   aspect?: string;
 };
 
-/* Réponse typée de l’API — inclut gate / crisis / resume */
+/* Réponse typée de l’API (plus de FAQ, avec gate/crisis/resume) */
 type ApiResponse =
   | { answer: string; kind?: "gate" | "crisis" | "resume" }
   | { error: string };
@@ -42,30 +60,24 @@ function parseSUD(s: string): number | null {
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
 
-/** Le dernier BOT a-t-il posé la question fermée "Avez-vous des idées suicidaires ? (oui / non)" ? */
-function lastBotAskedSuicideQuestionClient(rows: Row[]): boolean {
-  // On regarde les 3 derniers messages BOT pour être large
-  const t = rows
-    .slice(-3)
-    .filter((r) => r.who === "bot")
-    .map((r) => r.text.toLowerCase())
-    .join("\n");
-  return /avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\s*\?\s*\(oui\s*\/\s*non\)/i.test(t);
-}
-
-/** Normalise « j’ai mal… », « j’ai peur… », « j’ai une douleur… », etc. */
+/** Normalise « j’ai mal… / j’ai une douleur… / j’ai peur… » → forme courte */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
+
   const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
+
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
+
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
+
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
+
   return s;
 }
 
@@ -97,7 +109,7 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   return `${intake} ${liaison} ${cleaned}`;
 }
 
-/* ---------- Safety (client) ---------- */
+/* ---------- Sécurité (mêmes patterns que serveur, mais on ne court-circuite PAS la gate) ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
   /\bsu[cs]sid[ea]\b/iu,
@@ -115,13 +127,8 @@ const CRISIS_PATTERNS: RegExp[] = [
   /\bje\s+me\s+sens\s+de\s+trop\b/iu,
   /\bid[ée]es?\s+noires?\b/iu,
   /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
-  /\bme\s+pendre\b/iu
+  /\bme\s+pendre\b/iu,
 ];
-
-function isCrisis(text: string): boolean {
-  const t = text.toLowerCase();
-  return CRISIS_PATTERNS.some((rx: RegExp) => rx.test(t));
-}
 
 function crisisMessage(): string {
   return (
@@ -137,7 +144,21 @@ Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
   );
 }
 
-/* ---------- Liens cliquables ---------- */
+/* Détection locale : est-ce que le DERNIER message bot posait la gate ? */
+function lastBotAskedSuicideQuestionClient(rows: Row[]): boolean {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].who !== "bot") continue;
+    const t = rows[i].text.toLowerCase();
+    if (/avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\s*\?\s*\(oui\s*\/\s*non\)/i.test(t)) {
+      return true;
+    }
+    // on s’arrête au premier bot, inutile de remonter plus haut
+    break;
+  }
+  return false;
+}
+
+/* ---------- Liens cliquables & rendu ---------- */
 function linkify(text: string): React.ReactNode[] {
   const URL_RX =
     /(https?:\/\/[^\s<>"'()]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>"']*)?)/gi;
@@ -205,7 +226,7 @@ function renderPretty(s: string) {
   );
 }
 
-/** Nettoyage d’affichage : supprime "Étape X —" / "Setup :" et habille le Setup */
+/** Nettoyage d’affichage : retire "Étape X —" et "Setup :", habille le Setup */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
@@ -298,6 +319,7 @@ export default function Page() {
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const demo = useDemoHelpers(setText);
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -316,101 +338,82 @@ export default function Page() {
       return;
     }
 
-    // ⚠️ Ne PAS filtrer ici (coté client) les messages “suicide…”
-    // On laisse le serveur gérer la barrière gate/crisis/resume
-    // pour éviter les doublons/chevauchements de logique.
+    // Détecter si la dernière question affichée est la gate O/N
+    const gateWasJustAsked = lastBotAskedSuicideQuestionClient(rows);
 
-    // Nouveau sujet après clôture → reset
-    if (stage === "Clôture") {
-      setStage("Intake");
-      setEtape(1);
-      setSlots({ round: 1 });
+    // Afficher la saisie utilisateur
+    setRows((r) => [...r, { who: "user", text: userText }]);
+    setText("");
+
+    if (gateWasJustAsked) {
+      // ⚠️ Ici : on NE touche pas aux slots ni aux étapes — on laisse le serveur trancher (gate/crisis/resume)
+      const transcriptShort = rows
+        .map((r) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+        .slice(-10)
+        .join("\n");
+
+      let raw: ApiResponse | undefined;
+      try {
+        const res = await fetch("/api/guide-eft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: userText,
+            stage,
+            etape,
+            transcript: transcriptShort,
+            slots,
+          }),
+        });
+        raw = (await res.json()) as ApiResponse;
+      } catch {
+        setRows((r) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+        setLoading(false);
+        return;
+      }
+
+      if (raw && "error" in raw) {
+        setRows((r) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+        setLoading(false);
+        return;
+      }
+
+      const answer: string = raw && "answer" in raw ? raw.answer : "";
+      const kind: "gate" | "crisis" | "resume" | undefined =
+        raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
+
+      // Affiche la réponse serveur (question gate, message d’alerte, ou accusé de réception)
+      setRows((r) => [...r, { who: "bot", text: answer }]);
+
+      if (kind === "crisis") {
+        setStage("Clôture");
+        setEtape(8);
+        setText("");
+        setLoading(false);
+        return;
+      }
+      if (kind === "resume") {
+        // Accusé de réception du “non” → on repart proprement à l’accueil
+        setStage("Intake");
+        setEtape(1);
+        setSlots({ round: 1 });
+        // (Optionnel) ré-afficher la question d’accueil
+        setRows((r) => [...r, { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" }]);
+        setLoading(false);
+        return;
+      }
+      // kind === "gate" (ou undefined) → on n’avance pas, on attend la réponse utilisateur
+      setLoading(false);
+      return;
     }
 
-    setRows((r: Row[]) => [...r, { who: "user", text: userText }]);
-    setText("");
-// 🛑 Si le BOT venait de poser la question fermée, on NE traite PAS ce message comme une étape EFT.
-// On envoie la réponse brute au serveur et on attend "gate/crisis/resume".
-const gateWasJustAsked = lastBotAskedSuicideQuestionClient(rows);
-if (gateWasJustAsked) {
-  // On n’avance pas d’étape, on n’altère pas les slots.
-  // On interroge juste l’API telle quelle (stage/etape inchangés).
-  const transcriptShort = rows
-    .map((r: Row) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
-    .slice(-10)
-    .join("\n");
-
-  let raw: ApiResponse | undefined;
-  try {
-    const res = await fetch("/api/guide-eft", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: userText,
-        stage,        // on garde l’étape courante telle quelle
-        etape,        // idem
-        transcript: transcriptShort,
-        slots,        // on ne touche pas aux slots ici
-      }),
-    });
-    raw = (await res.json()) as ApiResponse;
-  } catch {
-    setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
-    setLoading(false);
-    return;
-  }
-
-  if (raw && "error" in raw) {
-    setRows((r: Row[]) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
-    setLoading(false);
-    return;
-  }
-
-  const answer: string = raw && "answer" in raw ? raw.answer : "";
-  const kind: "gate" | "crisis" | "resume" | undefined =
-    raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
-
-  // Affiche le texte renvoyé
-  setRows((r) => [...r, { who: "bot", text: answer }]);
-
-  // crisis → clôture
-  if (kind === "crisis") {
-    setStage("Clôture");
-    setEtape(8);
-    setText("");
-    setLoading(false);
-    return;
-  }
-
-  // resume → accusé + retour à l’accueil (ne PAS utiliser "non" comme intake)
-  if (kind === "resume") {
-    setRows((r) => [...r, { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" }]);
-    setStage("Intake");
-    setEtape(1);
-    setSlots({ round: 1 });
-    setText("");
-    setLoading(false);
-    return;
-  }
-
-  // gate (re-question fermée) → ne pas avancer
-  if (kind === "gate") {
-    setLoading(false);
-    return;
-  }
-
-  // Par prudence : s’il n’y a aucun kind, on ne fait rien (ne pas avancer)
-  setLoading(false);
-  return;
-}
-
-    // MÀJ slots
+    // -------- Flux normal EFT (MAJ slots/étapes) --------
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
     } else if (stage === "Durée") {
-      updated.duration = userText;
+      updated.duration = userText; // (historique : non utilisé en progression)
     } else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
@@ -431,7 +434,7 @@ if (gateWasJustAsked) {
       if (sudInline !== null) updated.sud = sudInline;
     }
 
-    // Aspect pour Setup & Ronde
+    // Aspect (pour Setup & Ronde)
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
@@ -444,19 +447,17 @@ if (gateWasJustAsked) {
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      // Après précision, on attend Contexte (étape 3) côté API
-      stageForAPI = "Contexte";
-      etapeForAPI = 3;
-    } else if (stage === "Contexte") {
-      stageForAPI = "Évaluation"; etapeForAPI = 4;
-    } else if (stage === "Évaluation" && typeof updated.sud === "number") {
-      stageForAPI = "Setup"; etapeForAPI = 5;
-    } else if (stage === "Setup") {
-      stageForAPI = "Tapping"; etapeForAPI = 6;
-    } else if (stage === "Tapping") {
+      stageForAPI = "Contexte";       etapeForAPI = 3;
+    }
+    else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
+    else if (stage === "Évaluation" && typeof updated.sud === "number") {
+      stageForAPI = "Setup";          etapeForAPI = 5;
+    }
+    else if (stage === "Setup")       { stageForAPI = "Tapping";      etapeForAPI = 6; }
+    else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
-          setRows((r: Row[]) => [...r, {
+          setRows((r) => [...r, {
             who: "bot",
             text:
               "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
@@ -471,15 +472,16 @@ if (gateWasJustAsked) {
         } else {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
-          setSlots((s: Slots) => ({ ...s, round: nextRound }));
-          stageForAPI = "Setup"; etapeForAPI = 5; // repasser par Setup ajusté
+          setSlots((s) => ({ ...s, round: nextRound }));
+          stageForAPI = "Setup";      etapeForAPI = 5;   // repasser par Setup ajusté
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
       }
-    } else if (stage === "Réévaluation" && typeof updated.sud === "number") {
+    }
+    else if (stage === "Réévaluation" && typeof updated.sud === "number") {
       if (updated.sud === 0) {
-        setRows((r: Row[]) => [...r, {
+        setRows((r) => [...r, {
           who: "bot",
           text:
             "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
@@ -494,13 +496,13 @@ if (gateWasJustAsked) {
       } else if (updated.sud > 0) {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
-        setSlots((s: Slots) => ({ ...s, round: nextRound }));
-        stageForAPI = "Setup"; etapeForAPI = 5;
+        setSlots((s) => ({ ...s, round: nextRound }));
+        stageForAPI = "Setup";        etapeForAPI = 5;
       }
     }
 
     const transcriptShort = rows
-      .map((r: Row) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+      .map((r) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
       .slice(-10)
       .join("\n");
 
@@ -519,62 +521,27 @@ if (gateWasJustAsked) {
       });
       raw = (await res.json()) as ApiResponse;
     } catch {
-      setRows((r: Row[]) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+      setRows((r) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
       setLoading(false);
       return;
     }
 
-    // Erreur API formelle
     if (raw && "error" in raw) {
-      setRows((r: Row[]) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+      setRows((r) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
       setLoading(false);
       return;
     }
 
-    // --- Traiter les “kinds” renvoyés par le serveur AVANT toute progression ---
     const answer: string = raw && "answer" in raw ? raw.answer : "";
-    const kind: "gate" | "crisis" | "resume" | undefined =
-      raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
 
-    // 1) Question fermée (gate) → on affiche et on n’avance PAS
-    if (kind === "gate") {
-      setRows(r => [...r, { who: "bot", text: answer }]);
-      setLoading(false);
-      return;
-    }
-
-    // 2) Crise confirmée (oui) → message d’aide + clôture
-    if (kind === "crisis") {
-      setRows(r => [...r, { who: "bot", text: answer }]);
-      setStage("Clôture");
-      setEtape(8);
-      setText("");
-      setLoading(false);
-      return;
-    }
-
-    // 3) NON → accusé de réception + retour à l’accueil (reset propre)
-    if (kind === "resume") {
-      setRows(r => [
-        ...r,
-        { who: "bot", text: answer },
-        { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" },
-      ]);
-      setStage("Intake");
-      setEtape(1);
-      setSlots({ round: 1 });
-      setText("");
-      setLoading(false);
-      return;
-    }
-
-    // 4) Pas de kind spécial → flux EFT normal
+    // Affichage normal (plus de branche FAQ)
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
-    setRows((r: Row[]) => [...r, { who: "bot", text: cleaned }]);
+    setRows((r) => [...r, { who: "bot", text: cleaned }]);
 
-    // Avancer localement
-    if (stage === "Intake") {
-      setStage("Contexte"); setEtape(3);
+    // Avancer localement (hors cas Intake → Contexte déjà géré)
+    if (stageForAPI === "Intake" && etapeForAPI === 1) {
+      setStage("Contexte");
+      setEtape(3);
     } else {
       setStage(stageForAPI);
       setEtape(etapeForAPI);
@@ -603,10 +570,40 @@ if (gateWasJustAsked) {
         </div>
       </div>
 
-      {/* Grille */}
+      {/* Grille : chat + promo */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Colonne principale */}
         <div className="xl:col-span-2 space-y-4">
+
+          {SHOW_DEMO && (
+            <div className="rounded-xl border bg-white p-3 shadow-sm">
+              <div className="text-sm font-semibold mb-2">Mode démo (facultatif)</div>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_PRESETS.map((preset, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">{preset.label}</span>
+                    <div className="flex gap-1">
+                      {preset.steps.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => demo.fill(s)}
+                          className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
+                          title={`Insérer: ${s}`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Clique sur un numéro pour pré-remplir le champ, puis appuie sur <strong>Envoyer</strong>.
+              </p>
+            </div>
+          )}
+
           {/* Chat */}
           <div
             ref={chatRef}
