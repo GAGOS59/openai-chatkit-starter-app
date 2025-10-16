@@ -341,7 +341,6 @@ export default function Page() {
         setStage("Intake");
         setEtape(1);
         setSlots({ round: 1 });
-        setRows((r) => [...r, { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" }]);
         setLoading(false);
         return;
       }
