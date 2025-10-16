@@ -314,13 +314,15 @@ export async function POST(req: Request) {
         return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
       }
       if (askedBefore && ynIfAny === "no") {
-        return NextResponse.json({
-          answer:
-            "Merci pour votre réponse. Me voilà rassurée. Reprenons.\n\n" +
-            "Étape 1 — Sur quoi souhaitez-vous travailler aujourd’hui ? (émotion, sensation ou situation)",
-          kind: "resume" as const,
-        });
-      }
+  return NextResponse.json({
+    answer:
+      "Merci pour votre réponse. Je suis rassurée. Reprenons.\n\n" +
+      "En quoi puis-je vous aider aujourd'hui ?",
+    kind: "resume" as const,
+  });
+}
+
+    
       if (!askedBefore && isCrisis(prompt)) {
         return NextResponse.json({
           answer: "Avez-vous des idées suicidaires ? (oui / non)",
