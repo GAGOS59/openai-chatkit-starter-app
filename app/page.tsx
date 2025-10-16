@@ -327,6 +327,73 @@ export default function Page() {
 
     setRows((r) => [...r, { who: "user", text: userText }]);
     setText("");
+// 🧿 Réponse à la question fermée "Avez-vous des idées suicidaires ?"
+// Si c'est le cas, on NE modifie PAS les slots ni l'étape ici.
+const lastBot = rows[rows.length - 1];
+const answeringGate =
+  lastBot?.who === "bot" &&
+  /Avez-vous des idées suicidaires\s*\?\s*\(oui\s*\/\s*non\)/i.test(lastBot.text);
+
+if (answeringGate) {
+  // On envoie la réponse (oui/non) telle quelle au serveur, sans toucher aux slots.
+  let raw: { answer: string; kind?: "gate" | "crisis" | "resume" } | { error: string } | undefined;
+
+  try {
+    const res = await fetch("/api/guide-eft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: userText,
+        stage,            // on transmet l'état courant
+        etape,            // idem
+        transcript: rows
+          .map((r) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
+          .slice(-10)
+          .join("\n"),
+        slots,            // surtout: on NE modifie pas les slots ici
+      }),
+    });
+    raw = (await res.json()) as typeof raw;
+  } catch {
+    setRows((r) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+    setLoading(false);
+    return;
+  }
+
+  if (raw && "error" in raw) {
+    setRows((r) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+    setLoading(false);
+    return;
+  }
+
+  const answer = raw && "answer" in raw ? raw.answer : "";
+  const kind = raw && "answer" in raw ? raw.kind : undefined;
+
+  // Affiche la réponse serveur (accusé de réception ou message d’alerte)
+  setRows((r) => [...r, { who: "bot", text: answer }]);
+
+  // Si "crisis" → on clôture.
+  if (kind === "crisis") {
+    setStage("Clôture");
+    setEtape(8);
+    setText("");
+    setLoading(false);
+    return;
+  }
+
+  // Si "resume" → accusé de réception pour "non", puis on REPART proprement à l’étape 1.
+  if (kind === "resume") {
+    setStage("Intake");
+    setEtape(1);
+    setSlots({ round: 1 });
+    setLoading(false);
+    return;
+  }
+
+  // (sinon, c’était juste la question gate renvoyée — on n’avance pas)
+  setLoading(false);
+  return;
+}
 
     // MÀJ slots
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
