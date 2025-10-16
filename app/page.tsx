@@ -312,21 +312,7 @@ export default function Page() {
       return;
     }
 
-    // 🔒 crise → coupe et clôture immédiate
-    if (isCrisis(userText)) {
-      const now = new Date().toISOString();
-      console.warn(`⚠️ [${now}] Détection de mot-clé sensible : protocole de sécurité appliqué.`);
-      setRows((r) => [
-        ...r,
-        { who: "user", text: userText },
-        { who: "bot", text: crisisMessage() }
-      ]);
-      setText("");
-      setStage("Clôture");
-      setEtape(8);
-      setLoading(false);
-      return;
-    }
+
 
     // Nouveau sujet après clôture → reset
     if (stage === "Clôture") {
