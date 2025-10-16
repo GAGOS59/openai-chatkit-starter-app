@@ -20,7 +20,7 @@ function useDemoHelpers(setText: React.Dispatch<React.SetStateAction<string>>) {
   return { fill: (value: string) => setText(value) };
 }
 
-/* ---------- Types UI ---------- */
+/* ---------- Types ---------- */
 type Row = { who: "bot" | "user"; text: string };
 type Stage =
   | "Intake"
@@ -41,12 +41,12 @@ type Slots = {
   aspect?: string;
 };
 
-/* Réponse typée de l’API (plus de FAQ, avec gate/crisis/resume) */
+/* Réponse typée de l’API (sans FAQ) */
 type ApiResponse =
   | { answer: string; kind?: "gate" | "crisis" | "resume" }
   | { error: string };
 
-/* ---------- Helpers (client) ---------- */
+/* ---------- Helpers (texte) ---------- */
 function shortContext(s: string): string {
   const t = s.replace(/\s+/g, " ").trim();
   if (!t) return "";
@@ -109,56 +109,7 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   return `${intake} ${liaison} ${cleaned}`;
 }
 
-/* ---------- Sécurité (mêmes patterns que serveur, mais on ne court-circuite PAS la gate) ---------- */
-const CRISIS_PATTERNS: RegExp[] = [
-  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
-  /\bsu[cs]sid[ea]\b/iu,
-  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
-  /\bje\s+ne\s+veux\s+plus\s+vivre\b/iu,
-  /j['’]?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,
-  /j['’]?\s*en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/iu,
-  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/iu,
-  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/iu,
-  /\b(foutre|jeter)\s+en\s+l[’']?air\b/iu,
-  /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/iu,
-  /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/iu,
-  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
-  /\bje\s+suis\s+de\s+trop\b/iu,
-  /\bje\s+me\s+sens\s+de\s+trop\b/iu,
-  /\bid[ée]es?\s+noires?\b/iu,
-  /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
-  /\bme\s+pendre\b/iu,
-];
-
-function crisisMessage(): string {
-  return (
-`Message important
-Il semble que vous traversiez un moment très difficile.
-Ne restez pas seul.e. Rapprochez-vous d'une personne ressource.
-Je ne peux pas vous accompagner sur des situations d'urgence et votre sécurité est prioritaire.
-
-En France : vous pouvez appeler immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
-En danger immédiat : appelez le 112.
-
-Vous n'êtes pas seul·e — ces services peuvent vous aider dès maintenant.`
-  );
-}
-
-/* Détection locale : est-ce que le DERNIER message bot posait la gate ? */
-function lastBotAskedSuicideQuestionClient(rows: Row[]): boolean {
-  for (let i = rows.length - 1; i >= 0; i--) {
-    if (rows[i].who !== "bot") continue;
-    const t = rows[i].text.toLowerCase();
-    if (/avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\s*\?\s*\(oui\s*\/\s*non\)/i.test(t)) {
-      return true;
-    }
-    // on s’arrête au premier bot, inutile de remonter plus haut
-    break;
-  }
-  return false;
-}
-
-/* ---------- Liens cliquables & rendu ---------- */
+/* ---------- Rendu / liens ---------- */
 function linkify(text: string): React.ReactNode[] {
   const URL_RX =
     /(https?:\/\/[^\s<>"'()]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>"']*)?)/gi;
@@ -173,9 +124,7 @@ function linkify(text: string): React.ReactNode[] {
 
     if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
 
-    const href = url.startsWith("http")
-      ? url
-      : `https://${url.replace(/^www\./i, "www.")}`;
+    const href = url.startsWith("http") ? url : `https://${url.replace(/^www\./i, "www.")}`;
 
     nodes.push(
       <a
@@ -322,6 +271,9 @@ export default function Page() {
   const demo = useDemoHelpers(setText);
   const chatRef = useRef<HTMLDivElement>(null);
 
+  // Flag: une gate (oui/non) est-elle ouverte ?
+  const [awaitingGate, setAwaitingGate] = useState<boolean>(false);
+
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [rows]);
@@ -338,15 +290,12 @@ export default function Page() {
       return;
     }
 
-    // Détecter si la dernière question affichée est la gate O/N
-    const gateWasJustAsked = lastBotAskedSuicideQuestionClient(rows);
-
-    // Afficher la saisie utilisateur
+    // Affiche la saisie utilisateur
     setRows((r) => [...r, { who: "user", text: userText }]);
     setText("");
 
-    if (gateWasJustAsked) {
-      // ⚠️ Ici : on NE touche pas aux slots ni aux étapes — on laisse le serveur trancher (gate/crisis/resume)
+    // -------- Branche 1 : si une GATE est ouverte, on ne touche à rien localement --------
+    if (awaitingGate) {
       const transcriptShort = rows
         .map((r) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
         .slice(-10)
@@ -357,13 +306,7 @@ export default function Page() {
         const res = await fetch("/api/guide-eft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: userText,
-            stage,
-            etape,
-            transcript: transcriptShort,
-            slots,
-          }),
+          body: JSON.stringify({ prompt: userText, stage, etape, transcript: transcriptShort, slots }),
         });
         raw = (await res.json()) as ApiResponse;
       } catch {
@@ -382,10 +325,10 @@ export default function Page() {
       const kind: "gate" | "crisis" | "resume" | undefined =
         raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
 
-      // Affiche la réponse serveur (question gate, message d’alerte, ou accusé de réception)
       setRows((r) => [...r, { who: "bot", text: answer }]);
 
       if (kind === "crisis") {
+        setAwaitingGate(false);
         setStage("Clôture");
         setEtape(8);
         setText("");
@@ -393,27 +336,28 @@ export default function Page() {
         return;
       }
       if (kind === "resume") {
-        // Accusé de réception du “non” → on repart proprement à l’accueil
+        // NON → accusé + retour à l’accueil
+        setAwaitingGate(false);
         setStage("Intake");
         setEtape(1);
         setSlots({ round: 1 });
-        // (Optionnel) ré-afficher la question d’accueil
         setRows((r) => [...r, { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" }]);
         setLoading(false);
         return;
       }
-      // kind === "gate" (ou undefined) → on n’avance pas, on attend la réponse utilisateur
+      // Encore une gate → on reste en attente
+      setAwaitingGate(true);
       setLoading(false);
       return;
     }
 
-    // -------- Flux normal EFT (MAJ slots/étapes) --------
+    // -------- Branche 2 : flux EFT normal --------
     const updated: Slots = { ...(stage === "Clôture" ? { round: 1 } : slots) };
 
     if (stage === "Intake" || (stage === "Clôture" && userText)) {
       updated.intake = normalizeIntake(userText);
     } else if (stage === "Durée") {
-      updated.duration = userText; // (historique : non utilisé en progression)
+      updated.duration = userText;
     } else if (stage === "Contexte") {
       updated.context = userText;
     } else if (stage === "Évaluation") {
@@ -434,7 +378,7 @@ export default function Page() {
       if (sudInline !== null) updated.sud = sudInline;
     }
 
-    // Aspect (pour Setup & Ronde)
+    // Aspect
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
@@ -473,7 +417,7 @@ export default function Page() {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots((s) => ({ ...s, round: nextRound }));
-          stageForAPI = "Setup";      etapeForAPI = 5;   // repasser par Setup ajusté
+          stageForAPI = "Setup";      etapeForAPI = 5;
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -506,6 +450,7 @@ export default function Page() {
       .slice(-10)
       .join("\n");
 
+    // Appel API
     let raw: ApiResponse | undefined;
     try {
       const res = await fetch("/api/guide-eft", {
@@ -532,13 +477,46 @@ export default function Page() {
       return;
     }
 
-    const answer: string = raw && "answer" in raw ? raw.answer : "";
+    // Si le serveur signale une gate ici (ex : 1er message = “suicide”)
+    const kindInNormalFlow: "gate" | "crisis" | "resume" | undefined =
+      raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
 
-    // Affichage normal (plus de branche FAQ)
+    if (kindInNormalFlow === "gate") {
+      setAwaitingGate(true);
+      setRows((r) => [...r, { who: "bot", text: (raw as { answer: string }).answer }]);
+      setLoading(false);
+      return; // on n’avance PAS
+    }
+    if (kindInNormalFlow === "crisis") {
+      setAwaitingGate(false);
+      setRows((r) => [...r, { who: "bot", text: (raw as { answer: string }).answer }]);
+      setStage("Clôture");
+      setEtape(8);
+      setText("");
+      setLoading(false);
+      return;
+    }
+    if (kindInNormalFlow === "resume") {
+      // Par sécurité (rare ici), revenir accueil
+      setAwaitingGate(false);
+      setStage("Intake");
+      setEtape(1);
+      setSlots({ round: 1 });
+      setRows((r) => [
+        ...r,
+        { who: "bot", text: (raw as { answer: string }).answer },
+        { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" },
+      ]);
+      setLoading(false);
+      return;
+    }
+
+    // Affichage normal
+    const answer: string = raw && "answer" in raw ? raw.answer : "";
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
     setRows((r) => [...r, { who: "bot", text: cleaned }]);
 
-    // Avancer localement (hors cas Intake → Contexte déjà géré)
+    // Avancer localement
     if (stageForAPI === "Intake" && etapeForAPI === 1) {
       setStage("Contexte");
       setEtape(3);
@@ -574,7 +552,6 @@ export default function Page() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Colonne principale */}
         <div className="xl:col-span-2 space-y-4">
-
           {SHOW_DEMO && (
             <div className="rounded-xl border bg-white p-3 shadow-sm">
               <div className="text-sm font-semibold mb-2">Mode démo (facultatif)</div>
@@ -681,4 +658,3 @@ export default function Page() {
     </main>
   );
 }
-
