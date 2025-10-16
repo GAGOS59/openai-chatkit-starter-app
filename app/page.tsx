@@ -185,7 +185,7 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
     t =
       "Reste bien connecté·e à ton ressenti et n tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois, dis à voix haute :\n" +
       `« ${core} »\n` +
-     ;
+    
   }
   return t;
 }
