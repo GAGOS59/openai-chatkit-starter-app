@@ -431,8 +431,8 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       const setupLine = `Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement.`;
       const txt =
 `Étape 5 — Setup : « ${setupLine} »
-Répétez cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoyez un OK et nous passerons à la ronde.`;
+Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
       return NextResponse.json({ answer: txt });
     }
 
