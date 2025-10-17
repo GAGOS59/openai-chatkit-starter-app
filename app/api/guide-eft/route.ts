@@ -392,7 +392,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
     if (etape === 4) {
       const intake = clean(slots.intake ?? "");
       const ctx = clean(slots.context ?? "");
-      const ctxPart = ctx ? ` en pensant à « ${ctx} »` : "";
+      const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
       const txt =
 `Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       return NextResponse.json({ answer: txt });
