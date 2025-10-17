@@ -18,14 +18,7 @@ type Stage =
 type Slots = {
   intake?: string;
   duration?: string;
-  /**
-   * NOTE :
-   * - SITUATION : `context` stocke le RESSENTI corporel.
-   * - ÉMOTION   : `sensation` stocke le RESSENTI corporel, `context` = déclencheurs/moments.
-   * - PHYSIQUE  : `context` = éléments contextuels (si fournis).
-   */
   context?: string;
-  sensation?: string;
   sud?: number;
   round?: number;
   aspect?: string;
@@ -290,7 +283,7 @@ function lastBotAskedSuicideQuestion(transcript: string): boolean {
   return /(^|\n)A:\s.*avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\b/.test(t);
 }
 
-/* ---------- Handler (déterministe) ---------- */
+/* ---------- Handler (déterministe, sans LLM/FAQ) ---------- */
 export async function POST(req: Request) {
   try {
     // CORS simple
@@ -313,39 +306,39 @@ export async function POST(req: Request) {
     const etape = Number.isFinite(raw.etape) ? Math.min(8, Math.max(1, Number(raw.etape))) : 1;
 
     /* ---- Barrière de sécurité oui/non (ordre strict) ---- */
-    if (prompt) {
-      const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
-      const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
+if (prompt) {
+  const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
+  const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
 
-      if (askedBefore && ynIfAny === "yes") {
-        return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
-      }
-      if (askedBefore && ynIfAny === "no") {
-        return NextResponse.json({
-          answer:
-            "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
-            "En quoi puis-je vous aider ?",
-          kind: "resume" as const,
-        });
-      }
-      if (!askedBefore && ynIfAny === "yes") {
-        return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
-      }
-      if (!askedBefore && ynIfAny === "no") {
-        return NextResponse.json({
-          answer:
-            "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
-            "En quoi puis-je vous aider ?",
-          kind: "resume" as const,
-        });
-      }
-      if (isCrisis(prompt)) {
-        return NextResponse.json({
-          answer: "Avez-vous des idées suicidaires ? (oui / non)",
-          kind: "gate" as const,
-        });
-      }
-    }
+  if (askedBefore && ynIfAny === "yes") {
+    return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
+  }
+  if (askedBefore && ynIfAny === "no") {
+    return NextResponse.json({
+      answer:
+        "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
+        "En quoi puis-je vous aider ?",
+      kind: "resume" as const,
+    });
+  }
+  if (!askedBefore && ynIfAny === "yes") {
+    return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
+  }
+  if (!askedBefore && ynIfAny === "no") {
+    return NextResponse.json({
+      answer:
+        "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
+        "En quoi puis-je vous aider ?",
+      kind: "resume" as const,
+    });
+  }
+  if (isCrisis(prompt)) {
+    return NextResponse.json({
+      answer: "Avez-vous des idées suicidaires ? (oui / non)",
+      kind: "gate" as const,
+    });
+  }
+}
 
     /* ---- Étapes EFT (déterministes) ---- */
 
@@ -370,51 +363,33 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // SITUATION / FAIT : d’abord le ressenti corporel
+      // ✅ SITUATION / FAIT — D’ABORD le ressenti corporel
       const txt =
 `Étape 1 — Quand tu penses à « ${intakeNorm} », que ressens-tu dans ton corps ?
 (On peut donner des exemples : un serrement dans la poitrine ; la gorge se serre ; une crispation dans le ventre...)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — Contexte (utile pour EMOTION/PHYSIQUE ; SITUATION : on saute)
+    // Étape 3 — (utile pour les autres cas ; pour "situation", on posera le SUD à l’étape 4)
     if (etape === 3) {
       const intake = clean(slots.intake ?? "");
-      const kind3 = classifyIntake(intake);
-
-      if (kind3 === "situation") {
-        // pas de “contexte” supplémentaire : la situation est déjà fournie
-        return NextResponse.json({ answer: "" });
-      }
-
       const txt =
 `Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi et quand cela se manifeste-t-il ?
 (Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 4 — Évaluation (SUD)
+    // Étape 4 — Évaluation (SUD) — inclut le cas "situation"
     if (etape === 4) {
       const intake = clean(slots.intake ?? "");
-      const kind4 = classifyIntake(intake);
-
-      if (kind4 === "situation") {
-        const sensation = clean(slots.context ?? "ce ressenti");
+      const ctx = clean(slots.context ?? "");
+      if (classifyIntake(intake) === "situation") {
+        const sensation = ctx || "ce ressenti";
         const txt =
 `Étape 4 — À combien évalues-tu « ${sensation} » (0–10), quand tu penses à « ${intake} » ?
 (0 = aucune gêne, 10 = maximum).`;
         return NextResponse.json({ answer: txt });
       }
-
-      if (kind4 === "emotion") {
-        const sens = clean(slots.sensation ?? "ce ressenti");
-        const txt =
-`Étape 4 — Pense à « ${intake} » en te connectant à « ${sens} ». Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
-        return NextResponse.json({ answer: txt });
-      }
-
-      // physique (par défaut)
-      const ctx = clean(slots.context ?? "");
       const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
       const txt =
 `Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
@@ -428,7 +403,6 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       let base = aspectRaw;
       let ctx = clean(slots.context ?? "");
 
-      // Si " ... liée à ..." est présent, découper
       const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
       if (m) {
         const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
@@ -436,7 +410,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         ctx  = clean(aspectRaw.slice(idx + m[0].length));
       }
 
-      // CAS SITUATION : setup sur ressenti + situation
+      // ✅ CAS "situation" : setup = (ce/cette) [ressenti] quand je pense à [situation]
       if (classifyIntake(intakeOrig) === "situation") {
         const sensation = ctx || base || "ce ressenti";
         const article = emotionArticle(sensation);
@@ -448,7 +422,7 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Par défaut (émotion/physique)
+      // Par défaut (physique/émotion) — inchangé
       base = normalizeEmotionNoun(base)
         .replace(/^j['’]?\s*ai\s+/, "")
         .replace(/^je\s+/, "")
@@ -456,7 +430,6 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
 
       const kind = classifyIntake(intakeOrig || base);
       const ctxPretty = ctx ? readableContext(ctx, kind) : "";
-
       const g = detectGender(base);
       const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
       const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
@@ -489,7 +462,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 7 — Réévaluation (simple relais)
+    // Étape 7 — Réévaluation
     if (etape === 7) {
       return NextResponse.json({ answer: "Étape 7 — Indique ton SUD (0–10) maintenant." });
     }
@@ -501,7 +474,6 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Par défaut
     return NextResponse.json({ answer: "Étape non reconnue." });
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
