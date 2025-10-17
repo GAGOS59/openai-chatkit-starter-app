@@ -35,8 +35,7 @@ type Stage =
 type Slots = {
   intake?: string;
   duration?: string;
-  context?: string;    // SITUATION = sensation ; EMOTION = déclencheurs
-  sensation?: string;  // EMOTION = sensation corporelle
+  context?: string;
   sud?: number;
   round?: number;
   aspect?: string;
@@ -53,36 +52,42 @@ function shortContext(s: string): string {
   if (!t) return "";
   return t.split(" ").slice(0, 14).join(" ");
 }
+
 function parseSUD(s: string): number | null {
   const m = s.match(/(^|[^0-9])(10|[0-9])([^0-9]|$)/);
   if (!m) return null;
   const v = Number(m[2]);
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
+
+/** Normalise « j’ai mal… / j’ai une douleur… / j’ai peur… » → forme courte */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
+
   const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
+
   const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
+
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
   if (mPeur1) return `peur ${mPeur1[1].trim()}`;
   const mPeur2 = s.match(/^j['’]ai\s+peur\s+(.*)$/i);
   if (mPeur2) return `peur ${mPeur2[1].trim()}`;
+
   const mAutres = s.match(/^j['’]ai\s+(?:une|la)\s+(tension|gêne|gene)\s+(.*)$/i);
   if (mAutres) return `${mAutres[1]} ${mAutres[2].trim()}`;
+
   return s;
 }
-function isEmotionIntake(intake: string): boolean {
-  const t = intake.toLowerCase();
-  return /\b(peur|col[eè]re|tristesse|honte|culpabilit[eé]|stress|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)\b/i.test(t);
-}
+
 function isMasculine(intake: string): boolean {
   const t = intake.toLowerCase().trim();
   if (t.startsWith("mal ")) return true;
   if (/^(douleur|peur|gêne|gene|tension)\b/i.test(t)) return false;
   return true;
 }
+
 function normalizeContextForAspect(ctx: string): string {
   let c = ctx.trim();
   c = c.replace(/^je\s+/i, "");
@@ -94,71 +99,161 @@ function normalizeContextForAspect(ctx: string): string {
   c = c.replace(/,\s+/g, " ");
   return c;
 }
+
 function buildAspect(intakeTextRaw: string, ctxShort: string): string {
-  const intake = normalizeIntake(intakeTextRaw).trim();
-  const s = intake.toLowerCase();
-  const phys = /(\bmal\b|\bdouleur\b|\btension\b|\bgêne\b|\bgene\b|\bcrispation\b|\bserrement\b)/i;
-  const emo  = /(\bpeur\b|col[eè]re|tristesse|honte|culpabilit[eé]|anxi[eé]t[eé]|angoisse|inqui[eè]tude|d[eé]g[oô]ut)/i;
-
-  const isSituation = !phys.test(s) && !emo.test(s);
-  if (isSituation && ctxShort) {
-    // [ressenti] quand je pense à [situation]
-    return `${ctxShort} quand je pense à ${intake}`;
-  }
-
+  const intake = normalizeIntake(intakeTextRaw);
+  if (!ctxShort) return intake;
   const masculine = isMasculine(intake);
   const liaison = masculine ? "lié à" : "liée à";
   const cleaned = normalizeContextForAspect(ctxShort);
-  return ctxShort ? `${intake} ${liaison} ${cleaned}` : intake;
+  return `${intake} ${liaison} ${cleaned}`;
 }
 
 /* ---------- Rendu / liens ---------- */
 function linkify(text: string): React.ReactNode[] {
-  const URL_RX = /(https?:\/\/[^\s<>"']+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>"']*)?)/gi;
+  const URL_RX =
+    /(https?:\/\/[^\s<>"'()]+|(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s<>"']*)?)/gi;
+
   const nodes: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
+
   while ((match = URL_RX.exec(text)) !== null) {
     const url = match[0];
     const start = match.index;
+
     if (start > lastIndex) nodes.push(text.slice(lastIndex, start));
+
     const href = url.startsWith("http") ? url : `https://${url.replace(/^www\./i, "www.")}`;
-    nodes.push(<a key={`${start}-${href}`} href={href} target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">{url}</a>);
+
+    nodes.push(
+      <a
+        key={`${start}-${href}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:no-underline"
+      >
+        {url}
+      </a>
+    );
+
     lastIndex = start + url.length;
   }
+
   if (lastIndex < text.length) nodes.push(text.slice(lastIndex));
   return nodes;
 }
+
 function renderPretty(s: string) {
   const paragraphs: string[] = s.split(/\n\s*\n/);
   return (
     <div className="space-y-3">
       {paragraphs.map((p: string, i: number) => {
         if (/^(?:- |\u2022 |\* )/m.test(p)) {
-          const items: string[] = p.split(/\n/).filter(Boolean).map((t: string) => t.replace(/^(- |\u2022 |\* )/, ""));
+          const items: string[] = p
+            .split(/\n/)
+            .filter(Boolean)
+            .map((t: string) => t.replace(/^(- |\u2022 |\* )/, ""));
           return (
             <ul key={i} className="list-disc pl-5 space-y-1">
-              {items.map((li: string, j: number) => (<li key={j} className="whitespace-pre-wrap">{linkify(li)}</li>))}
+              {items.map((li: string, j: number) => (
+                <li key={j} className="whitespace-pre-wrap">
+                  {linkify(li)}
+                </li>
+              ))}
             </ul>
           );
         }
-        return (<p key={i} className="whitespace-pre-line leading-relaxed">{linkify(p)}</p>);
+        return (
+          <p key={i} className="whitespace-pre-line leading-relaxed">
+            {linkify(p)}
+          </p>
+        );
       })}
     </div>
   );
 }
+
 /** Nettoyage d’affichage : retire "Étape X —" et "Setup :", habille le Setup */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-  if (stage === "Setup") {
-    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-    t = `Reste bien connecté·e à ton ressenti
+if (stage === "Setup") {
+  const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+  t = `Reste bien connecté·e à ton ressenti
 et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois, à voix haute :
 « ${core} »`;
-  }
+}
+
+    
   return t;
+}
+
+/* ---------- Colonne promo ---------- */
+function PromoAside() {
+  return (
+    <aside className="rounded-2xl border bg-white p-5 shadow-sm xl:sticky xl:top-6">
+      <div className="text-center mb-4">
+        <p className="text-sm text-gray-700 leading-snug">Pour aller plus loin avec</p>
+        <h3 className="text-xl font-bold leading-tight break-words">Geneviève Gagos</h3>
+      </div>
+      <div className="flex justify-center mb-4">
+        <a
+          href="https://technique-eft.com/livres-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50 transition"
+        >
+          Livres EFT
+        </a>
+      </div>
+      <ul className="text-sm text-gray-700 space-y-1 mb-5">
+        <li className="text-center">
+          Site de référence :{" "}
+          <a
+            href="https://technique-eft.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:no-underline"
+          >
+            Technique-EFT.com
+          </a>
+        </li>
+      </ul>
+      <div className="h-px bg-gray-200 my-4" />
+      <div className="space-y-3">
+        <div className="text-center">
+          <a
+            href="https://ecole-eft-france.fr/pages/formations-eft.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block w-full rounded-xl border bg-[#0f3d69] text-white px-4 py-2 font-semibold hover:bg-white hover:text-[#0f3d69] transition"
+          >
+            Découvrir nos formations
+          </a>
+          <p className="text-xs text-gray-600 mt-1">
+            Formations adaptées à vos besoins, proposées par l’École EFT France.
+          </p>
+        </div>
+        
+        <div className="text-center">
+          <a
+            href="https://technique-eft.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block w-full rounded-xl border px-4 py-2 font-semibold hover:bg-gray-50 transition"
+          >
+            En savoir plus sur l’EFT
+          </a>
+          <p className="text-xs text-gray-600 mt-1">
+            Articles, ressources et actualités sur Technique-EFT.com.
+          </p>
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 /* ---------- Component ---------- */
@@ -175,6 +270,7 @@ export default function Page() {
   const [text, setText] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const demo = useDemoHelpers(setText);
   const chatRef = useRef<HTMLDivElement>(null);
 
   // Flag: une gate (oui/non) est-elle ouverte ?
@@ -191,7 +287,10 @@ export default function Page() {
     setError(null);
 
     const userText = text.trim();
-    if (!userText) { setLoading(false); return; }
+    if (!userText) {
+      setLoading(false);
+      return;
+    }
 
     // Affiche la saisie utilisateur
     setRows((r) => [...r, { who: "user", text: userText }]);
@@ -239,7 +338,7 @@ export default function Page() {
         return;
       }
       if (kind === "resume") {
-        // NON → accusé + retour accueil
+        // NON → accusé + retour à l’accueil
         setAwaitingGate(false);
         setStage("Intake");
         setEtape(1);
@@ -261,18 +360,7 @@ export default function Page() {
     } else if (stage === "Durée") {
       updated.duration = userText;
     } else if (stage === "Contexte") {
-      // SITUATION : context = sensation ; ÉMOTION : première réponse = sensation, puis contexte
-      const intakeText = (updated.intake ?? slots.intake ?? "").trim();
-      if (isEmotionIntake(intakeText)) {
-        if (!updated.sensation) {
-          updated.sensation = userText; // 1) d'abord la sensation corporelle
-        } else {
-          updated.context = userText;   // 2) ensuite le contexte/déclencheurs
-        }
-      } else {
-        // SITUATION → ici, la réponse est le ressenti corporel (stocké dans context côté serveur)
-        updated.context = userText;
-      }
+      updated.context = userText;
     } else if (stage === "Évaluation") {
       const sud0 = parseSUD(userText);
       if (sud0 !== null) updated.sud = sud0;
@@ -291,7 +379,7 @@ export default function Page() {
       if (sudInline !== null) updated.sud = sudInline;
     }
 
-    // Aspect : utilise le CONTEXTE déclencheur (pas la sensation EMOTION)
+    // Aspect
     const intakeText = (updated.intake ?? slots.intake ?? "").trim();
     const ctxRaw = (updated.context ?? slots.context ?? "").trim();
     const ctxShort = ctxRaw ? shortContext(ctxRaw) : "";
@@ -299,29 +387,20 @@ export default function Page() {
     updated.aspect = aspect;
     setSlots(updated);
 
-    // Étape suivante (client → API) — logique corrigée
+    // Étape suivante (client → API)
     let stageForAPI: Stage = stage;
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      stageForAPI = "Intake";       etapeForAPI = 1; // serveur : pose la question de ressenti selon le type
-    }
-    else if (stage === "Contexte") {
-      const isEmo = isEmotionIntake(intakeText);
-      if (isEmo && updated.sensation && !updated.context) {
-        // EMOTION : on vient de capter la sensation → demander maintenant le contexte (encore étape 3)
-        stageForAPI = "Contexte";   etapeForAPI = 3;
-      } else {
-        // SITUATION (sensations déjà en context) ou EMOTION (sensation + contexte déjà saisis)
-        stageForAPI = "Évaluation"; etapeForAPI = 4;
-      }
-    }
+  // On laisse le serveur poser l’Étape 1 (ressenti) — indispensable pour le cas “situation”
+  stageForAPI = "Intake";         etapeForAPI = 1;
+}
+
+    else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
-      stageForAPI = "Setup";        etapeForAPI = 5;
+      stageForAPI = "Setup";          etapeForAPI = 5;
     }
-    else if (stage === "Setup") {
-      stageForAPI = "Tapping";      etapeForAPI = 6;
-    }
+    else if (stage === "Setup")       { stageForAPI = "Tapping";      etapeForAPI = 6; }
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
         if (updated.sud === 0) {
@@ -341,7 +420,7 @@ export default function Page() {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
           setSlots((s) => ({ ...s, round: nextRound }));
-          stageForAPI = "Setup";    etapeForAPI = 5;
+          stageForAPI = "Setup";      etapeForAPI = 5;
         }
       } else {
         stageForAPI = "Réévaluation"; etapeForAPI = 7;
@@ -365,7 +444,7 @@ export default function Page() {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
         setSlots((s) => ({ ...s, round: nextRound }));
-        stageForAPI = "Setup";      etapeForAPI = 5;
+        stageForAPI = "Setup";        etapeForAPI = 5;
       }
     }
 
@@ -401,7 +480,7 @@ export default function Page() {
       return;
     }
 
-    // Si le serveur signale une gate ici
+    // Si le serveur signale une gate ici (ex : 1er message = “suicide”)
     const kindInNormalFlow: "gate" | "crisis" | "resume" | undefined =
       raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
 
@@ -421,6 +500,7 @@ export default function Page() {
       return;
     }
     if (kindInNormalFlow === "resume") {
+      // Par sécurité (rare ici), revenir accueil
       setAwaitingGate(false);
       setStage("Intake");
       setEtape(1);
@@ -453,57 +533,131 @@ export default function Page() {
 
   return (
     <main className="mx-auto max-w-5xl p-6 space-y-6">
-      {/* Chat */}
-      <div
-        ref={chatRef}
-        className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
-      >
-        <div className="space-y-3">
-          {rows.map((r: Row, i: number) => (
-            <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
-              <div
-                className={
-                  (r.who === "bot"
-                    ? "bg-gray-50 text-gray-900 border-gray-200"
-                    : "bg-blue-50 text-blue-900 border-blue-200") +
-                  " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"
-                }
-              >
-                {renderPretty(r.text)}
-              </div>
-            </div>
-          ))}
+      {/* Bandeau */}
+      <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
+            <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
+            <p className="text-sm mt-1 opacity-90">
+              Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
+            </p>
+          </div>
+          <img
+            src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
+            alt="Logo École EFT France"
+            className="h-10 w-auto"
+          />
         </div>
       </div>
 
-      {/* Formulaire */}
-      <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2">
-        <div className="flex-1">
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
-            placeholder="Sur quoi souhaitez-vous essayer l’EFT…"
-            aria-label="Saisissez votre message pour l’assistante EFT"
-            disabled={loading}
-          />
-          {(stage === "Évaluation" || stage === "Réévaluation") && (
-            <p className="text-sm text-gray-500 mt-1">
-              👉 Indiquez un nombre entre <strong>0</strong> et <strong>10</strong> pour évaluer l’intensité de votre ressenti.
-            </p>
+      {/* Grille : chat + promo */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Colonne principale */}
+        <div className="xl:col-span-2 space-y-4">
+          {SHOW_DEMO && (
+            <div className="rounded-xl border bg-white p-3 shadow-sm">
+              <div className="text-sm font-semibold mb-2">Mode démo (facultatif)</div>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_PRESETS.map((preset, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-600">{preset.label}</span>
+                    <div className="flex gap-1">
+                      {preset.steps.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => demo.fill(s)}
+                          className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
+                          title={`Insérer: ${s}`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Clique sur un numéro pour pré-remplir le champ, puis appuie sur <strong>Envoyer</strong>.
+              </p>
+            </div>
           )}
+
+          {/* Chat */}
+          <div
+            ref={chatRef}
+            className="h-[70vh] sm:h-[60vh] xl:h-[72vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+          >
+            <div className="space-y-3">
+              {rows.map((r: Row, i: number) => (
+                <div key={i} className={r.who === "bot" ? "flex" : "flex justify-end"}>
+                  <div
+                    className={
+                      (r.who === "bot"
+                        ? "bg-gray-50 text-gray-900 border-gray-200"
+                        : "bg-blue-50 text-blue-900 border-blue-200") +
+                      " max-w-[80%] rounded-2xl border px-4 py-3 shadow-sm"
+                    }
+                  >
+                    {renderPretty(r.text)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Formulaire */}
+          <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1">
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm active:scale-[0.99]"
+                placeholder="Sur quoi souhaitez-vous essayer l’EFT…"
+                aria-label="Saisissez votre message pour l’assistante EFT"
+                disabled={loading}
+              />
+              {(stage === "Évaluation" || stage === "Réévaluation") && (
+                <p className="text-sm text-gray-500 mt-1">
+                  👉 Indiquez un nombre entre <strong>0</strong> et <strong>10</strong> pour évaluer l’intensité de votre ressenti.
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !text.trim()}
+              className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]"
+            >
+              {loading ? "Envoi..." : "Envoyer"}
+            </button>
+          </form>
+
+          {error && <div className="text-red-600 mt-2">{error}</div>}
         </div>
 
-        <button
-          type="submit"
-          disabled={loading || !text.trim()}
-          className="rounded-xl border px-4 py-2 shadow-sm active:scale-[1.00]"
-        >
-          {loading ? "Envoi..." : "Envoyer"}
-        </button>
-      </form>
+        {/* Promo */}
+        <div className="xl:col-span-1 xl:max-h-[72vh] xl:overflow-auto">
+          <PromoAside />
+        </div>
+      </div>
 
-      {error && <div className="text-red-600 mt-2">{error}</div>}
+      {/* Note de prudence */}
+      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
+        <strong className="block mb-1">Note de prudence</strong>
+        <p className="text-sm leading-relaxed">
+          Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
+          psychologique ou professionnel.<br />
+          L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation, l&apos;usage ou les conséquences liés à l&apos;application
+          des informations ou protocoles présentés.<br />
+          Chaque utilisateur reste responsable de sa pratique et de ses choix.
+          <br /><br />
+          <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas vos échanges réalisés dans ce chat.
+          Mais comme pour tout ce qui transite par Internet, nous vous invitons à rester prudents et à ne pas divulguer des éléments très personnels.
+        </p>
+        <p className="text-xs mt-3 opacity-80">— Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos</p>
+      </div>
     </main>
   );
 }
