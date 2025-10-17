@@ -372,21 +372,34 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         return NextResponse.json({ answer: txt });
       }
 
+      // ✅ SITUATION / FAIT — NOUVEL ÉNONCÉ (conforme à la consigne)
       const txt =
-`Étape 1 — À propos de « ${intakeNorm} », quand tu y penses, qu’est-ce que tu ressens dans ton corps et où cela se situe-t-il (poitrine, ventre, gorge…) ?`;
+`Étape 1 — Quand tu penses à « ${intakeNorm} », que ressens-tu dans ton corps ?
+(On peut donner des exemples : un serrement dans la poitrine ; la gorge se serre ; une crispation dans le ventre...)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — Contexte
+    // Étape 3 — (SUD si SITUATION ; sinon question de contexte inchangée)
     if (etape === 3) {
-      const intake = clean(slots.intake ?? "");
+      const intake = clean(slots.intake ?? ""); // situation/fait initial
+      const ctx = clean(slots.context ?? "");   // ici : le RESSENTI saisi en réponse à l’étape 1
+      const kind3 = classifyIntake(intake);
+
+      if (kind3 === "situation") {
+        const sensation = ctx || "ce ressenti";
+        const txt =
+`Étape 3 — À combien évalues-tu « ${sensation} » (0–10), quand tu penses à « ${intake} » ?
+(0 = aucune gêne, 10 = maximum).`;
+        return NextResponse.json({ answer: txt });
+      }
+
       const txt =
 `Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi et quand cela se manifeste-t-il ?
 (Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 4 — Évaluation (SUD)
+    // Étape 4 — Évaluation (SUD) — inchangé (utile pour les autres cas)
     if (etape === 4) {
       const intake = clean(slots.intake ?? "");
       const ctx = clean(slots.context ?? "");
@@ -419,6 +432,18 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
 
       const kind = classifyIntake(intakeOrig || base);
       const ctxPretty = ctx ? readableContext(ctx, kind) : "";
+
+      // ✅ CAS SPÉCIFIQUE — SITUATION : utiliser le ressenti corporel quand on pense à la situation
+      if (kind === "situation") {
+        const sensation = clean((slots.context ?? "").toString()) || base || "ce ressenti";
+        const article = emotionArticle(sensation);
+        const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
+        const txt =
+`Étape 5 — Setup : « ${setupLine} »
+Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
+        return NextResponse.json({ answer: txt });
+      }
 
       const g = detectGender(base);
       const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
