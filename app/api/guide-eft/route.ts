@@ -305,47 +305,45 @@ export async function POST(req: Request) {
     const slots = (raw.slots && typeof raw.slots === "object" ? (raw.slots as Slots) : {}) ?? {};
     const etape = Number.isFinite(raw.etape) ? Math.min(8, Math.max(1, Number(raw.etape))) : 1;
 
-    // ---- Barrière de sécurité oui/non (robuste) ----
+    /* ---- Barrière de sécurité oui/non (ordre strict) ---- */
 if (prompt) {
   const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
   const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
 
-  // 1) Si on a déjà posé la question ET que la personne répond "oui" → message de crise, on coupe.
-  if (askedBefore && ynIfAny === 'yes') {
-    return NextResponse.json({ answer: crisisMessage(), kind: 'crisis' as const });
+  // 1) Si la question a été posée juste avant et que l’utilisateur répond "oui" → message crise
+  if (askedBefore && ynIfAny === "yes") {
+    return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
   }
 
-  // 2) Si on a déjà posé la question ET que la personne répond "non" → accusé + retour à l’accueil.
-  if (askedBefore && ynIfAny === 'no') {
+  // 2) Si la question a été posée juste avant et que l’utilisateur répond "non" → accusé + retour accueil
+  if (askedBefore && ynIfAny === "no") {
     return NextResponse.json({
       answer:
         "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
         "En quoi puis-je vous aider ?",
-      kind: 'resume' as const,
+      kind: "resume" as const,
     });
   }
 
-  // 3) Si la personne tape "oui"/"non" alors qu'on n'a pas (ou mal) détecté la question juste avant :
-  //    - "oui" → on (re)pose explicitement la question fermée
-  if (!askedBefore && ynIfAny === 'yes') {
-    return NextResponse.json({
-      answer: "Avez-vous des idées suicidaires ? (oui / non)",
-      kind: 'gate' as const,
-    });
+  // 3) Couverture de bord : si l’utilisateur dit "oui" ou "non" sans qu’on ait détecté la question juste avant
+  //    (ex. transcript non capté), on agit quand même correctement.
+  if (!askedBefore && ynIfAny === "yes") {
+    return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
   }
-  //    - "non" → on repart proprement à l’accueil
-  if (!askedBefore && ynIfAny === 'no') {
+  if (!askedBefore && ynIfAny === "no") {
     return NextResponse.json({
-      answer: "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\nEn quoi puis-je vous aider ?",
-      kind: 'resume' as const,
+      answer:
+        "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
+        "En quoi puis-je vous aider ?",
+      kind: "resume" as const,
     });
   }
 
-  // 4) Si le message lui-même contient un indicateur de crise → poser la question fermée
+  // 4) Si le message courant contient un marqueur de crise → poser (ou re-poser) la question fermée
   if (isCrisis(prompt)) {
     return NextResponse.json({
       answer: "Avez-vous des idées suicidaires ? (oui / non)",
-      kind: 'gate' as const,
+      kind: "gate" as const,
     });
   }
 }
