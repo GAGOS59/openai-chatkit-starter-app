@@ -392,8 +392,10 @@ export default function Page() {
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      stageForAPI = "Contexte";       etapeForAPI = 3;
-    }
+  // On laisse le serveur poser l’Étape 1 (ressenti) — indispensable pour le cas “situation”
+  stageForAPI = "Intake";         etapeForAPI = 1;
+}
+
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
       stageForAPI = "Setup";          etapeForAPI = 5;
