@@ -336,7 +336,7 @@ if (prompt) {
   //    - "non" → on repart proprement à l’accueil
   if (!askedBefore && ynIfAny === 'no') {
     return NextResponse.json({
-      answer: "Merci. Reprenons.\n\nBonjour et bienvenue. En quoi puis-je vous aider ?",
+      answer: "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\nEn quoi puis-je vous aider ?",
       kind: 'resume' as const,
     });
   }
