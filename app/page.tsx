@@ -506,7 +506,7 @@ export default function Page() {
       setRows((r) => [
         ...r,
         { who: "bot", text: (raw as { answer: string }).answer },
-        { who: "bot", text: "Bonjour et bienvenue. En quoi puis-je vous aider ?" },
+        { who: "bot", text: "En quoi puis-je vous aider ?" },
       ]);
       setLoading(false);
       return;
