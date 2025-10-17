@@ -363,37 +363,33 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // ✅ SITUATION / FAIT — on demande D’ABORD le ressenti corporel (exactement comme demandé)
+      // ✅ SITUATION / FAIT — D’ABORD le ressenti corporel
       const txt =
 `Étape 1 — Quand tu penses à « ${intakeNorm} », que ressens-tu dans ton corps ?
 (On peut donner des exemples : un serrement dans la poitrine ; la gorge se serre ; une crispation dans le ventre...)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — si "situation", on passe DIRECT au SUD (le contexte = ressenti saisi à l’étape 1)
+    // Étape 3 — (utile pour les autres cas ; pour "situation", on posera le SUD à l’étape 4)
     if (etape === 3) {
-      const intake = clean(slots.intake ?? ""); // la situation / le fait du début
-      const ctx = clean(slots.context ?? "");   // le ressenti corporel saisi en réponse à l’étape 1
-      const kind3 = classifyIntake(intake);
-
-      if (kind3 === "situation") {
-        const sensation = ctx || "ce ressenti";
-        const txt =
-`Étape 3 — À combien évalues-tu « ${sensation} » (0–10), quand tu penses à « ${intake} » ?
-(0 = aucune gêne, 10 = maximum).`;
-        return NextResponse.json({ answer: txt });
-      }
-
+      const intake = clean(slots.intake ?? "");
       const txt =
 `Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi et quand cela se manifeste-t-il ?
 (Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 4 — Évaluation (SUD) — inchangé (utile pour les autres cas)
+    // Étape 4 — Évaluation (SUD) — inclut le cas "situation"
     if (etape === 4) {
       const intake = clean(slots.intake ?? "");
       const ctx = clean(slots.context ?? "");
+      if (classifyIntake(intake) === "situation") {
+        const sensation = ctx || "ce ressenti";
+        const txt =
+`Étape 4 — À combien évalues-tu « ${sensation} » (0–10), quand tu penses à « ${intake} » ?
+(0 = aucune gêne, 10 = maximum).`;
+        return NextResponse.json({ answer: txt });
+      }
       const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
       const txt =
 `Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
@@ -405,9 +401,8 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
       let base = aspectRaw;
-      let ctx = "";
+      let ctx = clean(slots.context ?? "");
 
-      // Si " ... liée à ..." est présent, découper
       const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
       if (m) {
         const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
@@ -415,18 +410,9 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         ctx  = clean(aspectRaw.slice(idx + m[0].length));
       }
 
-      // Nettoyage de base
-      base = normalizeEmotionNoun(base)
-        .replace(/^j['’]?\s*ai\s+/, "")
-        .replace(/^je\s+/, "")
-        .replace(/^(ce|cette)\s+/i, "");
-
-      const kind = classifyIntake(intakeOrig || base);
-      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
-
-      // ✅ CAS SPÉCIFIQUE — SITUATION : setup = (ce/cette) [ressenti] quand je pense à [situation]
-      if (kind === "situation") {
-        const sensation = clean((slots.context ?? "").toString()) || base || "ce ressenti";
+      // ✅ CAS "situation" : setup = (ce/cette) [ressenti] quand je pense à [situation]
+      if (classifyIntake(intakeOrig) === "situation") {
+        const sensation = ctx || base || "ce ressenti";
         const article = emotionArticle(sensation);
         const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
         const txt =
@@ -436,7 +422,14 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Chemin par défaut (physique/émotion) — inchangé
+      // Par défaut (physique/émotion) — inchangé
+      base = normalizeEmotionNoun(base)
+        .replace(/^j['’]?\s*ai\s+/, "")
+        .replace(/^je\s+/, "")
+        .replace(/^(ce|cette)\s+/i, "");
+
+      const kind = classifyIntake(intakeOrig || base);
+      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
       const g = detectGender(base);
       const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
       const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
@@ -469,7 +462,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 7 — Réévaluation (simple relais)
+    // Étape 7 — Réévaluation
     if (etape === 7) {
       return NextResponse.json({ answer: "Étape 7 — Indique ton SUD (0–10) maintenant." });
     }
@@ -481,7 +474,6 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Par défaut
     return NextResponse.json({ answer: "Étape non reconnue." });
   } catch {
     return NextResponse.json({ error: "Unexpected server error" }, { status: 500 });
