@@ -310,12 +310,9 @@ if (prompt) {
   const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
   const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
 
-  // 1) Si la question a été posée juste avant et que l’utilisateur répond "oui" → message crise
   if (askedBefore && ynIfAny === "yes") {
     return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
   }
-
-  // 2) Si la question a été posée juste avant et que l’utilisateur répond "non" → accusé + retour accueil
   if (askedBefore && ynIfAny === "no") {
     return NextResponse.json({
       answer:
@@ -324,9 +321,6 @@ if (prompt) {
       kind: "resume" as const,
     });
   }
-
-  // 3) Couverture de bord : si l’utilisateur dit "oui" ou "non" sans qu’on ait détecté la question juste avant
-  //    (ex. transcript non capté), on agit quand même correctement.
   if (!askedBefore && ynIfAny === "yes") {
     return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
   }
@@ -338,8 +332,6 @@ if (prompt) {
       kind: "resume" as const,
     });
   }
-
-  // 4) Si le message courant contient un marqueur de crise → poser (ou re-poser) la question fermée
   if (isCrisis(prompt)) {
     return NextResponse.json({
       answer: "Avez-vous des idées suicidaires ? (oui / non)",
@@ -347,7 +339,6 @@ if (prompt) {
     });
   }
 }
-
 
     /* ---- Étapes EFT (déterministes) ---- */
 
@@ -372,17 +363,17 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // ✅ SITUATION / FAIT — NOUVEL ÉNONCÉ (conforme à la consigne)
+      // ✅ SITUATION / FAIT — on demande D’ABORD le ressenti corporel (exactement comme demandé)
       const txt =
 `Étape 1 — Quand tu penses à « ${intakeNorm} », que ressens-tu dans ton corps ?
 (On peut donner des exemples : un serrement dans la poitrine ; la gorge se serre ; une crispation dans le ventre...)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — (SUD si SITUATION ; sinon question de contexte inchangée)
+    // Étape 3 — si "situation", on passe DIRECT au SUD (le contexte = ressenti saisi à l’étape 1)
     if (etape === 3) {
-      const intake = clean(slots.intake ?? ""); // situation/fait initial
-      const ctx = clean(slots.context ?? "");   // ici : le RESSENTI saisi en réponse à l’étape 1
+      const intake = clean(slots.intake ?? ""); // la situation / le fait du début
+      const ctx = clean(slots.context ?? "");   // le ressenti corporel saisi en réponse à l’étape 1
       const kind3 = classifyIntake(intake);
 
       if (kind3 === "situation") {
@@ -433,7 +424,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
       const kind = classifyIntake(intakeOrig || base);
       const ctxPretty = ctx ? readableContext(ctx, kind) : "";
 
-      // ✅ CAS SPÉCIFIQUE — SITUATION : utiliser le ressenti corporel quand on pense à la situation
+      // ✅ CAS SPÉCIFIQUE — SITUATION : setup = (ce/cette) [ressenti] quand je pense à [situation]
       if (kind === "situation") {
         const sensation = clean((slots.context ?? "").toString()) || base || "ce ressenti";
         const article = emotionArticle(sensation);
@@ -445,6 +436,7 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
+      // Chemin par défaut (physique/émotion) — inchangé
       const g = detectGender(base);
       const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
       const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
