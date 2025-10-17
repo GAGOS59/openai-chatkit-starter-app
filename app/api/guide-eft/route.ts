@@ -447,7 +447,7 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
 - CO : ${p[2]}
 - SO : ${p[3]}
 - SN : ${p[4]}
-- MT : ${p[5]}
+- CM : ${p[5]}
 - CL : ${p[6]}
 - SB : ${p[7]}
 Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
