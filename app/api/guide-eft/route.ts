@@ -319,8 +319,8 @@ if (prompt) {
   if (askedBefore && ynIfAny === 'no') {
     return NextResponse.json({
       answer:
-        "Merci pour votre réponse. Reprenons.\n\n" +
-        "Bonjour et bienvenue. En quoi puis-je vous aider ?",
+        "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
+        "En quoi puis-je vous aider ?",
       kind: 'resume' as const,
     });
   }
