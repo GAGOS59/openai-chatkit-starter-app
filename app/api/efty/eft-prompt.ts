@@ -26,9 +26,9 @@ LANGAGE & CONTRAINTES
 FORMAT DE DÉROULÉ
 Étape 1 – Point de départ :  
 • Physique : « Tu dis "[mal/douleur + zone]". Précise la localisation exacte et le type (lancinante, sourde…). »  
-• Émotion : 1️⃣ « Tu dis "[émotion]". Où ressens-tu cela dans ton corps ? » → attends la réponse.  
-    2️⃣ « Quelle est la sensation ? (serrement, pression, chaleur, vide…) » → attends.  
-    3️⃣ « Où précisément ressens-tu cette sensation ? »  
+• Émotion : 1 « Tu dis "[émotion]". Dans quelle situation ressens-tu "[émotion]"» → attends la réponse.  
+2 « Comment se manifeste "[émotion]" dans ton corps ? (serrement, pression, chaleur, vide…)» → attends 
+    3 « Où précisément ressens-tu cette sensation ? » → attends.   
 • Situation : « Quand tu penses à "[situation]", que se passe-t-il dans ton corps et où ? (ex. serrement dans la poitrine, vide dans le ventre…) »
 
 Étape 2–3 : capter le détail utile.  
