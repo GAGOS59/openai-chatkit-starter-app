@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
 // ⬇️ IMPORTANT : adapte l'import du prompt à TON chemin réel.
-import { EFT_SYSTEM_PROMPT } from "././lib/eft-prompt";
+import { EFT_SYSTEM_PROMPT } from "/app/lib/eft-prompt";
 
 
 export const runtime = "nodejs";
