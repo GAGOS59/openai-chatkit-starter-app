@@ -149,30 +149,6 @@ function emotionArticle(noun: string): "ce" | "cette" {
   return fem.has(n) ? "cette" : "ce";
 }
 
-function readableContext(ctx: string, kind?: IntakeKind): string {
-  let c = clean(ctx);
-  if (!c) return "";
-  if (
-    kind === "physique" &&
-    !/^(parce que|car|puisque)\b/i.test(c) &&
-    /^(?:j['’]ai|j['’]étais|j['’]etais|je\s+me|je\s+suis|je\s+)/i.test(c)
-  ) {
-    c = "parce que " + c.replace(/^parce que\s+/i, "");
-  }
-  if (!/^(parce que|car|puisque)\b/i.test(c)) {
-    const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
-    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
-      c = "au fait que " + c;
-    }
-    c = c
-      .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
-      .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
-      .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
-      .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
-  }
-  return c;
-}
-
 function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
   if (typeof sud !== "number" || sud === 0) return "";
   if (sud >= 9) return g === "m" ? " vraiment très présent" : " vraiment très présente";
@@ -252,12 +228,6 @@ function mergePhysicalPhrase(base: string, detail: string): string {
   }
 
   const merged = clean(`${b} ${d}`.trim());
-  // Parenthésage léger pour une fin “côté …” si elle n’est pas déjà incluse proprement
-  const mCote = merged.match(/\b(c[ôo]t[eé]\s+(interne|externe|gauche|droit))\b/i);
-  if (mCote) {
-    // si “côté …” est déjà présent sans parenthèses, on laisse tel quel
-    return merged;
-  }
   return merged;
 }
 
@@ -509,7 +479,7 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
       // ✅ PHYSIQUE — unifie et fusionne (pas de "liée à …")
       if (kind === "physique") {
         // 1) Unifie “mal …” -> “douleur …”
-        let physBase = normalizePhysicalBase(intakeOrig);
+        const physBase = normalizePhysicalBase(intakeOrig);
         // 2) Concatène avec le détail (type/localisation fine) sans “douleur …” en double
         const merged = mergePhysicalPhrase(physBase, ctx);
         // 3) Article toujours au féminin pour “douleur …”
@@ -522,7 +492,7 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Fallback (ne devrait pas arriver)
+      // Fallback
       const article = emotionArticle(base);
       const setupLine = `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
       return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
