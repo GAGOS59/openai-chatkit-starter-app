@@ -200,6 +200,86 @@ function buildRappelPhrases(slots: Slots): string[] {
 
 /* ---------- Helpers spécifiques “physique” ---------- */
 
+/** --- Helpers douleur : localisation, articles, prépositions, rendu --- **/
+
+/** Normalise certaines typos fréquentes de localisation (tempes, mâchoire, etc.) */
+function normalizePainLocation(raw: string): string {
+  let s = clean(raw).toLowerCase();
+
+  // Variantes « tempes »
+  s = s.replace(/\btemp[ée]rature(s)?\b/g, "tempes");
+  s = s.replace(/\b(les|des|aux|au|du|à la|à l’|à l')?\s*temps\b/g, (m) =>
+    m.includes("aux") || m.includes("les") || m.includes("des") ? "aux tempes" :
+    m.includes("au") ? "aux tempes" :
+    m.includes("du") ? "des tempes" : "tempes"
+  );
+
+  // Accents & formes fréquentes
+  s = s.replace(/\bmachoire\b/g, "mâchoire");
+  s = s.replace(/\bepaule\b/g, "épaule");
+
+  // Nettoie doubles « dans/à »
+  s = s.replace(/\b(serrement|pression|tension|douleur|chaleur|vide|poids|br[ûu]lure|brulure|picotement|fourmillement)\b.*?\b(dans|au|à|aux|à la|à l’|à l')\s*/g, "");
+  s = s.replace(/^(dans|au|à|aux|à la|à l’|à l')\s*/g, "");
+  return clean(s);
+}
+
+/** Retourne l’article + préposition correct(e) pour une localisation */
+function pickArticleAndPrep(loc: string): { detPrep: string; locOut: string } {
+  const L = clean(loc).toLowerCase();
+
+  // Zones qui sonnent mieux avec "dans la/le"
+  if (/\b(poitrine|gorge|ventre|mâchoire)\b/.test(L)) {
+    // dans la/ le/ l’
+    if (/\b(mâchoire)\b/.test(L)) return { detPrep: "dans la", locOut: loc };
+    if (/\b(ventre)\b/.test(L))   return { detPrep: "dans le", locOut: loc };
+    return { detPrep: "dans la", locOut: loc };
+  }
+
+  // Cas fréquents en "à/au/aux/à l’"
+  // pluriel : tempes, lombaires, omoplates (entre les omoplates géré autrement)
+  if (/\b(tempes|lombaires|omoplates)\b/.test(L)) return { detPrep: "aux", locOut: loc };
+
+  // élision : à l’
+  if (/^(épaule|epaule|aisselle|aine|arrière du cr[aâ]ne|arriere du cr[aâ]ne|oeil|œil|école)/.test(L)) {
+    return { detPrep: "à l’", locOut: loc };
+  }
+
+  // "entre les omoplates" → pas d’article avant, on garde l’expression
+  if (/^entre les omoplates\b/.test(L)) return { detPrep: "", locOut: loc };
+
+  // singulier masculin/féminin simple
+  if (/^(genou|cou|front|dos|cr[aâ]ne|trap[eè]zes?)\b/.test(L)) return { detPrep: "au", locOut: loc };
+  if (/^(nuque|hanche|c[ôo]te|cote|tempe)\b/.test(L)) return { detPrep: "à la", locOut: loc };
+
+  // fallback neutre
+  return { detPrep: "à", locOut: loc };
+}
+
+/** Rend « douleur [type?] [prep] [loc] », en supprimant l’aire large redondante si la sous-zone la porte déjà */
+function buildPainNucleus(typeMaybe: string | undefined, locRaw: string, intakeRaw?: string): string {
+  const type = clean(typeMaybe || "");
+  let loc = normalizePainLocation(locRaw);
+
+  // Supprime l’aire large si la localisation est déjà spécifique (ex: "aux tempes" ⇒ inutile "à la tête")
+  const largeHeads = ["tête", "crâne", "tete", "crane"];
+  const impliesHead = /\b(tempes|front|arrière du cr[aâ]ne|arriere du cr[aâ]ne|tempe)\b/.test(loc.toLowerCase());
+  if (impliesHead && intakeRaw && /\b(t[êe]te|cr[aâ]ne)\b/i.test(intakeRaw)) {
+    // on ignore "à la tête" du texte final
+  }
+
+  const { detPrep, locOut } = pickArticleAndPrep(loc);
+  const typePart = type ? ` ${type}` : "";
+  const prepos = detPrep ? ` ${detPrep} ` : " ";
+  return `douleur${typePart}${prepos}${locOut}`;
+}
+
+/** Rend la cible « cette douleur … » (féminin) */
+function buildPainTarget(typeMaybe: string | undefined, locRaw: string, intakeRaw?: string): string {
+  return `cette ${buildPainNucleus(typeMaybe, locRaw, intakeRaw)}`;
+}
+
+
 /** Unifie “mal …” -> “douleur …” pour garantir l’article “cette” */
 function normalizePhysicalBase(s: string): string {
   const t = clean(s);
@@ -228,6 +308,8 @@ function mergePhysicalPhrase(base: string, detail: string): string {
 
   return clean(`${b} ${d}`.trim());
 }
+
+
 
 /* ---------- Sécurité : crise suicidaire ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
@@ -394,38 +476,51 @@ et où tu la ressens (poitrine, gorge, ventre, tête…).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 4 — Évaluation (SUD)
-    if (etape === 4) {
-      const intake = clean(slots.intake ?? "");
-      const ctx = clean(slots.context ?? "");
-      const kind = classifyIntake(intake);
+// Étape 4 — Évaluation (SUD) — inclut le cas "situation"
+if (etape === 4) {
+  const intake = clean(slots.intake ?? "");
+  const ctx = clean(slots.context ?? "");
 
-      if (kind === "situation") {
-        const sensation = ctx || "ce ressenti";
-        const txt =
+  // Cas SITUATION (inchangé)
+  if (classifyIntake(intake) === "situation") {
+    const sensation = ctx || "ce ressenti";
+    const txt =
 `Étape 4 — À combien évalues-tu « ${sensation} » (0–10), quand tu penses à « ${intake} » ?
 (0 = aucune gêne, 10 = maximum).`;
-        return NextResponse.json({ answer: txt });
-      }
+    return NextResponse.json({ answer: txt });
+  }
 
-      if (kind === "emotion") {
-        const cible = ctx || "cette sensation";
-        const txt =
-`Étape 4 — Pense à ${cible}${ctx ? "" : " dans ton corps"} en te connectant au contexte qui la déclenche si tu en vois un.
-Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
-        return NextResponse.json({ answer: txt });
-      }
+  // Cas ÉMOTION (inchangé)
+  if (classifyIntake(intake) === "emotion") {
+    const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
+    const txt =
+`Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+    return NextResponse.json({ answer: txt });
+  }
 
-      // Physique — SUD sur l’étiquette fusionnée (pas de “connexion au contexte”)
-      const physBase = normalizePhysicalBase(intake);
-      const label = mergePhysicalPhrase(physBase, ctx);
-      const txt =
-`Étape 4 — Pense à « ${label} ». 
-Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
-      return NextResponse.json({ answer: txt });
-    }
+  // Cas PHYSIQUE — 👉 ancrage sur [type + localisation précise], sans redite "à la tête"
+  // slots.intake = ex. "mal à la tête" / "douleur au dos"
+  // slots.context = ex. "lancinante aux tempes" ou "sourde aux lombaires" (depuis Étape 1/2)
+  const intakeRaw = intake; // utile pour détecter l'aire large
+  const detail = ctx;       // "type + localisation" saisis à l'étape 1
+  let typePart = "";
+  let locPart = detail;
 
-    // Étape 5 — Setup — renvoyer la phrase + instruction finale (UI ajoute l’enrobage)
+  // On tente d’extraire un [type] depuis le début : "lancinante aux tempes" → type="lancinante", loc="aux tempes"
+  const m = detail.match(/^([a-zàâéèêëîïôùûç-]+)\s+(.*)$/i);
+  if (m) {
+    typePart = clean(m[1]);
+    locPart  = clean(m[2]);
+  }
+
+  const target = buildPainTarget(typePart || undefined, locPart, intakeRaw);
+  const txt =
+`Étape 4 — Pense à « ${target} ». Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+  return NextResponse.json({ answer: txt });
+}
+
+
+    // Étape 5 — Setup
 if (etape === 5) {
   const intakeOrig = clean(slots.intake ?? "");
   const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
@@ -439,52 +534,65 @@ if (etape === 5) {
     ctx  = clean(aspectRaw.slice(idx + m[0].length));
   }
 
-  // SITUATION
+  // ✅ CAS "situation" : setup = (ce/cette) [ressenti] quand je pense à [situation]
   if (classifyIntake(intakeOrig) === "situation") {
     const sensation = ctx || base || "ce ressenti";
     const article = emotionArticle(sensation);
     const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
-    return NextResponse.json({
-      answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
-    });
+    const txt =
+`Étape 5 — Setup : « ${setupLine} »
+Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
+    return NextResponse.json({ answer: txt });
   }
 
-  base = normalizeEmotionNoun(base)
-    .replace(/^j['’]?\s*ai\s+/, "")
-    .replace(/^je\s+/, "")
-    .replace(/^(ce|cette)\s+/i, "");
+  // ✅ CAS "émotion" : inchangé (base + contexte lisible)
+  if (classifyIntake(intakeOrig) === "emotion") {
+    base = normalizeEmotionNoun(base)
+      .replace(/^j['’]?\s*ai\s+/, "")
+      .replace(/^je\s+/, "")
+      .replace(/^(ce|cette)\s+/i, "");
 
-  const kind = classifyIntake(intakeOrig || base);
-
-  // ÉMOTION
-  if (kind === "emotion") {
+    const kind = classifyIntake(intakeOrig || base);
+    const ctxPretty = ctx ? readableContext(ctx, kind) : "";
+    const g = detectGender(base);
+    const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+    const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
+    const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
     const article = emotionArticle(base);
-    const setupLine = ctx
-      ? `Même si j’ai ${article} ${base} dès que je pense à ${clean(ctx)}, je m’accepte profondément et complètement.`
-      : `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
-    return NextResponse.json({
-      answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
-    });
+
+    const setupLine = `Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement.`;
+    const txt =
+`Étape 5 — Setup : « ${setupLine} »
+Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
+    return NextResponse.json({ answer: txt });
   }
 
-  // PHYSIQUE
-  if (kind === "physique") {
-    const physBase = normalizePhysicalBase(intakeOrig);
-    const merged = mergePhysicalPhrase(physBase, ctx);
-    const setupLine = `Même si j’ai cette ${merged}, je m’accepte profondément et complètement.`
-      .replace(/\bcette\s+douleur\b/i, "cette douleur");
-    return NextResponse.json({
-      answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
-    });
+  // ✅ CAS "physique" — ancrage sur [type + localisation précise], sans redite "à la tête"
+  // slots.context contient "type + localisation" depuis l’étape 1
+  const intakeRaw = intakeOrig;     // ex : "mal à la tête", "douleur au dos"
+  const detail    = clean(slots.context ?? ""); // ex : "lancinante aux tempes"
+  let typePart = "";
+  let locPart  = detail;
+
+  const m2 = detail.match(/^([a-zàâéèêëîïôùûç-]+)\s+(.*)$/i);
+  if (m2) {
+    typePart = clean(m2[1]);
+    locPart  = clean(m2[2]);
   }
 
-  // Fallback
-  const article = emotionArticle(base);
-  const setupLine = `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
-  return NextResponse.json({
-    answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
-  });
+  const target = buildPainTarget(typePart || undefined, locPart, intakeRaw);
+  const whenCtx = ""; // le contexte (facultatif) peut être réintroduit si tu le captes séparément pour le physique
+  const setupLine = `Même si j’ai ${target}${whenCtx}, je m’accepte profondément et complètement.`;
+
+  const txt =
+`Étape 5 — Setup : « ${setupLine} »
+Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
+  return NextResponse.json({ answer: txt });
 }
+
 
 
     // Étape 6 — Ronde (points)
