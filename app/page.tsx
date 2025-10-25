@@ -61,14 +61,14 @@ function parseSUD(s: string): number | null {
   return Number.isFinite(v) && v >= 0 && v <= 10 ? v : null;
 }
 
-/** Normalise « j’ai mal… / j’ai une douleur… / j’ai peur… » → forme courte */
+/** Normalise l’input utilisateur tout en préservant « à la / au / aux / l’ » */
 function normalizeIntake(input: string): string {
   const s = input.trim().replace(/\s+/g, " ");
 
-  const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  const mMal = s.match(/^j['’]ai\s+mal\s+((?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?.+)$/i);
   if (mMal) return `mal ${mMal[1].trim()}`;
 
-  const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
+  const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+((?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?.+)$/i);
   if (mDouleur) return `douleur ${mDouleur[1].trim()}`;
 
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
@@ -116,64 +116,43 @@ function isPhysicalIntake(intakeText?: string): boolean {
   return /\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/.test(t);
 }
 
-/* Nominalisation générique et sûre (contexte émotionnel) */
+/* Nominalisation générique et sûre (contexte émotionnel) — inchangé depuis ta version précédente */
 function nominalizeSituation(s: string): string {
   const t = (s || "").trim();
   if (!t) return t;
-
-  // Si déjà nominalisé, on ne touche pas
   if (/^(?:ce|cet|cette|ces)\s+/i.test(t)) return t;
-
-  // Événements déjà nominaux → on laisse
   if (/\b(rupture|séparation|separation|déménagement|deménagement|accident|licenciement|examen|concours|audition|entretien|procès|proces)\b/i.test(t)) {
     return t;
   }
-
-  // Ignore les physiques
   if (/\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/i.test(t)) {
     return t;
   }
-
   function detFor(noun: string): "ce" | "cette" {
     const n = noun.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
     const fem = new Set(["dispute","culpabilite","honte","colere","anxiete","angoisse","tristesse","inquietude","peur","gêne","gene","tension"]);
     return fem.has(n) ? "cette" : "ce";
   }
-
   const rules: Array<{ rx: RegExp; to: (m: RegExpExecArray) => string }> = [
-    { rx: /^je\s+me\s+(?:suis\s+)?disput(?:e|é|ée)\s+avec\s+(.+)$/i,
-      to: m => `cette dispute avec ${m[1].trim()}` },
-    { rx: /^je\s+suis\s+en\s+col[eè]re\s+(?:contre|envers|a(?:\s+propos\s+de)?)\s+(.+)$/i,
-      to: m => `cette colère contre ${m[1].trim()}` },
-    { rx: /^j['’]?\s*ai\s+honte\s+(?:de|d['’])\s+(.+)$/i,
-      to: m => `cette honte à propos de ${m[1].trim()}` },
-    { rx: /^je\s+me\s+sens\s+coupabl(?:e|es?)\s+(?:de|d['’])\s+(.+)$/i,
-      to: m => `cette culpabilité à propos de ${m[1].trim()}` },
-    { rx: /^je\s+suis\s+anxieu(?:x|se)\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i,
-      to: m => `cette anxiété à propos de ${m[1].trim()}` },
-    { rx: /^je\s+stresse\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i,
-      to: m => `ce stress à propos de ${m[1].trim()}` },
-    { rx: /^je\s+suis\s+inqui[eè]t(?:e)?\s+(?:pour|a\s+propos\s+de)\s+(.+)$/i,
-      to: m => `cette inquiétude pour ${m[1].trim()}` },
-    { rx: /^j['’]?\s*ai\s+peur\s+(?:de|du|des|d['’])\s+(.+)$/i,
-      to: m => `cette peur de ${m[1].trim()}` },
-    { rx: /^je\s+crains?\s+(.+)$/i,
-      to: m => `cette crainte de ${m[1].trim()}` },
-    { rx: /^je\s+me\s+sens\s+triste\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i,
-      to: m => `cette tristesse à propos de ${m[1].trim()}` },
-    { rx: /^je\s+me\s+sens\s+d[ée]go[uû]t[ée]?\s+(?:par|de)\s+(.+)$/i,
-      to: m => `ce dégoût pour ${m[1].trim()}` },
+    { rx: /^je\s+me\s+(?:suis\s+)?disput(?:e|é|ée)\s+avec\s+(.+)$/i, to: m => `cette dispute avec ${m[1].trim()}` },
+    { rx: /^je\s+suis\s+en\s+col[eè]re\s+(?:contre|envers|a(?:\s+propos\s+de)?)\s+(.+)$/i, to: m => `cette colère contre ${m[1].trim()}` },
+    { rx: /^j['’]?\s*ai\s+honte\s+(?:de|d['’])\s+(.+)$/i, to: m => `cette honte à propos de ${m[1].trim()}` },
+    { rx: /^je\s+me\s+sens\s+coupabl(?:e|es?)\s+(?:de|d['’])\s+(.+)$/i, to: m => `cette culpabilité à propos de ${m[1].trim()}` },
+    { rx: /^je\s+suis\s+anxieu(?:x|se)\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i, to: m => `cette anxiété à propos de ${m[1].trim()}` },
+    { rx: /^je\s+stresse\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i, to: m => `ce stress à propos de ${m[1].trim()}` },
+    { rx: /^je\s+suis\s+inqui[eè]t(?:e)?\s+(?:pour|a\s+propos\s+de)\s+(.+)$/i, to: m => `cette inquiétude pour ${m[1].trim()}` },
+    { rx: /^j['’]?\s*ai\s+peur\s+(?:de|du|des|d['’])\s+(.+)$/i, to: m => `cette peur de ${m[1].trim()}` },
+    { rx: /^je\s+crains?\s+(.+)$/i, to: m => `cette crainte de ${m[1].trim()}` },
+    { rx: /^je\s+me\s+sens\s+triste\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i, to: m => `cette tristesse à propos de ${m[1].trim()}` },
+    { rx: /^je\s+me\s+sens\s+d[ée]go[uû]t[ée]?\s+(?:par|de)\s+(.+)$/i, to: m => `ce dégoût pour ${m[1].trim()}` },
     { rx: /^je\s+me\s+sens\s+([a-zàâéèêëîïôùûç-]+)\s+(?:de|d['’]|a\s+propos\s+de|pour)\s+(.+)$/i,
       to: m => {
         const adj = m[1].trim().toLowerCase();
         const map: Record<string,string> = {
-          "coupable":"culpabilité", "honteux":"honte", "honteuse":"honte",
-          "anxieux":"anxiété", "anxieuse":"anxiété",
-          "inquiet":"inquiétude", "inquiète":"inquiétude",
-          "triste":"tristesse", "stressé":"stress", "stressée":"stress",
-          "angoissé":"angoisse", "angoissée":"angoisse",
-          "dégoûté":"dégoût", "dégoûtée":"dégoût",
-          "degoute":"dégoût", "degoutee":"dégoût"
+          "coupable":"culpabilité","honteux":"honte","honteuse":"honte",
+          "anxieux":"anxiété","anxieuse":"anxiété","inquiet":"inquiétude","inquiète":"inquiétude",
+          "triste":"tristesse","stressé":"stress","stressée":"stress",
+          "angoissé":"angoisse","angoissée":"angoisse","dégoûté":"dégoût","dégoûtée":"dégoût",
+          "degoute":"dégoût","degoutee":"dégoût"
         };
         const noun = map[adj] || adj;
         const det = detFor(noun);
@@ -181,11 +160,7 @@ function nominalizeSituation(s: string): string {
         return `${det} ${noun} ${prep} ${m[2].trim()}`;
       } },
   ];
-
-  for (const { rx, to } of rules) {
-    const m = rx.exec(t);
-    if (m) return to(m);
-  }
+  for (const { rx, to } of rules) { const m = rx.exec(t); if (m) return to(m); }
   return t;
 }
 
@@ -215,7 +190,7 @@ function mergeSensationAndLocation(sensation: string, location: string): string 
   return `${sens} ${loc}`;
 }
 
-/* Post-nettoyage côté client (rappels, doublons, “Cette une …”) */
+/* Post-nettoyage côté client (rappels, doublons, typos communes) */
 function fixServerText(t: string): string {
   let s = t;
   s = s.replace(/\b(Cette|Ce)\s+une\b/g, (_m, det) => det);
@@ -223,6 +198,10 @@ function fixServerText(t: string): string {
   s = s.replace(/\b(douleur [a-zàâéèêëîïôùûç\s]+)\b\s+\1/gi, "$1");
   s = s.replace(/connecte e/gi, "connecté·e");
   s = s.replace(/\bcoeur\b/gi, "cœur");
+  // Corrections "tempes"
+  s = s.replace(/\baux températures\b/gi, "aux tempes");
+  s = s.replace(/\baux temps\b/gi, "aux tempes");
+  s = s.replace(/\btempératures\b/gi, "tempes");
   return s;
 }
 
@@ -470,7 +449,6 @@ export default function Page() {
       }
 
       if (phys32.step === 3) {
-        // On enregistre directement sensation+localisation
         setPhys32(p => ({ ...p, step: 4, data: { ...p.data, sensLoc: answer } }));
         const sitRaw = phys32.data.situation || "cette situation";
         const sit = nominalizeSituation(sitRaw); // fallback de sécurité
@@ -489,7 +467,7 @@ export default function Page() {
         }
         const data = { ...phys32.data, sud: sud3 };
         const situationRaw = data.situation || "";
-        const situation = nominalizeSituation(situationRaw); // 👉 IMPORTANT : nominalisation avant envoi serveur
+        const situation = nominalizeSituation(situationRaw);
         const sensLoc = data.sensLoc || "";
 
         // Appel serveur direct pour Étape 5 (Setup) en mode 'situation'
@@ -533,11 +511,10 @@ export default function Page() {
         const answerTxt: string = raw && "answer" in raw ? raw.answer : "";
         const cleaned = cleanAnswerForDisplay(answerTxt, "Setup");
         setRows(r => [...r, { who: "bot", text: cleaned }]);
-        setJustShowedSetup(true); // évite le doublon de setup
+        setJustShowedSetup(true);
 
-        // On sort du mode 3.2, on passe à la ronde habituelle
         setPhys32({ active: false, step: 1, data: {} });
-        setPost32CheckPending(true); // à SUD=0 après cette cible, on reviendra sur la douleur initiale
+        setPost32CheckPending(true);
         setStage("Tapping");
         setEtape(6);
         setLoading(false);
