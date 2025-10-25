@@ -19,7 +19,7 @@ type Stage =
 type Slots = {
   intake?: string;
   duration?: string;
-  context?: string;
+  context?: string; // ⚠️ pour le flux physique : contient le détail "type + localisation" recueilli à l’étape 1
   sud?: number;
   round?: number;
   aspect?: string;
@@ -209,7 +209,7 @@ function normalizePhysicalBase(s: string): string {
   return t;
 }
 
-/** Concatène base + détail en évitant les doublons grossiers (ex. “douleur …” déjà dans le détail) */
+/** Concatène base + détail (type/localisation fine) en évitant les doublons */
 function mergePhysicalPhrase(base: string, detail: string): string {
   let b = clean(base);
   let d = clean(detail);
@@ -220,15 +220,13 @@ function mergePhysicalPhrase(base: string, detail: string): string {
   // Si le détail répète exactement la base, on ne le rajoute pas
   if (d && (b.toLowerCase() === d.toLowerCase())) d = "";
 
-  // Petite heuristique : si le détail contient déjà la localisation du mot clé de la base (ex. “genou”)
+  // Évite “au genou … du genou”
   const key = (b.match(/\b(dos|cou|nuque|épaule[s]?|lombaire[s]?|genou[x]?|cheville[s]?|hanche[s]?|ventre|abdomen|poignet|main[s]?|t[êe]te)\b/i) || [])[0];
   if (key && new RegExp(`\\b${key}\\b`, "i").test(d)) {
-    // Evite “au genou … du genou”
     b = b.replace(new RegExp(`\\s+(au|du|de la|de l’|de l'|aux)\\s+${key}\\b`, "i"), "");
   }
 
-  const merged = clean(`${b} ${d}`.trim());
-  return merged;
+  return clean(`${b} ${d}`.trim());
 }
 
 /* ---------- Sécurité : crise suicidaire ---------- */
@@ -381,15 +379,14 @@ et où tu la ressens (poitrine, gorge, ventre, tête…).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — Contexte (facultatif pour le physique ; neutre sinon)
+    // Étape 3 — Pont vers l’évaluation
     if (etape === 3) {
       const intake = clean(slots.intake ?? "");
       const kind = classifyIntake(intake);
 
       if (kind === "physique") {
-        const txt =
-`Étape 3 — Y a-t-il un contexte où c’est plus présent ?
-(Ex. fin de journée, posture, stress, situation particulière…)`;
+        // ⚠️ On n’écrase pas slots.context (il contient déjà “type + localisation”)
+        const txt = "Merci. Passons à l’évaluation de l’intensité maintenant.";
         return NextResponse.json({ answer: txt });
       }
 
@@ -398,7 +395,7 @@ et où tu la ressens (poitrine, gorge, ventre, tête…).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 4 — Évaluation (SUD) — formulation par flux
+    // Étape 4 — Évaluation (SUD)
     if (etape === 4) {
       const intake = clean(slots.intake ?? "");
       const ctx = clean(slots.context ?? "");
@@ -420,10 +417,12 @@ Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Physique (douleur/tension…)
-      const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
+      // ✅ Physique (douleur/tension…) — SUD sur l’étiquette fusionnée, sans “connexion au contexte”
+      const physBase = normalizePhysicalBase(intake);
+      const label = mergePhysicalPhrase(physBase, ctx);
       const txt =
-`Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+`Étape 4 — Pense à « ${label} ». 
+Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       return NextResponse.json({ answer: txt });
     }
 
@@ -434,7 +433,7 @@ Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       let base = aspectRaw;
       let ctx  = clean(slots.context ?? "");
 
-      // Sépare "… liée à …" si présent
+      // Sépare "… liée à …" si présent (utile pour émotion/situation)
       const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
       if (m) {
         const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
@@ -442,7 +441,7 @@ Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
         ctx  = clean(aspectRaw.slice(idx + m[0].length));
       }
 
-      // ✅ SITUATION — setup = (ce/cette) [ressenti] quand je pense à [situation]
+      // ✅ SITUATION
       if (classifyIntake(intakeOrig) === "situation") {
         const sensation = ctx || base || "ce ressenti";
         const article = emotionArticle(sensation);
@@ -462,7 +461,7 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
 
       const kind = classifyIntake(intakeOrig || base);
 
-      // ✅ ÉMOTION — préférer “dès que je pense à [contexte]” si présent
+      // ✅ ÉMOTION
       if (kind === "emotion") {
         const article = emotionArticle(base);
         const setupLine = ctx
@@ -476,13 +475,10 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // ✅ PHYSIQUE — unifie et fusionne (pas de "liée à …")
+      // ✅ PHYSIQUE — Setup sur l’étiquette fusionnée
       if (kind === "physique") {
-        // 1) Unifie “mal …” -> “douleur …”
         const physBase = normalizePhysicalBase(intakeOrig);
-        // 2) Concatène avec le détail (type/localisation fine) sans “douleur …” en double
         const merged = mergePhysicalPhrase(physBase, ctx);
-        // 3) Article toujours au féminin pour “douleur …”
         const article = "cette";
         const setupLine = `Même si j’ai ${article} ${merged}, je m’accepte profondément et complètement.`;
         const txt =
@@ -516,7 +512,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 7 — Réévaluation (+ conseil 3.2 Physique)
+    // Étape 7 — Réévaluation (+ rappel option “3.2 Physique”)
     if (etape === 7) {
       const txt =
 "Étape 7 — Indique ton SUD (0–10) maintenant.\n\n" +
