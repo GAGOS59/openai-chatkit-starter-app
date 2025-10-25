@@ -193,17 +193,32 @@ function mergeSensationAndLocation(sensation: string, location: string): string 
 /* Post-nettoyage côté client (rappels, doublons, typos communes) */
 function fixServerText(t: string): string {
   let s = t;
+
+  // Déduplications simples
   s = s.replace(/\b(Cette|Ce)\s+une\b/g, (_m, det) => det);
   s = s.replace(/\b(serrement dans la poitrine)\b\s+\1/gi, "$1");
   s = s.replace(/\b(douleur [a-zàâéèêëîïôùûç\s]+)\b\s+\1/gi, "$1");
+
+  // Typo courante
   s = s.replace(/connecte e/gi, "connecté·e");
   s = s.replace(/\bcoeur\b/gi, "cœur");
-  // Corrections "tempes"
-  s = s.replace(/\baux températures\b/gi, "aux tempes");
-  s = s.replace(/\baux temps\b/gi, "aux tempes");
-  s = s.replace(/\btempératures\b/gi, "tempes");
+
+  // --- Corrections robustes pour "tempes" ---
+  // 1) Variantes "température(s)" -> "tempes"
+  s = s.replace(/\btemp[ée]rature(s)?\b/gi, "tempes");
+
+  // 2) "aux/les/des + temps" -> "aux/les/des tempes" (cas d'autocorrect)
+  s = s.replace(/\b(aux|les|des)\s+temps\b/gi, (_m, det) => `${det} tempes`);
+
+  // 3) Sécurités additionnelles : "au temps" et "du temps" mal saisis en localisation
+  //    (on évite de casser le mot "temps" en contexte normal, on cible les déterminants)
+  s = s.replace(/\b(au|du)\s+temps\b/gi, (_m, det) =>
+    det.toLowerCase() === "au" ? "aux tempes" : "des tempes"
+  );
+
   return s;
 }
+
 
 /* ---------- Rendu / liens ---------- */
 function linkify(text: string): React.ReactNode[] {
