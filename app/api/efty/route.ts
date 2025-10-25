@@ -8,38 +8,37 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // 🔒 injectée par Vercel uniquement côté serveur
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 /* ---------- Types ---------- */
-type Role = "user" | "assistant" | "system";
+type Role = "user" | "assistant";
 
 interface ChatMessage {
-  role: Exclude<Role, "system">; // "user" | "assistant"
+  role: Role;
   content: string;
 }
 
 interface BodyWithMessages {
-  messages: ChatMessage[];
+  messages?: ChatMessage[];
 }
 
 interface BodyWithMessage {
-  message: string;
+  message?: string;
 }
 
-type Payload = Partial<BodyWithMessages & BodyWithMessage>;
+type Payload = BodyWithMessages & BodyWithMessage;
 
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   if (!Array.isArray(x)) return false;
   return x.every(
     (m) =>
-      m &&
       typeof m === "object" &&
-      (m as ChatMessage).role !== undefined &&
-      (m as ChatMessage).content !== undefined &&
-      (m as ChatMessage).role !== "system" &&
-      (m as ChatMessage).role === "user" || (m as ChatMessage).role === "assistant" &&
-      typeof (m as ChatMessage).content === "string"
+      m !== null &&
+      "role" in m &&
+      "content" in m &&
+      (m as { role: string }).role.match(/^(user|assistant)$/) &&
+      typeof (m as { content: unknown }).content === "string"
   );
 }
 
@@ -84,11 +83,9 @@ export async function POST(req: Request) {
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    // 🔐 Ne jamais renvoyer la valeur exacte
-    return NextResponse.json({ error: "Configuration serveur manquante." }, { status: 500 });
+    return NextResponse.json({ error: "Configuration manquante." }, { status: 500 });
   }
 
-  // Parse JSON proprement et typé
   let body: Payload = {};
   try {
     const raw = (await req.json()) as unknown;
@@ -99,14 +96,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Requête JSON invalide." }, { status: 400 });
   }
 
-  // Supporte {messages:[...]} OU {message:"..."}
   const history: ChatMessage[] = isChatMessageArray(body.messages) ? body.messages : [];
-  const single: string =
-    typeof body.message === "string" ? body.message.trim() : "";
+  const single: string = typeof body.message === "string" ? body.message.trim() : "";
 
-  // Construire le fil de messages pour OpenAI
-  const messages: Array<{ role: Role; content: string }> = [
-    { role: "system", content: EFT_SYSTEM_PROMPT }, // 🔒 prompt côté serveur uniquement
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    { role: "system", content: EFT_SYSTEM_PROMPT },
   ];
 
   if (history.length > 0) {
@@ -120,7 +114,7 @@ export async function POST(req: Request) {
   try {
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      temperature: 0.2, // style stable et neutre
+      temperature: 0.2,
       messages,
     });
 
@@ -136,9 +130,8 @@ export async function POST(req: Request) {
 
     return new NextResponse(JSON.stringify({ answer: text }), { headers });
   } catch {
-    // 🔐 Pas de stack trace côté client
     return NextResponse.json(
-      { error: "Service indisponible, réessaie dans un instant." },
+      { error: "Service temporairement indisponible." },
       { status: 503 }
     );
   }
