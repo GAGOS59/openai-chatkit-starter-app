@@ -1,26 +1,49 @@
 // app/api/efty/route.ts
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-
-// ⬇️ IMPORTANT : adapte l'import du prompt à TON chemin réel.
 import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
-
-
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY, // 🔒 injectée par Vercel (jamais côté client)
+  apiKey: process.env.OPENAI_API_KEY, // 🔒 injectée par Vercel uniquement côté serveur
 });
 
-type ChatMessage = { role: "user" | "assistant"; content: string };
-type Payload =
-  | { messages?: ChatMessage[] }        // format historique
-  | { message?: string };               // format simple
+/* ---------- Types ---------- */
+type Role = "user" | "assistant" | "system";
 
-function isAllowedOrigin(origin: string | null) {
+interface ChatMessage {
+  role: Exclude<Role, "system">; // "user" | "assistant"
+  content: string;
+}
+
+interface BodyWithMessages {
+  messages: ChatMessage[];
+}
+
+interface BodyWithMessage {
+  message: string;
+}
+
+type Payload = Partial<BodyWithMessages & BodyWithMessage>;
+
+function isChatMessageArray(x: unknown): x is ChatMessage[] {
+  if (!Array.isArray(x)) return false;
+  return x.every(
+    (m) =>
+      m &&
+      typeof m === "object" &&
+      (m as ChatMessage).role !== undefined &&
+      (m as ChatMessage).content !== undefined &&
+      (m as ChatMessage).role !== "system" &&
+      (m as ChatMessage).role === "user" || (m as ChatMessage).role === "assistant" &&
+      typeof (m as ChatMessage).content === "string"
+  );
+}
+
+function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
   const o = origin.toLowerCase();
   return (
@@ -31,39 +54,41 @@ function isAllowedOrigin(origin: string | null) {
   );
 }
 
+/* ---------- Handlers ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
   if (!isAllowedOrigin(origin)) {
     return new NextResponse("Origine non autorisée (CORS).", { status: 403 });
   }
 
-  // Sécurité : ne jamais renvoyer la valeur d'une env var
   if (!process.env.OPENAI_API_KEY) {
+    // 🔐 Ne jamais renvoyer la valeur exacte
     return NextResponse.json({ error: "Configuration serveur manquante." }, { status: 500 });
   }
 
+  // Parse JSON proprement et typé
   let body: Payload = {};
   try {
-    body = await req.json();
+    const raw = (await req.json()) as unknown;
+    if (raw && typeof raw === "object") {
+      body = raw as Payload;
+    }
   } catch {
     return NextResponse.json({ error: "Requête JSON invalide." }, { status: 400 });
   }
 
   // Supporte {messages:[...]} OU {message:"..."}
-  const history = Array.isArray((body as any).messages)
-    ? (body as any).messages.filter(
-        (m: any) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string"
-      )
-    : [];
+  const history: ChatMessage[] = isChatMessageArray(body.messages) ? body.messages : [];
+  const single: string =
+    typeof body.message === "string" ? body.message.trim() : "";
 
-  const single = typeof (body as any).message === "string" ? (body as any).message.trim() : "";
-
-  const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
+  // Construire le fil de messages pour OpenAI
+  const messages: Array<{ role: Role; content: string }> = [
     { role: "system", content: EFT_SYSTEM_PROMPT }, // 🔒 prompt côté serveur uniquement
   ];
 
   if (history.length > 0) {
-    messages.push(...history);
+    messages.push(...history.map((m) => ({ role: m.role, content: m.content })));
   } else if (single) {
     messages.push({ role: "user", content: single });
   } else {
@@ -78,7 +103,7 @@ export async function POST(req: Request) {
     });
 
     const text =
-      completion.choices?.[0]?.message?.content?.trim() ||
+      completion.choices?.[0]?.message?.content?.trim() ??
       "Je n’ai pas compris. Peux-tu reformuler en une phrase courte ?";
 
     const headers = new Headers({
@@ -89,7 +114,7 @@ export async function POST(req: Request) {
 
     return new NextResponse(JSON.stringify({ answer: text }), { headers });
   } catch {
-    // Pas de stack trace ni infos sensibles côté client
+    // 🔐 Pas de stack trace côté client
     return NextResponse.json(
       { error: "Service indisponible, réessaie dans un instant." },
       { status: 503 }
