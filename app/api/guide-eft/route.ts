@@ -152,7 +152,6 @@ function emotionArticle(noun: string): "ce" | "cette" {
 function readableContext(ctx: string, kind?: IntakeKind): string {
   let c = clean(ctx);
   if (!c) return "";
-
   if (
     kind === "physique" &&
     !/^(parce que|car|puisque)\b/i.test(c) &&
@@ -160,7 +159,6 @@ function readableContext(ctx: string, kind?: IntakeKind): string {
   ) {
     c = "parce que " + c.replace(/^parce que\s+/i, "");
   }
-
   if (!/^(parce que|car|puisque)\b/i.test(c)) {
     const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
     if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
@@ -222,6 +220,45 @@ function buildRappelPhrases(slots: Slots): string[] {
   else phrases.push(`${short}.`);
   phrases.push(`${generic}.`);
   return phrases.slice(0, 8);
+}
+
+/* ---------- Helpers spécifiques “physique” ---------- */
+
+/** Unifie “mal …” -> “douleur …” pour garantir l’article “cette” */
+function normalizePhysicalBase(s: string): string {
+  const t = clean(s);
+  if (/^mal\b/i.test(t)) {
+    return t.replace(/^mal\b/i, "douleur").replace(/\s+de\s+/, " ").trim();
+  }
+  return t;
+}
+
+/** Concatène base + détail en évitant les doublons grossiers (ex. “douleur …” déjà dans le détail) */
+function mergePhysicalPhrase(base: string, detail: string): string {
+  let b = clean(base);
+  let d = clean(detail);
+
+  // Retire un “douleur …” redondant au début du détail
+  d = d.replace(/^douleur\s+/i, "");
+
+  // Si le détail répète exactement la base, on ne le rajoute pas
+  if (d && (b.toLowerCase() === d.toLowerCase())) d = "";
+
+  // Petite heuristique : si le détail contient déjà la localisation du mot clé de la base (ex. “genou”)
+  const key = (b.match(/\b(dos|cou|nuque|épaule[s]?|lombaire[s]?|genou[x]?|cheville[s]?|hanche[s]?|ventre|abdomen|poignet|main[s]?|t[êe]te)\b/i) || [])[0];
+  if (key && new RegExp(`\\b${key}\\b`, "i").test(d)) {
+    // Evite “au genou … du genou”
+    b = b.replace(new RegExp(`\\s+(au|du|de la|de l’|de l'|aux)\\s+${key}\\b`, "i"), "");
+  }
+
+  const merged = clean(`${b} ${d}`.trim());
+  // Parenthésage léger pour une fin “côté …” si elle n’est pas déjà incluse proprement
+  const mCote = merged.match(/\b(c[ôo]t[eé]\s+(interne|externe|gauche|droit))\b/i);
+  if (mCote) {
+    // si “côté …” est déjà présent sans parenthèses, on laisse tel quel
+    return merged;
+  }
+  return merged;
 }
 
 /* ---------- Sécurité : crise suicidaire ---------- */
@@ -469,20 +506,26 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // ✅ PHYSIQUE — setup standard
-      const ctxPretty = ctx ? readableContext(ctx, kind) : "";
-      const g = detectGender(base);
-      const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
-      const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
-      const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
-      const article = emotionArticle(base);
-
-      const setupLine = `Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement.`;
-      const txt =
+      // ✅ PHYSIQUE — unifie et fusionne (pas de "liée à …")
+      if (kind === "physique") {
+        // 1) Unifie “mal …” -> “douleur …”
+        let physBase = normalizePhysicalBase(intakeOrig);
+        // 2) Concatène avec le détail (type/localisation fine) sans “douleur …” en double
+        const merged = mergePhysicalPhrase(physBase, ctx);
+        // 3) Article toujours au féminin pour “douleur …”
+        const article = "cette";
+        const setupLine = `Même si j’ai ${article} ${merged}, je m’accepte profondément et complètement.`;
+        const txt =
 `Étape 5 — Setup : « ${setupLine} »
-Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Reste bien connecté·e à ton ressenti et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois à voix haute.
 Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
-      return NextResponse.json({ answer: txt });
+        return NextResponse.json({ answer: txt });
+      }
+
+      // Fallback (ne devrait pas arriver)
+      const article = emotionArticle(base);
+      const setupLine = `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
+      return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
     }
 
     // Étape 6 — Ronde (points)
