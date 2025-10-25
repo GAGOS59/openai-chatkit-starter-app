@@ -200,9 +200,10 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   if (stage === "Setup") {
     // Évite la duplication du paragraphe d'instructions
     t = t.replace(
-      /Répète cette phrase 3 fois en tapotant sur le Point Karaté.*?(OK[^\n]*)(?=\n|$)/is,
-      "$1"
-    );
+  /Répète cette phrase 3 fois en tapotant sur le Point Karaté[\s\S]*?(OK[^\n]*)(?=\n|$)/i,
+  "$1"
+);
+
 
     // Habillage unique (intro + phrase + OK)
     const core = t.replace(/^«\s*|\s*»$/g, "").trim();
