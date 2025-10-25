@@ -46,13 +46,35 @@ function isChatMessageArray(x: unknown): x is ChatMessage[] {
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
   const o = origin.toLowerCase();
-  return (
-    /^https?:\/\/localhost(:\d+)?$/.test(o) ||
-    /^https:\/\/(www\.)?ecole-eft-france\.fr$/.test(o) ||
-    /^https:\/\/appli\.ecole-eft-france\.fr$/.test(o) ||
-    /^https:\/\/.*\.vercel\.app$/.test(o)
-  );
+
+  // Autorisations strictes en production
+  const ALLOWED_BASE = new Set<string>([
+    "https://appli.ecole-eft-france.fr",
+    "https://www.ecole-eft-france.fr",
+  ]);
+
+  // Environnements Vercel : autoriser l’URL exacte du déploiement en preview
+  // VERCEL_ENV ∈ "production" | "preview" | "development"
+  const vercelEnv = process.env.VERCEL_ENV;
+  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+
+  if (vercelEnv === "production") {
+    return ALLOWED_BASE.has(o);
+  }
+
+  // En preview/dev, autoriser aussi l’URL de build courante si présente
+  if (vercelEnv === "preview" && vercelUrl) {
+    return o === vercelUrl || ALLOWED_BASE.has(o);
+  }
+
+  // Facultatif : conserver localhost si tu testes depuis un navigateur local
+  if (o.startsWith("http://localhost:") || o === "http://localhost") {
+    return true;
+  }
+
+  return ALLOWED_BASE.has(o);
 }
+
 
 /* ---------- Handlers ---------- */
 export async function POST(req: Request) {
