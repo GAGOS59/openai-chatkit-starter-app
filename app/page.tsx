@@ -13,7 +13,7 @@ export default function Page() {
   {
     role: "assistant",
     content:
-      "Oui, bien sûr.\nL’EFT peut t’aider à explorer ce qui te bloque ou te dérange.\n\nPour commencer, sur quoi voudrais-tu être accompagné·e aujourd’hui ?\n👉 Une douleur, une émotion, ou une situation qui te dérange ?",
+      "Bonjour 😊 Sur quoi souhaites-tu travailler aujourd’hui ?",
   },
 ]);
 
