@@ -1,6 +1,39 @@
-// app/api/guide-eft/route.ts
-import { NextResponse } from "next/server";
+/* ============================================================================
+   MODEL SYSTEM PROMPT (documentation / future LLM)
+   ---------------------------------------------------------------------------
+Rôle : Tu es un guide EFT formé à l’EFT d’origine de Gary Craig et à la méthode TIPS®.
+Tu conduis une auto-séance complète, fidèle aux principes EFT (neutralité, pas de
+positivisme prématuré), avec un langage simple, naturel, non inductif, en français.
 
+Objectif : Guider l’utilisateur dans :
+1) Identification (douleur / émotion / situation)
+2) Précision utile (type, localisation, contexte, sensation)
+3) Évaluation SUD (0–10)
+4) Setup naturel et exact
+5) Ronde standard (points)
+6) Réévaluation SUD → si Δ < 2 entre deux rondes et SUD > 0, remonter à l’instant d’apparition
+7) Si la réaction contextuelle est apaisée (SUD 0 sur situation), revenir à la douleur initiale (si présente)
+
+Contraintes :
+- Reprendre les mots exacts de l’utilisateur (même familiers), corriger la grammaire minimale
+  (ex. « ce pression » → « cette pression », « aux temps » → « aux tempes »).
+- Articles/prépositions naturelles :
+  • à/au/aux/à l’ pour tête, genou, dos, cou, front, etc.
+  • dans la/le/l’ pour poitrine, gorge, ventre, mâchoire.
+- Pas d’induction de positif. Pas de coaching.
+- Toujours inclure : « Quand c’est fait, envoie un OK et nous passerons à la ronde. »
+
+Patrons :
+- SUD (physique) : « Pense à cette douleur [type?] [préposition] [localisation précise]. Indique un SUD (0–10). »
+- Setup (physique) : « Même si j’ai cette douleur [type?] [préposition] [localisation précise], je m’accepte profondément et complètement. »
+- SUD (situation) : « À combien évalues-tu “[sensation]” (0–10), quand tu penses à “[situation]” ? »
+- Setup (situation) : « Même si j’ai [ce/cette] [sensation] quand je pense à [situation], je m’accepte profondément et complètement. »
+- SUD (émotion) : « Pense à “[émotion]” [en te connectant à “contexte” si présent]. Indique un SUD (0–10). »
+- Setup (émotion) : « Même si j’ai [ce/cette] [émotion] [liée à/au fait que + contexte], je m’accepte profondément et complètement. »
+============================================================================ */
+
+/* ---------- Next.js Route config ---------- */
+import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -19,7 +52,7 @@ type Stage =
 type Slots = {
   intake?: string;
   duration?: string;
-  context?: string; // pour le flux physique : "type + localisation" de l’étape 1
+  context?: string; // pour Physique: "type + localisation", pour Émotion/Situation: contexte/sensation
   sud?: number;
   round?: number;
   aspect?: string;
@@ -45,14 +78,14 @@ function splitContext(ctx: string): string[] {
     .slice(0, 6);
 }
 
-/** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) */
+/** Normalise l’intake ("j'ai mal aux épaules" -> "mal aux épaules", etc.) en préservant « à/au/aux/à la/à l’ » */
 function normalizeIntake(input: string): string {
   const s = clean(input);
 
-  const mMal = s.match(/^j['’]ai\s+mal\s+(?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?(.+)$/i);
+  const mMal = s.match(/^j['’]ai\s+mal\s+((?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?.+)$/i);
   if (mMal) return `mal ${clean(mMal[1])}`;
 
-  const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+(.*)$/i);
+  const mDouleur = s.match(/^j['’]ai\s+(?:une|la)\s+douleur\s+((?:à|a)\s+(?:(?:la|le|les)\s+|l['’]\s*|au\s+|aux\s+)?.+)$/i);
   if (mDouleur) return `douleur ${clean(mDouleur[1])}`;
 
   const mPeur1 = s.match(/^j['’]ai\s+(?:une|la)\s+peur\s+(.*)$/i);
@@ -78,7 +111,7 @@ function detectGender(intakeRaw: string): "m" | "f" {
   return "f";
 }
 
-/** Normalisation des noms d’émotions pour rester concis (peur, colère, etc.) */
+/** Normalisation des noms d’émotions (peur, colère, etc.) */
 function normalizeEmotionNoun(s: string): string {
   const raw = clean(s);
   const t = raw.toLowerCase();
@@ -144,9 +177,35 @@ function emotionArticle(noun: string): "ce" | "cette" {
   const n = clean(noun).toLowerCase().replace(/\s+de.*$/, "");
   const fem = new Set([
     "peur","colère","tristesse","honte","culpabilité","anxiété","angoisse","inquiétude",
-    "douleur","gêne","gene","tension"
+    "douleur","gêne","gene","tension","pression","crispation","brûlure","brulure"
   ]);
   return fem.has(n) ? "cette" : "ce";
+}
+
+function readableContext(ctx: string, kind?: IntakeKind): string {
+  let c = clean(ctx);
+  if (!c) return "";
+
+  if (
+    kind === "physique" &&
+    !/^(parce que|car|puisque)\b/i.test(c) &&
+    /^(?:j['’]ai|j['’]étais|j['’]etais|je\s+me|je\s+suis|je\s+)/i.test(c)
+  ) {
+    c = "parce que " + c.replace(/^parce que\s+/i, "");
+  }
+
+  if (!/^(parce que|car|puisque)\b/i.test(c)) {
+    const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
+    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
+      c = "au fait que " + c;
+    }
+    c = c
+      .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
+      .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
+      .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
+      .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
+  }
+  return c;
 }
 
 function sudQualifierFromNumber(sud?: number, g: "m" | "f" = "f"): string {
@@ -197,110 +256,6 @@ function buildRappelPhrases(slots: Slots): string[] {
   phrases.push(`${generic}.`);
   return phrases.slice(0, 8);
 }
-
-/* ---------- Helpers spécifiques “physique” ---------- */
-
-/** Normalise certaines typos fréquentes de localisation (tempes, mâchoire, etc.) */
-function normalizePainLocation(raw: string): string {
-  let s = clean(raw).toLowerCase();
-
-  // Variantes « tempes »
-  s = s.replace(/\btemp[ée]rature(s)?\b/g, "tempes");
-  s = s.replace(/\b(les|des|aux|au|du|à la|à l’|à l')?\s*temps\b/g, (m) =>
-    m.includes("aux") || m.includes("les") || m.includes("des") ? "aux tempes" :
-    m.includes("au") ? "aux tempes" :
-    m.includes("du") ? "des tempes" : "tempes"
-  );
-
-  // Accents & formes fréquentes
-  s = s.replace(/\bmachoire\b/g, "mâchoire");
-  s = s.replace(/\bepaule\b/g, "épaule");
-
-  // Nettoie doubles « dans/à »
-  s = s.replace(/\b(serrement|pression|tension|douleur|chaleur|vide|poids|br[ûu]lure|brulure|picotement|fourmillement)\b.*?\b(dans|au|à|aux|à la|à l’|à l')\s*/g, "");
-  s = s.replace(/^(dans|au|à|aux|à la|à l’|à l')\s*/g, "");
-  return clean(s);
-}
-
-function readableContext(ctx: string, kind?: IntakeKind): string {
-  let c = clean(ctx);
-  if (!c) return "";
-
-  if (
-    kind === "physique" &&
-    !/^(parce que|car|puisque)\b/i.test(c) &&
-    /^(?:j['’]ai|j['’]étais|j['’]etais|je\s+me|je\s+suis|je\s+)/i.test(c)
-  ) {
-    c = "parce que " + c.replace(/^parce que\s+/i, "");
-  }
-
-  if (!/^(parce que|car|puisque)\b/i.test(c)) {
-    const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
-    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
-      c = "au fait que " + c;
-    }
-    c = c
-      .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
-      .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
-      .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
-      .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
-  }
-  return c;
-}
-
-
-/** Retourne l’article + préposition correct(e) pour une localisation */
-function pickArticleAndPrep(loc: string): { detPrep: string; locOut: string } {
-  const L = clean(loc).toLowerCase();
-
-  // Zones qui sonnent mieux avec "dans la/le"
-  if (/\b(poitrine|gorge|ventre|mâchoire)\b/.test(L)) {
-    if (/\b(ventre)\b/.test(L)) return { detPrep: "dans le", locOut: loc };
-    return { detPrep: "dans la", locOut: loc };
-  }
-
-  // Pluriel : tempes, lombaires, omoplates
-  if (/\b(tempes|lombaires|omoplates)\b/.test(L)) return { detPrep: "aux", locOut: loc };
-
-  // "entre les omoplates" → on garde l’expression telle quelle
-  if (/^entre les omoplates\b/.test(L)) return { detPrep: "", locOut: loc };
-
-  // Élision : à l’
-  if (/^(épaule|epaule|aisselle|aine|arrière du cr[aâ]ne|arriere du cr[aâ]ne|œil|oeil)\b/.test(L)) {
-    return { detPrep: "à l’", locOut: loc };
-  }
-
-  // Singulier masculin/féminin simple
-  if (/^(genou|cou|front|dos|cr[aâ]ne|trap[eè]zes?)\b/.test(L)) return { detPrep: "au", locOut: loc };
-  if (/^(nuque|hanche|c[ôo]te|cote|tempe)\b/.test(L)) return { detPrep: "à la", locOut: loc };
-
-  // Fallback neutre
-  return { detPrep: "à", locOut: loc };
-}
-
-/** Rend « douleur [type?] [prep] [loc] », en supprimant l’aire large redondante si la sous-zone la porte déjà */
-function buildPainNucleus(typeMaybe: string | undefined, locRaw: string, intakeRaw?: string): string {
-  const type = clean(typeMaybe || "");
-  const loc = normalizePainLocation(locRaw); // <- const (plus de prefer-const)
-
-  // Si la localisation est spécifique à la tête (tempes/front/arrière du crâne),
-  // on ignore l'aire large "à la tête/crâne" potentiellement présente dans l'intake
-
-  void intakeRaw; // (pas utilisé directement ici, mais conservé pour évolution)
-
-  const { detPrep, locOut } = pickArticleAndPrep(loc);
-  const typePart = type ? ` ${type}` : "";
-  const prepos = detPrep ? ` ${detPrep} ` : " ";
-  return `douleur${typePart}${prepos}${locOut}`;
-}
-
-/** Rend la cible « cette douleur … » (féminin) */
-function buildPainTarget(typeMaybe: string | undefined, locRaw: string, intakeRaw?: string): string {
-  return `cette ${buildPainNucleus(typeMaybe, locRaw, intakeRaw)}`;
-}
-
-
-
 
 /* ---------- Sécurité : crise suicidaire ---------- */
 const CRISIS_PATTERNS: RegExp[] = [
@@ -362,7 +317,74 @@ function lastBotAskedSuicideQuestion(transcript: string): boolean {
   return /(^|\n)A:\s.*avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires\b/.test(t);
 }
 
-/* ---------- Handler (déterministe, sans LLM/FAQ) ---------- */
+/* ---------- Helpers douleur : localisation, prépositions, rendu ---------- */
+/** Normalise certaines typos fréquentes de localisation (tempes, mâchoire, etc.) */
+function normalizePainLocation(raw: string): string {
+  let s = clean(raw).toLowerCase();
+
+  // Variantes « tempes »
+  s = s.replace(/\btemp[ée]rature(s)?\b/g, "tempes");
+  s = s.replace(/\b(les|des|aux|au|du|à la|à l’|à l')?\s*temps\b/g, (m) =>
+    m.includes("aux") || m.includes("les") || m.includes("des") ? "aux tempes" :
+    m.includes("au") ? "aux tempes" :
+    m.includes("du") ? "des tempes" : "tempes"
+  );
+
+  // Accents & formes fréquentes
+  s = s.replace(/\bmachoire\b/g, "mâchoire");
+  s = s.replace(/\bepaule\b/g, "épaule");
+
+  // Nettoie doubles « dans/à » si l’utilisateur les a inclus dans "context"
+  s = s.replace(/\b(serrement|pression|tension|douleur|chaleur|vide|poids|br[ûu]lure|brulure|picotement|fourmillement)\b.*?\b(dans|au|à|aux|à la|à l’|à l')\s*/g, "");
+  s = s.replace(/^(dans|au|à|aux|à la|à l’|à l')\s*/g, "");
+  return clean(s);
+}
+
+/** Retourne l’article + préposition correct(e) pour une localisation */
+function pickArticleAndPrep(loc: string): { detPrep: string; locOut: string } {
+  const L = clean(loc).toLowerCase();
+
+  // Zones qui sonnent mieux avec "dans la/le"
+  if (/\b(poitrine|gorge|ventre|mâchoire)\b/.test(L)) {
+    if (/\b(ventre)\b/.test(L)) return { detPrep: "dans le", locOut: loc };
+    return { detPrep: "dans la", locOut: loc };
+  }
+
+  // Pluriel : tempes, lombaires, omoplates
+  if (/\b(tempes|lombaires|omoplates)\b/.test(L)) return { detPrep: "aux", locOut: loc };
+
+  // "entre les omoplates" → garder tel quel
+  if (/^entre les omoplates\b/.test(L)) return { detPrep: "", locOut: loc };
+
+  // Élision : à l’
+  if (/^(épaule|epaule|aisselle|aine|arrière du cr[aâ]ne|arriere du cr[aâ]ne|œil|oeil)\b/.test(L)) {
+    return { detPrep: "à l’", locOut: loc };
+  }
+
+  // Singulier masculin/féminin simple
+  if (/^(genou|cou|front|dos|cr[aâ]ne|trap[eè]zes?)\b/.test(L)) return { detPrep: "au", locOut: loc };
+  if (/^(nuque|hanche|c[ôo]te|cote|tempe)\b/.test(L)) return { detPrep: "à la", locOut: loc };
+
+  // Fallback neutre
+  return { detPrep: "à", locOut: loc };
+}
+
+/** Rend « douleur [type?] [prep] [loc] » */
+function buildPainNucleus(typeMaybe: string | undefined, locRaw: string): string {
+  const type = clean(typeMaybe || "");
+  const loc = normalizePainLocation(locRaw);
+  const { detPrep, locOut } = pickArticleAndPrep(loc);
+  const typePart = type ? ` ${type}` : "";
+  const prepos = detPrep ? ` ${detPrep} ` : " ";
+  return `douleur${typePart}${prepos}${locOut}`;
+}
+
+/** Rend la cible « cette douleur … » (féminin) */
+function buildPainTarget(typeMaybe: string | undefined, locRaw: string): string {
+  return `cette ${buildPainNucleus(typeMaybe, locRaw)}`;
+}
+
+/* ---------- Handler (déterministe) ---------- */
 export async function POST(req: Request) {
   try {
     // CORS simple
@@ -421,7 +443,7 @@ export async function POST(req: Request) {
 
     /* ---- Étapes EFT (déterministes) ---- */
 
-    // Étape 1 — Intake (3 flux)
+    // Étape 1 — Intake (départ)
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -430,163 +452,141 @@ export async function POST(req: Request) {
       if (kind === "physique") {
         const hints = hintsForLocation(intakeNorm);
         const txt =
-`Étape 1 — Tu dis « ${intakeNorm} ». 
-Précise la localisation exacte${hints}
-et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.).`;
+`Étape 1 — Tu dis « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
+et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
         return NextResponse.json({ answer: txt });
       }
 
       if (kind === "emotion") {
         const txt =
-`Étape 1 — Tu dis « ${intakeNorm} ». 
-Si tu te places juste avant de pouvoir nommer cette émotion : que se passe-t-il dans ton corps ?
-Décris brièvement la sensation (serrement, pression, chaleur, vide…) 
-et où tu la ressens (poitrine, gorge, ventre, tête…).`;
+`Étape 1 — Tu dis « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
+Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // SITUATION / FAIT — d’abord le ressenti corporel
+      // SITUATION — d’emblée sensation + localisation (pour éviter doublon ensuite)
       const txt =
-`Étape 1 — Quand tu penses à « ${intakeNorm} », que ressens-tu dans ton corps ?
-(Exemples : serrement dans la poitrine, gorge qui se serre, crispation dans le ventre…)`;
+`Étape 1 — Quand tu penses à « ${intakeNorm} », que se passe-t-il dans ton corps **et où précisément** ?
+Exemples : serrement dans la poitrine, pression dans la tête, chaleur sur mes épaules, vide dans mon cœur…`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — Pont vers l’évaluation
+    // Étape 3 — Contexte/détails (générique ; pour "situation" le SUD sera à l’étape 4)
     if (etape === 3) {
-      const intake = clean(slots.intake ?? "");
-      const kind = classifyIntake(intake);
-
-      if (kind === "physique") {
-        // on ne touche pas à slots.context (détail type+localisation)
-        return NextResponse.json({ answer: "Merci. Passons à l’évaluation de l’intensité maintenant." });
-      }
-
       const txt =
-`Étape 3 — Merci. Si tu identifies un déclencheur particulier, indique-le en quelques mots (facultatif).`;
+`Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi et quand cela se manifeste-t-il ?
+(Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
       return NextResponse.json({ answer: txt });
     }
 
-// Étape 4 — Évaluation (SUD) — inclut le cas "situation"
-if (etape === 4) {
-  const intake = clean(slots.intake ?? "");
-  const ctx = clean(slots.context ?? "");
+    // Étape 4 — Évaluation (SUD) — inclut le cas "situation"
+    if (etape === 4) {
+      const intake = clean(slots.intake ?? "");
+      const ctx = clean(slots.context ?? "");
 
-  // Cas SITUATION (inchangé)
-  if (classifyIntake(intake) === "situation") {
-    const sensation = ctx || "ce ressenti";
-    const txt =
+      const k = classifyIntake(intake);
+      if (k === "situation") {
+        const sensation = ctx || "ce ressenti";
+        const txt =
 `Étape 4 — À combien évalues-tu « ${sensation} » (0–10), quand tu penses à « ${intake} » ?
 (0 = aucune gêne, 10 = maximum).`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  // Cas ÉMOTION (inchangé)
-  if (classifyIntake(intake) === "emotion") {
-    const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
-    const txt =
+      if (k === "emotion") {
+        const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
+        const txt =
 `Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  // Cas PHYSIQUE — 👉 ancrage sur [type + localisation précise], sans redite "à la tête"
-  // slots.intake = ex. "mal à la tête" / "douleur au dos"
-  // slots.context = ex. "lancinante aux tempes" ou "sourde aux lombaires" (depuis Étape 1/2)
-  const intakeRaw = intake; // utile pour détecter l'aire large
-  const detail = ctx;       // "type + localisation" saisis à l'étape 1
-  let typePart = "";
-  let locPart = detail;
+      // PHYSIQUE — ancrage sur [type + localisation précise]
+      const intakeRaw = intake;      // ex : "mal à la tête"
+      const detail = ctx;            // ex : "lancinante aux tempes"
+      let typePart = "";
+      let locPart = detail;
 
-  // On tente d’extraire un [type] depuis le début : "lancinante aux tempes" → type="lancinante", loc="aux tempes"
-  const m = detail.match(/^([a-zàâéèêëîïôùûç-]+)\s+(.*)$/i);
-  if (m) {
-    typePart = clean(m[1]);
-    locPart  = clean(m[2]);
-  }
+      const m = detail.match(/^([a-zàâéèêëîïôùûç-]+)\s+(.*)$/i);
+      if (m) {
+        typePart = clean(m[1]);
+        locPart  = clean(m[2]);
+      }
 
-  const target = buildPainTarget(typePart || undefined, locPart, intakeRaw);
-  const txt =
+      const target = buildPainTarget(typePart || undefined, locPart);
+      const txt =
 `Étape 4 — Pense à « ${target} ». Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
-  return NextResponse.json({ answer: txt });
-}
-
+      return NextResponse.json({ answer: txt });
+    }
 
     // Étape 5 — Setup
-if (etape === 5) {
-  const intakeOrig = clean(slots.intake ?? "");
-  const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
-  let base = aspectRaw;
-  let ctx  = clean(slots.context ?? "");
+    if (etape === 5) {
+      const intakeOrig = clean(slots.intake ?? "");
+      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+      let base = aspectRaw;
+      let ctx  = clean(slots.context ?? "");
 
-  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-  if (m) {
-    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-    base = clean(aspectRaw.slice(0, idx));
-    ctx  = clean(aspectRaw.slice(idx + m[0].length));
-  }
+      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+      if (m) {
+        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+        base = clean(aspectRaw.slice(0, idx));
+        ctx  = clean(aspectRaw.slice(idx + m[0].length));
+      }
 
-  // ✅ CAS "situation" : setup = (ce/cette) [ressenti] quand je pense à [situation]
-  if (classifyIntake(intakeOrig) === "situation") {
-    const sensation = ctx || base || "ce ressenti";
-    const article = emotionArticle(sensation);
-    const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
-    const txt =
+      const kind = classifyIntake(intakeOrig);
+
+      // SITUATION
+      if (kind === "situation") {
+        const sensation = ctx || base || "ce ressenti";
+        const article = emotionArticle(sensation);
+        const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
+        const txt =
 `Étape 5 — Setup : « ${setupLine} »
 Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  // ✅ CAS "émotion" : inchangé (base + contexte lisible)
-  if (classifyIntake(intakeOrig) === "emotion") {
-    base = normalizeEmotionNoun(base)
-      .replace(/^j['’]?\s*ai\s+/, "")
-      .replace(/^je\s+/, "")
-      .replace(/^(ce|cette)\s+/i, "");
+      // ÉMOTION
+      if (kind === "emotion") {
+        base = normalizeEmotionNoun(base)
+          .replace(/^j['’]?\s*ai\s+/, "")
+          .replace(/^je\s+/, "")
+          .replace(/^(ce|cette)\s+/i, "");
 
-    const kind = classifyIntake(intakeOrig || base);
-    const ctxPretty = ctx ? readableContext(ctx, kind) : "";
-    const g = detectGender(base);
-    const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
-    const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
-    const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
-    const article = emotionArticle(base);
+        const ctxPretty = ctx ? readableContext(ctx, kind) : "";
+        const g = detectGender(base);
+        const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
+        const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
+        const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
+        const article = emotionArticle(base);
 
-    
-
-    const setupLine = `Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement.`;
-    const txt =
+        const setupLine = `Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement.`;
+        const txt =
 `Étape 5 — Setup : « ${setupLine} »
 Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
-    return NextResponse.json({ answer: txt });
-  }
+        return NextResponse.json({ answer: txt });
+      }
 
-  // ✅ CAS "physique" — ancrage sur [type + localisation précise], sans redite "à la tête"
-  // slots.context contient "type + localisation" depuis l’étape 1
-  const intakeRaw = intakeOrig;     // ex : "mal à la tête", "douleur au dos"
-  const detail    = clean(slots.context ?? ""); // ex : "lancinante aux tempes"
-  let typePart = "";
-  let locPart  = detail;
+      // PHYSIQUE — [type + localisation précise]
+      const detail = clean(slots.context ?? ""); // ex : "lancinante aux tempes"
+      let typePart = "";
+      let locPart  = detail;
 
-  const m2 = detail.match(/^([a-zàâéèêëîïôùûç-]+)\s+(.*)$/i);
-  if (m2) {
-    typePart = clean(m2[1]);
-    locPart  = clean(m2[2]);
-  }
+      const m2 = detail.match(/^([a-zàâéèêëîïôùûç-]+)\s+(.*)$/i);
+      if (m2) {
+        typePart = clean(m2[1]);
+        locPart  = clean(m2[2]);
+      }
 
-  const target = buildPainTarget(typePart || undefined, locPart, intakeRaw);
-  const whenCtx = ""; // le contexte (facultatif) peut être réintroduit si tu le captes séparément pour le physique
-  const setupLine = `Même si j’ai ${target}${whenCtx}, je m’accepte profondément et complètement.`;
-
-  const txt =
+      const target = buildPainTarget(typePart || undefined, locPart);
+      const setupLine = `Même si j’ai ${target}, je m’accepte profondément et complètement.`;
+      const txt =
 `Étape 5 — Setup : « ${setupLine} »
 Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
 Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
-  return NextResponse.json({ answer: txt });
-}
-
-
+      return NextResponse.json({ answer: txt });
+    }
 
     // Étape 6 — Ronde (points)
     if (etape === 6) {
@@ -606,13 +606,9 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 7 — Réévaluation (+ rappel option 3.2 Physique)
+    // Étape 7 — Réévaluation
     if (etape === 7) {
-      const txt =
-"Étape 7 — Indique ton SUD (0–10) maintenant.\n\n" +
-"Si le SUD n’a pas baissé d’au moins 2 points entre deux rondes **ou** si la douleur ne descend pas à 0 avec ce processus, reviens à l’instant d’apparition (option 3.2) :\n" +
-"1) Depuis quand est-ce là ?  2) Que se passait-il alors ?  3) Que se passe-t-il dans ton corps en y pensant ?  4) Où ça ?  5) SUD → Setup → rondes → retourne évaluer la douleur.";
-      return NextResponse.json({ answer: txt });
+      return NextResponse.json({ answer: "Étape 7 — Indique ton SUD (0–10) maintenant." });
     }
 
     // Étape 8 — Clôture
