@@ -34,6 +34,8 @@ FORMAT DE DÉROULÉ
 Étape 2–3 : capter le détail utile.  
 Étape 4 (SUD) : « Pense à [cible] et indique un SUD (0–10). »  
 Étape 5 (Setup) :  
+- À chaque formulation du Setup, mentionne toujours le point de tapotement :
+  “Répète cette phrase à voix haute en tapotant sur le Point Karaté (tranche de la main).”
 • Physique : « Même si j’ai cette douleur [type] [préposition] [localisation], je m’accepte profondément et complètement. »  
 • Émotion/Situation : « Même si j’ai [ce/cette] [sensation/émotion] quand je pense à [situation], je m’accepte profondément et complètement. »  
 → « Quand c’est fait, envoie un OK et nous passerons à la ronde. »
