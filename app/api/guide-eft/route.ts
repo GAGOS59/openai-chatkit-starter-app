@@ -19,7 +19,7 @@ type Stage =
 type Slots = {
   intake?: string;
   duration?: string;
-  context?: string; // ⚠️ pour le flux physique : contient le détail "type + localisation" recueilli à l’étape 1
+  context?: string; // pour le flux physique : "type + localisation" de l’étape 1
   sud?: number;
   round?: number;
   aspect?: string;
@@ -209,7 +209,7 @@ function normalizePhysicalBase(s: string): string {
   return t;
 }
 
-/** Concatène base + détail (type/localisation fine) en évitant les doublons */
+/** Concatène base + détail (type/localisation) en évitant les doublons */
 function mergePhysicalPhrase(base: string, detail: string): string {
   let b = clean(base);
   let d = clean(detail);
@@ -372,7 +372,7 @@ et où tu la ressens (poitrine, gorge, ventre, tête…).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // ✅ SITUATION / FAIT — d’abord le ressenti corporel
+      // SITUATION / FAIT — d’abord le ressenti corporel
       const txt =
 `Étape 1 — Quand tu penses à « ${intakeNorm} », que ressens-tu dans ton corps ?
 (Exemples : serrement dans la poitrine, gorge qui se serre, crispation dans le ventre…)`;
@@ -385,9 +385,8 @@ et où tu la ressens (poitrine, gorge, ventre, tête…).`;
       const kind = classifyIntake(intake);
 
       if (kind === "physique") {
-        // ⚠️ On n’écrase pas slots.context (il contient déjà “type + localisation”)
-        const txt = "Merci. Passons à l’évaluation de l’intensité maintenant.";
-        return NextResponse.json({ answer: txt });
+        // on ne touche pas à slots.context (détail type+localisation)
+        return NextResponse.json({ answer: "Merci. Passons à l’évaluation de l’intensité maintenant." });
       }
 
       const txt =
@@ -417,7 +416,7 @@ Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // ✅ Physique (douleur/tension…) — SUD sur l’étiquette fusionnée, sans “connexion au contexte”
+      // Physique — SUD sur l’étiquette fusionnée (pas de “connexion au contexte”)
       const physBase = normalizePhysicalBase(intake);
       const label = mergePhysicalPhrase(physBase, ctx);
       const txt =
@@ -426,7 +425,7 @@ Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 5 — Setup — formulation par flux
+    // Étape 5 — Setup — renvoyer UNIQUEMENT la phrase centrale (UI fera l’enrobage)
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
@@ -441,16 +440,12 @@ Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
         ctx  = clean(aspectRaw.slice(idx + m[0].length));
       }
 
-      // ✅ SITUATION
+      // SITUATION
       if (classifyIntake(intakeOrig) === "situation") {
         const sensation = ctx || base || "ce ressenti";
         const article = emotionArticle(sensation);
         const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
-        const txt =
-`Étape 5 — Setup : « ${setupLine} »
-Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
-        return NextResponse.json({ answer: txt });
+        return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
       }
 
       // Normalisations communes
@@ -461,31 +456,22 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
 
       const kind = classifyIntake(intakeOrig || base);
 
-      // ✅ ÉMOTION
+      // ÉMOTION
       if (kind === "emotion") {
         const article = emotionArticle(base);
         const setupLine = ctx
           ? `Même si j’ai ${article} ${base} dès que je pense à ${clean(ctx)}, je m’accepte profondément et complètement.`
           : `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
-
-        const txt =
-`Étape 5 — Setup : « ${setupLine} »
-Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
-Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
-        return NextResponse.json({ answer: txt });
+        return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
       }
 
-      // ✅ PHYSIQUE — Setup sur l’étiquette fusionnée
+      // PHYSIQUE — Setup sur l’étiquette fusionnée
       if (kind === "physique") {
         const physBase = normalizePhysicalBase(intakeOrig);
         const merged = mergePhysicalPhrase(physBase, ctx);
-        const article = "cette";
-        const setupLine = `Même si j’ai ${article} ${merged}, je m’accepte profondément et complètement.`;
-        const txt =
-`Étape 5 — Setup : « ${setupLine} »
-Reste bien connecté·e à ton ressenti et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois à voix haute.
-Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
-        return NextResponse.json({ answer: txt });
+        const setupLine = `Même si j’ai cette ${merged}, je m’accepte profondément et complètement.`
+          .replace(/\bcette\s+douleur\b/i, "cette douleur"); // garde l’article correct
+        return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
       }
 
       // Fallback
@@ -512,7 +498,7 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 7 — Réévaluation (+ rappel option “3.2 Physique”)
+    // Étape 7 — Réévaluation (+ rappel option 3.2 Physique)
     if (etape === 7) {
       const txt =
 "Étape 7 — Indique ton SUD (0–10) maintenant.\n\n" +
