@@ -204,7 +204,6 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   "$1"
 );
 
-
     // Habillage unique (intro + phrase + OK)
     const core = t.replace(/^«\s*|\s*»$/g, "").trim();
     t =
