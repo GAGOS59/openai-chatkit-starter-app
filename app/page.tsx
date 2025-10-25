@@ -180,15 +180,6 @@ function sanitizeLocation(sensation: string, location: string): string {
   return loc;
 }
 
-/* Fusion sensation + localisation sans doublon */
-function mergeSensationAndLocation(sensation: string, location: string): string {
-  const sens = (sensation || "").trim();
-  const loc = sanitizeLocation(sensation, location);
-  if (!sens) return loc;
-  if (!loc) return sens;
-  if (sens.toLowerCase().includes(loc.toLowerCase())) return sens;
-  return `${sens} ${loc}`;
-}
 
 /* Post-nettoyage côté client (rappels, doublons, typos communes) */
 function fixServerText(t: string): string {
