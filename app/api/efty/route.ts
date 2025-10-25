@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
 // ⬇️ IMPORTANT : adapte l'import du prompt à TON chemin réel.
-import { EFT_SYSTEM_PROMPT } from "../../../application/lib/eft-prompt";
+import { EFT_SYSTEM_PROMPT } from "../../lib/eft-prompt";
+
 
 // Si ton alias "@" n'est pas configuré, remplace par :
 // import { EFT_SYSTEM_PROMPT } from "../../../application/lib/eft-prompt";
