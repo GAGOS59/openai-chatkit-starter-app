@@ -37,6 +37,7 @@ type Slots = {
   duration?: string;
   context?: string;
   sud?: number;
+  prevSud?: number; // 👈 mémorise le SUD précédent pour calculer le delta entre rondes
   round?: number;
   aspect?: string;
 };
@@ -107,6 +108,12 @@ function buildAspect(intakeTextRaw: string, ctxShort: string): string {
   const liaison = masculine ? "lié à" : "liée à";
   const cleaned = normalizeContextForAspect(ctxShort);
   return `${intake} ${liaison} ${cleaned}`;
+}
+
+/* Détection flux physique pour activer la règle "delta >= 2" */
+function isPhysicalIntake(intakeText?: string): boolean {
+  const t = (intakeText || "").toLowerCase();
+  return /\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/.test(t);
 }
 
 /* ---------- Rendu / liens ---------- */
@@ -180,14 +187,12 @@ function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-if (stage === "Setup") {
-  const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-  t = `Reste bien connecté·e à ton ressenti
-et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois, à voix haute :
+  if (stage === "Setup") {
+    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
+    t = `Reste bien connecté·e à ton ressenti
+et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois à voix haute :
 « ${core} »`;
-}
-
-    
+  }
   return t;
 }
 
@@ -276,6 +281,19 @@ export default function Page() {
   // Flag: une gate (oui/non) est-elle ouverte ?
   const [awaitingGate, setAwaitingGate] = useState<boolean>(false);
 
+  // Mini-flux 3.2 Physique (delta SUD < 2)
+  const [phys32, setPhys32] = useState<{
+    active: boolean;
+    step: 1 | 2 | 3 | 4 | 5;
+    data: {
+      duration?: string;
+      situation?: string;
+      sensation?: string;
+      location?: string;
+      sud?: number;
+    };
+  }>({ active: false, step: 1, data: {} });
+
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [rows]);
@@ -295,6 +313,111 @@ export default function Page() {
     // Affiche la saisie utilisateur
     setRows((r) => [...r, { who: "user", text: userText }]);
     setText("");
+
+    // -------- Branche 0 : mini-flux spécial 3.2 Physique (court-circuit) --------
+    if (phys32.active) {
+      const answer = userText.trim();
+
+      if (phys32.step === 1) {
+        setPhys32(p => ({ ...p, step: 2, data: { ...p.data, duration: answer } }));
+        setRows(r => [...r, { who: "bot", text:
+          "Étape 3.2 — Situation initiale\nQue se passait-il dans ta vie à ce moment-là ? (décris en une phrase)\n\n⚠️ S'il s'agit d'une situation difficile à évoquer, rapproche-toi d’un·e praticien·ne EFT de confiance. Et rappelle-toi que l’EFT ne remplace pas l’avis de ton médecin." }]);
+        setLoading(false);
+        return;
+      }
+
+      if (phys32.step === 2) {
+        setPhys32(p => ({ ...p, step: 3, data: { ...p.data, situation: answer } }));
+        setRows(r => [...r, { who: "bot", text:
+          `Étape 3.2 — Sensation\nQue se passe-t-il dans ton corps lorsque tu penses à « ${answer} » ? Décris brièvement la sensation (serrement, pression, chaleur, vide…).` }]);
+        setLoading(false);
+        return;
+      }
+
+      if (phys32.step === 3) {
+        setPhys32(p => ({ ...p, step: 4, data: { ...p.data, sensation: answer } }));
+        setRows(r => [...r, { who: "bot", text:
+          "Étape 3.2 — Localisation\nOù ressens-tu cette sensation ? (poitrine, gorge, ventre…)" }]);
+        setLoading(false);
+        return;
+      }
+
+      if (phys32.step === 4) {
+        setPhys32(p => ({ ...p, step: 5, data: { ...p.data, location: answer } }));
+        const sit = phys32.data.situation || "cette situation";
+        const sens = phys32.data.sensation || "cette sensation";
+        setRows(r => [...r, { who: "bot", text:
+          `Étape 3.2 — SUD\nConnecte-toi à ${sens} quand tu penses à « ${sit} ».\nIndique un SUD (0–10).` }]);
+        setLoading(false);
+        return;
+      }
+
+      if (phys32.step === 5) {
+        const sud3 = parseSUD(answer);
+        if (sud3 === null) {
+          setError("👉 Merci d’indiquer un SUD valide entre 0 et 10.");
+          setLoading(false);
+          return;
+        }
+        const data = { ...phys32.data, sud: sud3 };
+        const situation = data.situation || "";
+        const sens = data.sensation || "";
+        const loc  = data.location ? ` ${data.location}` : "";
+        const mergedSens = `${sens}${loc}`.trim();
+
+        const newSlots: Slots = {
+          ...slots,
+          intake: situation || (slots.intake ?? ""),
+          context: mergedSens,
+          sud: sud3,
+          round: 1,
+          prevSud: undefined,
+          aspect: undefined,
+        };
+        setSlots(newSlots);
+
+        // Appel serveur direct pour Étape 5 (Setup) en mode 'situation'
+        let raw: ApiResponse | undefined;
+        try {
+          const res = await fetch("/api/guide-eft", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: answer,
+              stage: "Setup",
+              etape: 5,
+              transcript: rows.map(r => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`)).slice(-10).join("\n"),
+              slots: newSlots,
+            }),
+          });
+          raw = (await res.json()) as ApiResponse;
+        } catch {
+          setRows((r) => [...r, { who: "bot", text: "Erreur de connexion au service. Veuillez réessayer." }]);
+          setLoading(false);
+          return;
+        }
+
+        if (raw && "error" in raw) {
+          setRows((r) => [...r, { who: "bot", text: "Le service est temporairement indisponible. Réessaie dans un instant." }]);
+          setLoading(false);
+          return;
+        }
+
+        const answerTxt: string = raw && "answer" in raw ? raw.answer : "";
+        const cleaned = cleanAnswerForDisplay(answerTxt, "Setup");
+        setRows(r => [...r, { who: "bot", text: cleaned }]);
+
+        // On sort du mode 3.2, on passe à la ronde habituelle
+        setPhys32({ active: false, step: 1, data: {} });
+        setStage("Tapping");
+        setEtape(6);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(false);
+      return;
+    }
 
     // -------- Branche 1 : si une GATE est ouverte, on ne touche à rien localement --------
     if (awaitingGate) {
@@ -392,17 +515,32 @@ export default function Page() {
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-  // On laisse le serveur poser l’Étape 1 (ressenti) — indispensable pour le cas “situation”
-  stageForAPI = "Intake";         etapeForAPI = 1;
-}
-
+      // On laisse le serveur poser l’Étape 1 (ressenti) — indispensable pour le cas “situation”
+      stageForAPI = "Intake";         etapeForAPI = 1;
+    }
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
+      // Mémorise le SUD "avant ronde" pour la première comparaison
+      updated.prevSud = updated.sud;
+      setSlots((s) => ({ ...s, prevSud: updated.sud }));
       stageForAPI = "Setup";          etapeForAPI = 5;
     }
     else if (stage === "Setup")       { stageForAPI = "Tapping";      etapeForAPI = 6; }
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
+        // --- Règle delta SUD pour flux physique ---
+        const prev = typeof slots.sud === "number" ? slots.sud : (typeof slots.prevSud === "number" ? slots.prevSud : undefined);
+        const delta = (typeof prev === "number") ? (prev - updated.sud) : 999;
+        if (isPhysicalIntake(slots.intake) && (slots.round ?? 1) >= 1 && delta < 2 && updated.sud > 0) {
+          // Lance mini-flux 3.2
+          setPhys32({ active: true, step: 1, data: {} });
+          setRows(r => [...r, { who: "bot", text:
+            "Comme l’écart de SUD est inférieur à 2 points entre deux rondes, on remonte à l’instant d’apparition (option 3.2).\n\nÉtape 3.2 — Depuis combien de temps as-tu cette douleur ?" }]);
+          setLoading(false);
+          return;
+        }
+
+        // Sinon, si pas à 0 → nouvelle ronde
         if (updated.sud === 0) {
           setRows((r) => [...r, {
             who: "bot",
@@ -419,7 +557,8 @@ export default function Page() {
         } else {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
-          setSlots((s) => ({ ...s, round: nextRound }));
+          updated.prevSud = updated.sud; // mémorise pour la prochaine comparaison
+          setSlots((s) => ({ ...s, round: nextRound, prevSud: updated.sud }));
           stageForAPI = "Setup";      etapeForAPI = 5;
         }
       } else {
@@ -427,6 +566,18 @@ export default function Page() {
       }
     }
     else if (stage === "Réévaluation" && typeof updated.sud === "number") {
+      // --- Règle delta SUD pour flux physique ---
+      const prev = typeof slots.sud === "number" ? slots.sud : (typeof slots.prevSud === "number" ? slots.prevSud : undefined);
+      const delta = (typeof prev === "number") ? (prev - updated.sud) : 999;
+      if (isPhysicalIntake(slots.intake) && (slots.round ?? 1) >= 1 && delta < 2 && updated.sud > 0) {
+        // Lance mini-flux 3.2
+        setPhys32({ active: true, step: 1, data: {} });
+        setRows(r => [...r, { who: "bot", text:
+          "Comme l’écart de SUD est inférieur à 2 points entre deux rondes, on remonte à l’instant d’apparition (option 3.2).\n\nÉtape 3.2 — Depuis combien de temps as-tu cette douleur ?" }]);
+        setLoading(false);
+        return;
+      }
+
       if (updated.sud === 0) {
         setRows((r) => [...r, {
           who: "bot",
@@ -443,7 +594,8 @@ export default function Page() {
       } else if (updated.sud > 0) {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
-        setSlots((s) => ({ ...s, round: nextRound }));
+        updated.prevSud = updated.sud; // mémorise pour la prochaine comparaison
+        setSlots((s) => ({ ...s, round: nextRound, prevSud: updated.sud }));
         stageForAPI = "Setup";        etapeForAPI = 5;
       }
     }
