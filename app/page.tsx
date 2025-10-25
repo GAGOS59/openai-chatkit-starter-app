@@ -37,7 +37,7 @@ type Slots = {
   duration?: string;
   context?: string;
   sud?: number;
-  prevSud?: number;
+  prevSud?: number; // SUD précédent pour tester delta < 2
   round?: number;
   aspect?: string;
 };
@@ -116,50 +116,39 @@ function isPhysicalIntake(intakeText?: string): boolean {
   return /\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/.test(t);
 }
 
-/* Nettoie la localisation tapée au pas 3.2 si l’utilisateur répète la sensation (ex: "serrement dans la poitrine") */
+/* Nettoie la localisation si l’utilisateur répète la sensation */
 function sanitizeLocation(sensation: string, location: string): string {
   let loc = (location || "").trim();
   if (!loc) return "";
   const sens = (sensation || "").trim();
 
-  // Si l'utilisateur retape exactement la sensation, on ne double pas
   if (sens && loc.toLowerCase() === sens.toLowerCase()) return "";
 
-  // Retire les mots de sensation en tête
   loc = loc
     .replace(/^(serrement|pression|tension|douleur|chaleur|vide|poids|br[ûu]lure|brulure|picotement|fourmillement)\b.*?\b(dans|au|à|a|aux|à la|à l’|à l')?\s*/i, "")
     .replace(/^(dans|au|à|a|aux|à la|à l’|à l')\s*/i, "");
 
-  // Compact
   loc = loc.replace(/\s+/g, " ").trim();
   return loc;
 }
 
-/* Fusionne sensation + localisation sans doublon */
+/* Fusion sensation + localisation sans doublon */
 function mergeSensationAndLocation(sensation: string, location: string): string {
   const sens = (sensation || "").trim();
   const loc = sanitizeLocation(sensation, location);
   if (!sens) return loc;
   if (!loc) return sens;
-  // Si la sensation contient déjà la localisation, on n'ajoute pas
   if (sens.toLowerCase().includes(loc.toLowerCase())) return sens;
   return `${sens} ${loc}`;
 }
 
-/* Post-nettoyage côté client des outputs serveur (rappels, doublons, "Cette une …") */
+/* Post-nettoyage côté client (rappels, doublons, “Cette une …”) */
 function fixServerText(t: string): string {
   let s = t;
-
-  // Évite "Cette une ..." ou "Ce une ..."
   s = s.replace(/\b(Cette|Ce)\s+une\b/g, (_m, det) => det);
-
-  // Déduplication basique de sensation répétée (ex: "serrement dans la poitrine serrement dans la poitrine")
   s = s.replace(/\b(serrement dans la poitrine)\b\s+\1/gi, "$1");
   s = s.replace(/\b(douleur [a-zàâéèêëîïôùûç\s]+)\b\s+\1/gi, "$1");
-
-  // Petits espaces/accents cohérents
   s = s.replace(/connecte e/gi, "connecté·e");
-
   return s;
 }
 
@@ -233,11 +222,11 @@ function renderPretty(s: string) {
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
 
-  // On garde tout, mais on enlève juste les labels "Étape X —" et "Setup :"
+  // Retire étiquettes internes
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
 
-  // Sépare le contenu cité « … » du reste pour préserver les instructions finales
+  // Extraire le « … »
   let quoted = "";
   let remainder = "";
   const m = t.match(/«([^»]+)»/);
@@ -287,7 +276,7 @@ function PromoAside() {
             rel="noopener noreferrer"
             className="underline hover:no-underline"
           >
-            Technique-EFT.com
+          Technique-EFT.com
           </a>
         </li>
       </ul>
@@ -342,18 +331,17 @@ export default function Page() {
   const demo = useDemoHelpers(setText);
   const chatRef = useRef<HTMLDivElement>(null);
 
-  // Flag: une gate (oui/non) est-elle ouverte ?
+  // Gate oui/non
   const [awaitingGate, setAwaitingGate] = useState<boolean>(false);
 
-  // Mini-flux 3.2 Physique (delta SUD < 2)
+  // Mini-flux 3.2 Physique (delta SUD < 2) — compacté : 4 étapes (durée → situation → sensation+localisation → SUD)
   const [phys32, setPhys32] = useState<{
     active: boolean;
-    step: 1 | 2 | 3 | 4 | 5;
+    step: 1 | 2 | 3 | 4;
     data: {
       duration?: string;
       situation?: string;
-      sensation?: string;
-      location?: string;
+      sensLoc?: string; // ex: "serrement dans la poitrine"
       sud?: number;
     };
   }>({ active: false, step: 1, data: {} });
@@ -382,7 +370,7 @@ export default function Page() {
     setRows((r) => [...r, { who: "user", text: userText }]);
     setText("");
 
-    // -------- Branche 0 : mini-flux spécial 3.2 Physique (court-circuit) --------
+    // -------- Branche 0 : mini-flux spécial 3.2 Physique (compact) --------
     if (phys32.active) {
       const answer = userText.trim();
 
@@ -397,30 +385,22 @@ export default function Page() {
       if (phys32.step === 2) {
         setPhys32(p => ({ ...p, step: 3, data: { ...p.data, situation: answer } }));
         setRows(r => [...r, { who: "bot", text:
-          `Quand tu penses à « ${answer} », que se passe-t-il dans ton corps ? (serrement, pression, chaleur, vide…)` }]);
+          `Quand tu penses à « ${answer} », que se passe-t-il dans ton corps **et où précisément** ?\nExemples : serrement dans la poitrine, pression dans la tête, chaleur sur mes épaules, vide dans mon cœur…` }]);
         setLoading(false);
         return;
       }
 
       if (phys32.step === 3) {
-        setPhys32(p => ({ ...p, step: 4, data: { ...p.data, sensation: answer } }));
+        // On enregistre directement sensation+localisation en une seule chaîne
+        setPhys32(p => ({ ...p, step: 4, data: { ...p.data, sensLoc: answer } }));
+        const sit = phys32.data.situation || "cette situation";
         setRows(r => [...r, { who: "bot", text:
-          "Où ressens-tu précisément cette sensation ? (poitrine, gorge, ventre…)" }]);
+          `Connecte-toi à ${answer} quand tu penses à « ${sit} ».\nIndique un SUD (0–10).` }]);
         setLoading(false);
         return;
       }
 
       if (phys32.step === 4) {
-        setPhys32(p => ({ ...p, step: 5, data: { ...p.data, location: answer } }));
-        const sit = phys32.data.situation || "cette situation";
-        const sens = phys32.data.sensation || "cette sensation";
-        setRows(r => [...r, { who: "bot", text:
-          `Connecte-toi à ${sens} quand tu penses à « ${sit} ».\nIndique un SUD (0–10).` }]);
-        setLoading(false);
-        return;
-      }
-
-      if (phys32.step === 5) {
         const sud3 = parseSUD(answer);
         if (sud3 === null) {
           setError("👉 Merci d’indiquer un SUD valide entre 0 et 10.");
@@ -429,15 +409,13 @@ export default function Page() {
         }
         const data = { ...phys32.data, sud: sud3 };
         const situation = data.situation || "";
-        const sens = data.sensation || "";
-        const locRaw  = data.location || "";
-        const mergedSens = mergeSensationAndLocation(sens, locRaw);
+        const sensLoc = data.sensLoc || "";
 
         // Appel serveur direct pour Étape 5 (Setup) en mode 'situation'
         const newSlots: Slots = {
           ...slots,
           intake: situation || (slots.intake ?? ""),
-          context: mergedSens,
+          context: sensLoc, // déjà sensation+localisation
           sud: sud3,
           round: 1,
           prevSud: undefined,
@@ -608,7 +586,7 @@ export default function Page() {
           }
           setPhys32({ active: true, step: 1, data: {} });
           setRows(r => [...r, { who: "bot", text:
-            "Comme l’intensité bouge peu, on va remonter au moment d’apparition pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
+            "Comme l’intensité bouge pas ou peu, revenons au moment de l’apparition de cette douleur pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
           setLoading(false);
           return;
         }
@@ -617,8 +595,6 @@ export default function Page() {
         if (updated.sud === 0) {
           // Si on vient d’un détour 3.2, on revient sur la douleur initiale
           if (post32CheckPending && physBackup?.intake) {
-            // Rétablit l’étiquette douleur + redemande SUD
-            const merged = mergeSensationAndLocation(physBackup.detail || "", "");
             setSlots((s) => ({
               ...s,
               intake: physBackup.intake,
@@ -671,7 +647,7 @@ export default function Page() {
         }
         setPhys32({ active: true, step: 1, data: {} });
         setRows(r => [...r, { who: "bot", text:
-          "Comme l’intensité bouge peu, on va remonter au moment d’apparition pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
+          "Comme l’intensité bouge peu, revenons au moment d’apparition pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
         setLoading(false);
         return;
       }
@@ -748,7 +724,7 @@ export default function Page() {
       return;
     }
 
-    // Si le serveur signale une gate ici
+    // Gate/crise/reprise
     const kindInNormalFlow: "gate" | "crisis" | "resume" | undefined =
       raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
 
@@ -904,7 +880,7 @@ export default function Page() {
         </div>
 
         {/* Promo */}
-        <div className="xl:col-span-1 xl:max-h-[72vh] xl:overflow-auto">
+        <div className="xl:col-span-1 xl:max-h=[72vh] xl:overflow-auto">
           <PromoAside />
         </div>
       </div>
