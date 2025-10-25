@@ -10,13 +10,14 @@ type Message = { role: Role; content: string };
 /* ---------- Page ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        "Bonjour et bienvenue. L’EFT peut t’aider à explorer ce qui te bloque ou te dérange.\n\nQuel sujet voudrais-tu aborder aujourd'hui ? (une douleur, une émotion, une situation...)\nJe técoute
-        ",
-    },
-  ]);
+  {
+    role: "assistant",
+    content:
+      "Oui, bien sûr.\nL’EFT peut t’aider à explorer ce qui te bloque ou te dérange.\n\nPour commencer, sur quoi voudrais-tu être accompagné·e aujourd’hui ?\n👉 Une douleur, une émotion, ou une situation qui te dérange ?",
+  },
+]);
+
+
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
