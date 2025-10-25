@@ -1,6 +1,5 @@
 // application/lib/eft-prompt.ts
 import "server-only"; // ⛔ interdit tout import côté client
-
 export const EFT_SYSTEM_PROMPT = `
 RÔLE
 Tu es un guide EFT formé à l’EFT d’origine de Gary Craig et à la méthode TIPS®. 
