@@ -116,7 +116,7 @@ function isPhysicalIntake(intakeText?: string): boolean {
   return /\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/.test(t);
 }
 
-/* Nominalisation générique et sûre (contexte émotionnel) — inchangé depuis ta version précédente */
+/* Nominalisation générique et sûre (contexte émotionnel) */
 function nominalizeSituation(s: string): string {
   const t = (s || "").trim();
   if (!t) return t;
@@ -387,7 +387,7 @@ export default function Page() {
   // Gate oui/non
   const [awaitingGate, setAwaitingGate] = useState<boolean>(false);
 
-  // Mini-flux 3.2 Physique (delta SUD < 2) — compacté : 4 étapes (durée → situation → sensation+localisation → SUD)
+  // Mini-flux 3.2 Physique (delta SUD < 2) — compact : 4 étapes
   const [phys32, setPhys32] = useState<{
     active: boolean;
     step: 1 | 2 | 3 | 4;
@@ -401,6 +401,7 @@ export default function Page() {
 
   // Sauvegarde de la douleur initiale pour la réévaluation finale après 3.2
   const [physBackup, setPhysBackup] = useState<{ intake?: string; detail?: string } | null>(null);
+  // Flag : on attend la RÉPONSE de réévaluation post-3.2 (ne pas relancer de setup si 0)
   const [post32CheckPending, setPost32CheckPending] = useState<boolean>(false);
 
   // Évite le doublon de setup (si l’utilisateur tape "OK"/"d'accord" sans SUD)
@@ -514,6 +515,7 @@ export default function Page() {
         setJustShowedSetup(true);
 
         setPhys32({ active: false, step: 1, data: {} });
+        // 👉 On attend maintenant la RÉPONSE à la réévaluation de la douleur initiale (ne pas clear ici)
         setPost32CheckPending(true);
         setStage("Tapping");
         setEtape(6);
@@ -637,6 +639,25 @@ export default function Page() {
     }
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
+      // ✳️ Cas particulier : juste après la 3.2 on redemande la douleur — si 0, on conclut directement
+      if (post32CheckPending) {
+        if (updated.sud === 0) {
+          setPost32CheckPending(false);
+          setRows((r) => [...r, { who: "bot", text:
+            "Bravo pour le travail fourni. Félicitations pour cette belle avancée.\n" +
+            "Maintenant, accorde-toi un moment pour t'hydrater et te reposer un instant. Offre-toi ce moment !\n\n" +
+            "Si tu souhaites travailler sur un nouveau sujet, rafraîchis d'abord la page.\n\n" +
+            "Rappelle-toi que ce guide est éducatif et ne remplace pas un avis médical."
+          }]);
+          setStage("Clôture");
+          setEtape(8);
+          setLoading(false);
+          return;
+        }
+        // sinon on continue le flux normal (setup) et on purge le flag
+        setPost32CheckPending(false);
+      }
+
       if (isPhysicalIntake(updated.intake)) {
         setPhysBackup({ intake: updated.intake, detail: updated.context });
       }
@@ -663,15 +684,7 @@ export default function Page() {
 
         if (updated.sud === 0) {
           if (post32CheckPending && physBackup?.intake) {
-            setSlots((s) => ({
-              ...s,
-              intake: physBackup.intake,
-              context: physBackup.detail || s.context,
-              sud: undefined,
-              prevSud: undefined,
-              round: 1,
-            }));
-            setPost32CheckPending(false);
+            // On NE purge PAS ici : on veut attendre la réévaluation et décider à ce moment
             setRows(r => [...r, { who: "bot", text:
               "Bien. Maintenant que la réaction liée au contexte est apaisée, revenons sur la douleur initiale.\nPeux-tu évaluer de nouveau la douleur en précisant sa localisation ? (0–10)" }]);
             setStage("Évaluation");
@@ -720,15 +733,7 @@ export default function Page() {
 
       if (updated.sud === 0) {
         if (post32CheckPending && physBackup?.intake) {
-          setSlots((s) => ({
-            ...s,
-            intake: physBackup.intake,
-            context: physBackup.detail || s.context,
-            sud: undefined,
-            prevSud: undefined,
-            round: 1,
-          }));
-          setPost32CheckPending(false);
+          // Même logique que dans Tapping: on demande la réévaluation douleur
           setRows(r => [...r, { who: "bot", text:
             "Bien. Maintenant que la réaction liée au contexte est apaisée, revenons sur la douleur initiale.\nPeux-tu évaluer de nouveau la douleur en précisant sa localisation ? (0–10)" }]);
           setStage("Évaluation");
