@@ -37,7 +37,7 @@ type Slots = {
   duration?: string;
   context?: string;
   sud?: number;
-  prevSud?: number; // 👈 mémorise le SUD précédent pour calculer le delta entre rondes
+  prevSud?: number;
   round?: number;
   aspect?: string;
 };
@@ -116,6 +116,53 @@ function isPhysicalIntake(intakeText?: string): boolean {
   return /\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/.test(t);
 }
 
+/* Nettoie la localisation tapée au pas 3.2 si l’utilisateur répète la sensation (ex: "serrement dans la poitrine") */
+function sanitizeLocation(sensation: string, location: string): string {
+  let loc = (location || "").trim();
+  if (!loc) return "";
+  const sens = (sensation || "").trim();
+
+  // Si l'utilisateur retape exactement la sensation, on ne double pas
+  if (sens && loc.toLowerCase() === sens.toLowerCase()) return "";
+
+  // Retire les mots de sensation en tête
+  loc = loc
+    .replace(/^(serrement|pression|tension|douleur|chaleur|vide|poids|br[ûu]lure|brulure|picotement|fourmillement)\b.*?\b(dans|au|à|a|aux|à la|à l’|à l')?\s*/i, "")
+    .replace(/^(dans|au|à|a|aux|à la|à l’|à l')\s*/i, "");
+
+  // Compact
+  loc = loc.replace(/\s+/g, " ").trim();
+  return loc;
+}
+
+/* Fusionne sensation + localisation sans doublon */
+function mergeSensationAndLocation(sensation: string, location: string): string {
+  const sens = (sensation || "").trim();
+  const loc = sanitizeLocation(sensation, location);
+  if (!sens) return loc;
+  if (!loc) return sens;
+  // Si la sensation contient déjà la localisation, on n'ajoute pas
+  if (sens.toLowerCase().includes(loc.toLowerCase())) return sens;
+  return `${sens} ${loc}`;
+}
+
+/* Post-nettoyage côté client des outputs serveur (rappels, doublons, "Cette une …") */
+function fixServerText(t: string): string {
+  let s = t;
+
+  // Évite "Cette une ..." ou "Ce une ..."
+  s = s.replace(/\b(Cette|Ce)\s+une\b/g, (_m, det) => det);
+
+  // Déduplication basique de sensation répétée (ex: "serrement dans la poitrine serrement dans la poitrine")
+  s = s.replace(/\b(serrement dans la poitrine)\b\s+\1/gi, "$1");
+  s = s.replace(/\b(douleur [a-zàâéèêëîïôùûç\s]+)\b\s+\1/gi, "$1");
+
+  // Petits espaces/accents cohérents
+  s = s.replace(/connecte e/gi, "connecté·e");
+
+  return s;
+}
+
 /* ---------- Rendu / liens ---------- */
 function linkify(text: string): React.ReactNode[] {
   const URL_RX =
@@ -182,18 +229,35 @@ function renderPretty(s: string) {
   );
 }
 
-/** Nettoyage d’affichage : retire "Étape X —" et "Setup :", habille le Setup */
+/** Nettoyage d’affichage : retire "Étape X —" et "Setup :", habille le Setup en conservant les lignes suivantes (OK, etc.) */
 function cleanAnswerForDisplay(ans: string, stage: Stage): string {
   let t = (ans || "").trim();
+
+  // On garde tout, mais on enlève juste les labels "Étape X —" et "Setup :"
   t = t.replace(/^\s*Étape\s*\d+\s*—\s*/gmi, "");
   t = t.replace(/^\s*Setup\s*:?\s*/gmi, "");
-  if (stage === "Setup") {
-    const core = t.replace(/^«\s*|\s*»$/g, "").trim();
-    t = `Reste bien connecté·e à ton ressenti
-et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois à voix haute :
-« ${core} »`;
+
+  // Sépare le contenu cité « … » du reste pour préserver les instructions finales
+  let quoted = "";
+  let remainder = "";
+  const m = t.match(/«([^»]+)»/);
+  if (m) {
+    quoted = m[1].trim();
+    remainder = (t.slice(0, m.index || 0) + t.slice((m.index || 0) + m[0].length)).trim();
+  } else {
+    remainder = t;
   }
-  return t;
+
+  if (stage === "Setup" && quoted) {
+    const wrapped =
+      `Reste bien connecté·e à ton ressenti\n` +
+      `et, en tapotant le Point Karaté (tranche de la main), répète cette phrase 3 fois à voix haute :\n` +
+      `« ${quoted} »`;
+    const tail = remainder ? `\n${remainder}` : "";
+    return fixServerText(`${wrapped}${tail}`);
+  }
+
+  return fixServerText(t);
 }
 
 /* ---------- Colonne promo ---------- */
@@ -294,6 +358,10 @@ export default function Page() {
     };
   }>({ active: false, step: 1, data: {} });
 
+  // Sauvegarde de la douleur initiale pour la réévaluation finale après 3.2
+  const [physBackup, setPhysBackup] = useState<{ intake?: string; detail?: string } | null>(null);
+  const [post32CheckPending, setPost32CheckPending] = useState<boolean>(false);
+
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [rows]);
@@ -321,7 +389,7 @@ export default function Page() {
       if (phys32.step === 1) {
         setPhys32(p => ({ ...p, step: 2, data: { ...p.data, duration: answer } }));
         setRows(r => [...r, { who: "bot", text:
-          "Étape 3.2 — Situation initiale\nQue se passait-il dans ta vie à ce moment-là ? (décris en une phrase)\n\n⚠️ S'il s'agit d'une situation difficile à évoquer, rapproche-toi d’un·e praticien·ne EFT de confiance. Et rappelle-toi que l’EFT ne remplace pas l’avis de ton médecin." }]);
+          "Merci. Que se passait-il dans ta vie à ce moment-là ? (décris en une phrase)\n\n⚠️ Si c’est difficile à évoquer, rapproche-toi d’un·e praticien·ne EFT de confiance. L’EFT ne remplace pas l’avis de ton médecin." }]);
         setLoading(false);
         return;
       }
@@ -329,7 +397,7 @@ export default function Page() {
       if (phys32.step === 2) {
         setPhys32(p => ({ ...p, step: 3, data: { ...p.data, situation: answer } }));
         setRows(r => [...r, { who: "bot", text:
-          `Étape 3.2 — Sensation\nQue se passe-t-il dans ton corps lorsque tu penses à « ${answer} » ? Décris brièvement la sensation (serrement, pression, chaleur, vide…).` }]);
+          `Quand tu penses à « ${answer} », que se passe-t-il dans ton corps ? (serrement, pression, chaleur, vide…)` }]);
         setLoading(false);
         return;
       }
@@ -337,7 +405,7 @@ export default function Page() {
       if (phys32.step === 3) {
         setPhys32(p => ({ ...p, step: 4, data: { ...p.data, sensation: answer } }));
         setRows(r => [...r, { who: "bot", text:
-          "Étape 3.2 — Localisation\nOù ressens-tu cette sensation ? (poitrine, gorge, ventre…)" }]);
+          "Où ressens-tu précisément cette sensation ? (poitrine, gorge, ventre…)" }]);
         setLoading(false);
         return;
       }
@@ -347,7 +415,7 @@ export default function Page() {
         const sit = phys32.data.situation || "cette situation";
         const sens = phys32.data.sensation || "cette sensation";
         setRows(r => [...r, { who: "bot", text:
-          `Étape 3.2 — SUD\nConnecte-toi à ${sens} quand tu penses à « ${sit} ».\nIndique un SUD (0–10).` }]);
+          `Connecte-toi à ${sens} quand tu penses à « ${sit} ».\nIndique un SUD (0–10).` }]);
         setLoading(false);
         return;
       }
@@ -362,9 +430,10 @@ export default function Page() {
         const data = { ...phys32.data, sud: sud3 };
         const situation = data.situation || "";
         const sens = data.sensation || "";
-        const loc  = data.location ? ` ${data.location}` : "";
-        const mergedSens = `${sens}${loc}`.trim();
+        const locRaw  = data.location || "";
+        const mergedSens = mergeSensationAndLocation(sens, locRaw);
 
+        // Appel serveur direct pour Étape 5 (Setup) en mode 'situation'
         const newSlots: Slots = {
           ...slots,
           intake: situation || (slots.intake ?? ""),
@@ -376,7 +445,6 @@ export default function Page() {
         };
         setSlots(newSlots);
 
-        // Appel serveur direct pour Étape 5 (Setup) en mode 'situation'
         let raw: ApiResponse | undefined;
         try {
           const res = await fetch("/api/guide-eft", {
@@ -409,6 +477,7 @@ export default function Page() {
 
         // On sort du mode 3.2, on passe à la ronde habituelle
         setPhys32({ active: false, step: 1, data: {} });
+        setPost32CheckPending(true); // à SUD=0 après cette cible, on reviendra sur la douleur initiale
         setStage("Tapping");
         setEtape(6);
         setLoading(false);
@@ -419,7 +488,7 @@ export default function Page() {
       return;
     }
 
-    // -------- Branche 1 : si une GATE est ouverte, on ne touche à rien localement --------
+    // -------- Branche 1 : si une GATE est ouverte --------
     if (awaitingGate) {
       const transcriptShort = rows
         .map((r) => (r.who === "user" ? `U: ${r.text}` : `A: ${r.text}`))
@@ -461,7 +530,6 @@ export default function Page() {
         return;
       }
       if (kind === "resume") {
-        // NON → accusé + retour à l’accueil
         setAwaitingGate(false);
         setStage("Intake");
         setEtape(1);
@@ -469,7 +537,6 @@ export default function Page() {
         setLoading(false);
         return;
       }
-      // Encore une gate → on reste en attente
       setAwaitingGate(true);
       setLoading(false);
       return;
@@ -515,12 +582,14 @@ export default function Page() {
     let etapeForAPI = etape;
 
     if (stage === "Intake") {
-      // On laisse le serveur poser l’Étape 1 (ressenti) — indispensable pour le cas “situation”
       stageForAPI = "Intake";         etapeForAPI = 1;
     }
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
-      // Mémorise le SUD "avant ronde" pour la première comparaison
+      // Mémorise la douleur initiale si flux physique (pour le retour post-3.2)
+      if (isPhysicalIntake(updated.intake)) {
+        setPhysBackup({ intake: updated.intake, detail: updated.context });
+      }
       updated.prevSud = updated.sud;
       setSlots((s) => ({ ...s, prevSud: updated.sud }));
       stageForAPI = "Setup";          etapeForAPI = 5;
@@ -531,17 +600,43 @@ export default function Page() {
         // --- Règle delta SUD pour flux physique ---
         const prev = typeof slots.sud === "number" ? slots.sud : (typeof slots.prevSud === "number" ? slots.prevSud : undefined);
         const delta = (typeof prev === "number") ? (prev - updated.sud) : 999;
+
         if (isPhysicalIntake(slots.intake) && (slots.round ?? 1) >= 1 && delta < 2 && updated.sud > 0) {
-          // Lance mini-flux 3.2
+          // Sauvegarde douleur avant de basculer vers 3.2
+          if (!physBackup && isPhysicalIntake(slots.intake)) {
+            setPhysBackup({ intake: slots.intake, detail: slots.context });
+          }
           setPhys32({ active: true, step: 1, data: {} });
           setRows(r => [...r, { who: "bot", text:
-            "Comme l’écart de SUD est inférieur à 2 points entre deux rondes, on remonte à l’instant d’apparition (option 3.2).\n\nÉtape 3.2 — Depuis combien de temps as-tu cette douleur ?" }]);
+            "Comme l’intensité bouge peu, on va remonter au moment d’apparition pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
           setLoading(false);
           return;
         }
 
-        // Sinon, si pas à 0 → nouvelle ronde
+        // Gestion fin de cible
         if (updated.sud === 0) {
+          // Si on vient d’un détour 3.2, on revient sur la douleur initiale
+          if (post32CheckPending && physBackup?.intake) {
+            // Rétablit l’étiquette douleur + redemande SUD
+            const merged = mergeSensationAndLocation(physBackup.detail || "", "");
+            setSlots((s) => ({
+              ...s,
+              intake: physBackup.intake,
+              context: physBackup.detail || s.context,
+              sud: undefined,
+              prevSud: undefined,
+              round: 1,
+            }));
+            setPost32CheckPending(false);
+            setRows(r => [...r, { who: "bot", text:
+              "Bien. Maintenant que la réaction liée au contexte est apaisée, revenons sur la douleur initiale.\nPeux-tu évaluer de nouveau la douleur en précisant sa localisation ? (0–10)" }]);
+            setStage("Évaluation");
+            setEtape(4);
+            setLoading(false);
+            return;
+          }
+
+          // Sinon, clôture standard
           setRows((r) => [...r, {
             who: "bot",
             text:
@@ -557,7 +652,7 @@ export default function Page() {
         } else {
           const nextRound = (updated.round ?? 1) + 1;
           updated.round = nextRound;
-          updated.prevSud = updated.sud; // mémorise pour la prochaine comparaison
+          updated.prevSud = updated.sud;
           setSlots((s) => ({ ...s, round: nextRound, prevSud: updated.sud }));
           stageForAPI = "Setup";      etapeForAPI = 5;
         }
@@ -569,16 +664,37 @@ export default function Page() {
       // --- Règle delta SUD pour flux physique ---
       const prev = typeof slots.sud === "number" ? slots.sud : (typeof slots.prevSud === "number" ? slots.prevSud : undefined);
       const delta = (typeof prev === "number") ? (prev - updated.sud) : 999;
+
       if (isPhysicalIntake(slots.intake) && (slots.round ?? 1) >= 1 && delta < 2 && updated.sud > 0) {
-        // Lance mini-flux 3.2
+        if (!physBackup && isPhysicalIntake(slots.intake)) {
+          setPhysBackup({ intake: slots.intake, detail: slots.context });
+        }
         setPhys32({ active: true, step: 1, data: {} });
         setRows(r => [...r, { who: "bot", text:
-          "Comme l’écart de SUD est inférieur à 2 points entre deux rondes, on remonte à l’instant d’apparition (option 3.2).\n\nÉtape 3.2 — Depuis combien de temps as-tu cette douleur ?" }]);
+          "Comme l’intensité bouge peu, on va remonter au moment d’apparition pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
         setLoading(false);
         return;
       }
 
       if (updated.sud === 0) {
+        if (post32CheckPending && physBackup?.intake) {
+          setSlots((s) => ({
+            ...s,
+            intake: physBackup.intake,
+            context: physBackup.detail || s.context,
+            sud: undefined,
+            prevSud: undefined,
+            round: 1,
+          }));
+          setPost32CheckPending(false);
+          setRows(r => [...r, { who: "bot", text:
+            "Bien. Maintenant que la réaction liée au contexte est apaisée, revenons sur la douleur initiale.\nPeux-tu évaluer de nouveau la douleur en précisant sa localisation ? (0–10)" }]);
+          setStage("Évaluation");
+          setEtape(4);
+          setLoading(false);
+          return;
+        }
+
         setRows((r) => [...r, {
           who: "bot",
           text:
@@ -594,7 +710,7 @@ export default function Page() {
       } else if (updated.sud > 0) {
         const nextRound = (updated.round ?? 1) + 1;
         updated.round = nextRound;
-        updated.prevSud = updated.sud; // mémorise pour la prochaine comparaison
+        updated.prevSud = updated.sud;
         setSlots((s) => ({ ...s, round: nextRound, prevSud: updated.sud }));
         stageForAPI = "Setup";        etapeForAPI = 5;
       }
@@ -632,7 +748,7 @@ export default function Page() {
       return;
     }
 
-    // Si le serveur signale une gate ici (ex : 1er message = “suicide”)
+    // Si le serveur signale une gate ici
     const kindInNormalFlow: "gate" | "crisis" | "resume" | undefined =
       raw && "answer" in raw ? (raw as { answer: string; kind?: "gate" | "crisis" | "resume" }).kind : undefined;
 
@@ -640,7 +756,7 @@ export default function Page() {
       setAwaitingGate(true);
       setRows((r) => [...r, { who: "bot", text: (raw as { answer: string }).answer }]);
       setLoading(false);
-      return; // on n’avance PAS
+      return;
     }
     if (kindInNormalFlow === "crisis") {
       setAwaitingGate(false);
@@ -652,7 +768,6 @@ export default function Page() {
       return;
     }
     if (kindInNormalFlow === "resume") {
-      // Par sécurité (rare ici), revenir accueil
       setAwaitingGate(false);
       setStage("Intake");
       setEtape(1);
@@ -666,7 +781,7 @@ export default function Page() {
       return;
     }
 
-    // Affichage normal
+    // Affichage normal (avec nettoyage)
     const answer: string = raw && "answer" in raw ? raw.answer : "";
     const cleaned = cleanAnswerForDisplay(answer, stageForAPI);
     setRows((r) => [...r, { who: "bot", text: cleaned }]);
@@ -721,7 +836,6 @@ export default function Page() {
                           type="button"
                           onClick={() => demo.fill(s)}
                           className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
-                          title={`Insérer: ${s}`}
                         >
                           {i + 1}
                         </button>
