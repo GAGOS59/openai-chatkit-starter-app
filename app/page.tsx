@@ -13,7 +13,8 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour et bienvenue. Dis-moi en une phrase : sur quoi souhaites-tu travailler aujourd’hui ?",
+        "Bonjour et bienvenue. L’EFT peut t’aider à explorer ce qui te bloque ou te dérange.\n\nQuel sujet voudrais-tu aborder aujourd'hui ? (une douleur, une émotion, une situation...)\nJe técoute
+        ",
     },
   ]);
   const [input, setInput] = useState<string>("");
