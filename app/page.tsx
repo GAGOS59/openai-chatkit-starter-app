@@ -130,8 +130,8 @@ export default function Page() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
-          placeholder="Écrivez ici… (ex. « J’ai mal au genou », « Je me sens anxieuse », …)"
-          aria-label="Saisissez votre message"
+          placeholder="Écris ici… (ex. « J’ai mal au genou », « Je me sens anxieuse », …)"
+          aria-label="Saisis ton message"
           disabled={loading}
         />
         <button
