@@ -116,80 +116,53 @@ function isPhysicalIntake(intakeText?: string): boolean {
   return /\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/.test(t);
 }
 
-/* Nominalisation générique et sûre : convertit certaines formulations verbales en SN nominalisés.
-   Exemples :
-   - "je me dispute avec X"        → "cette dispute avec X"
-   - "je me suis disputée avec X"  → "cette dispute avec X"
-   - "je me sens coupable de Y"    → "cette culpabilité à propos de Y"
-   - "j'ai honte de Y"             → "cette honte à propos de Y"
-   - "je suis en colère contre X"  → "cette colère contre X"
-   - "je suis anxieux à propos de Y" / "je stresse pour Y" → "cette anxiété …" / "ce stress …"
-   - "je suis inquiet pour Y"      → "cette inquiétude pour Y"
-   - "je me sens dégoûté(e) par Y" → "ce dégoût pour Y"
-   ⚠️ Ne touche pas aux cas déjà nominalisés ("ce …", "cette …") et n’essaie pas
-      de nominaliser le physique (douleur/mal) pour ne pas interférer avec le flux douleur. */
+/* Nominalisation générique et sûre (contexte émotionnel) */
 function nominalizeSituation(s: string): string {
   const t = (s || "").trim();
   if (!t) return t;
 
-  // Déjà nominalisé ? On ne touche pas.
+  // Si déjà nominalisé, on ne touche pas
   if (/^(?:ce|cet|cette|ces)\s+/i.test(t)) return t;
 
-  // Heuristique : si ça semble déjà être un "événement" nominal (rupture, séparation, déménagement, accident, licenciement, examen…),
-  // on laisse tel quel pour ne pas sur-transformer.
+  // Événements déjà nominaux → on laisse
   if (/\b(rupture|séparation|separation|déménagement|deménagement|accident|licenciement|examen|concours|audition|entretien|procès|proces)\b/i.test(t)) {
     return t;
   }
 
-  // Ne pas toucher aux énoncés de douleur/physique (autre flux)
+  // Ignore les physiques
   if (/\b(mal|douleur|tension|gêne|gene|crispation|serrement|br[ûu]lure|brulure|tiraillement|spasme|inflammation)\b/i.test(t)) {
     return t;
   }
 
-  // Déterminant selon le nom
   function detFor(noun: string): "ce" | "cette" {
     const n = noun.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
     const fem = new Set(["dispute","culpabilite","honte","colere","anxiete","angoisse","tristesse","inquietude","peur","gêne","gene","tension"]);
     return fem.has(n) ? "cette" : "ce";
   }
 
-  // Règles (plus spécifiques d’abord)
   const rules: Array<{ rx: RegExp; to: (m: RegExpExecArray) => string }> = [
-    // se disputer avec …
     { rx: /^je\s+me\s+(?:suis\s+)?disput(?:e|é|ée)\s+avec\s+(.+)$/i,
       to: m => `cette dispute avec ${m[1].trim()}` },
-
-    // colère
     { rx: /^je\s+suis\s+en\s+col[eè]re\s+(?:contre|envers|a(?:\s+propos\s+de)?)\s+(.+)$/i,
       to: m => `cette colère contre ${m[1].trim()}` },
-
-    // honte / culpabilité
     { rx: /^j['’]?\s*ai\s+honte\s+(?:de|d['’])\s+(.+)$/i,
       to: m => `cette honte à propos de ${m[1].trim()}` },
     { rx: /^je\s+me\s+sens\s+coupabl(?:e|es?)\s+(?:de|d['’])\s+(.+)$/i,
       to: m => `cette culpabilité à propos de ${m[1].trim()}` },
-
-    // anxiété / stress / inquiétude
     { rx: /^je\s+suis\s+anxieu(?:x|se)\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i,
       to: m => `cette anxiété à propos de ${m[1].trim()}` },
     { rx: /^je\s+stresse\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i,
       to: m => `ce stress à propos de ${m[1].trim()}` },
     { rx: /^je\s+suis\s+inqui[eè]t(?:e)?\s+(?:pour|a\s+propos\s+de)\s+(.+)$/i,
       to: m => `cette inquiétude pour ${m[1].trim()}` },
-
-    // peur / crainte
     { rx: /^j['’]?\s*ai\s+peur\s+(?:de|du|des|d['’])\s+(.+)$/i,
       to: m => `cette peur de ${m[1].trim()}` },
     { rx: /^je\s+crains?\s+(.+)$/i,
       to: m => `cette crainte de ${m[1].trim()}` },
-
-    // tristesse / dégoût ressentis
     { rx: /^je\s+me\s+sens\s+triste\s+(?:a\s+propos\s+de|pour|par)\s+(.+)$/i,
       to: m => `cette tristesse à propos de ${m[1].trim()}` },
     { rx: /^je\s+me\s+sens\s+d[ée]go[uû]t[ée]?\s+(?:par|de)\s+(.+)$/i,
       to: m => `ce dégoût pour ${m[1].trim()}` },
-
-    // Forme générique : "je me sens X (de/à propos de Y)" → "ce/cette X …"
     { rx: /^je\s+me\s+sens\s+([a-zàâéèêëîïôùûç-]+)\s+(?:de|d['’]|a\s+propos\s+de|pour)\s+(.+)$/i,
       to: m => {
         const adj = m[1].trim().toLowerCase();
@@ -213,12 +186,8 @@ function nominalizeSituation(s: string): string {
     const m = rx.exec(t);
     if (m) return to(m);
   }
-
-  // Par défaut : on ne change rien.
   return t;
 }
-
-
 
 /* Nettoie la localisation si l’utilisateur répète la sensation */
 function sanitizeLocation(sensation: string, location: string): string {
@@ -253,6 +222,7 @@ function fixServerText(t: string): string {
   s = s.replace(/\b(serrement dans la poitrine)\b\s+\1/gi, "$1");
   s = s.replace(/\b(douleur [a-zàâéèêëîïôùûç\s]+)\b\s+\1/gi, "$1");
   s = s.replace(/connecte e/gi, "connecté·e");
+  s = s.replace(/\bcoeur\b/gi, "cœur");
   return s;
 }
 
@@ -380,7 +350,7 @@ function PromoAside() {
             rel="noopener noreferrer"
             className="underline hover:no-underline"
           >
-          Technique-EFT.com
+            Technique-EFT.com
           </a>
         </li>
       </ul>
@@ -454,6 +424,9 @@ export default function Page() {
   const [physBackup, setPhysBackup] = useState<{ intake?: string; detail?: string } | null>(null);
   const [post32CheckPending, setPost32CheckPending] = useState<boolean>(false);
 
+  // Évite le doublon de setup (si l’utilisateur tape "OK"/"d'accord" sans SUD)
+  const [justShowedSetup, setJustShowedSetup] = useState<boolean>(false);
+
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
   }, [rows]);
@@ -487,17 +460,20 @@ export default function Page() {
       }
 
       if (phys32.step === 2) {
-        setPhys32(p => ({ ...p, step: 3, data: { ...p.data, situation: answer } }));
+        const sitNoun = nominalizeSituation(answer);
+        setPhys32(p => ({ ...p, step: 3, data: { ...p.data, situation: sitNoun } }));
+        const promptSituation = nominalizeSituation(sitNoun); // fallback de sécurité
         setRows(r => [...r, { who: "bot", text:
-          `Quand tu penses à « ${answer} », que se passe-t-il dans ton corps **et où précisément** ?\nExemples : serrement dans la poitrine, pression dans la tête, chaleur sur mes épaules, vide dans mon cœur…` }]);
+          `Quand tu penses à « ${promptSituation} », que se passe-t-il dans ton corps **et où précisément** ?\nExemples : serrement dans la poitrine, pression dans la tête, chaleur sur mes épaules, vide dans mon cœur…` }]);
         setLoading(false);
         return;
       }
 
       if (phys32.step === 3) {
-        // On enregistre directement sensation+localisation en une seule chaîne
+        // On enregistre directement sensation+localisation
         setPhys32(p => ({ ...p, step: 4, data: { ...p.data, sensLoc: answer } }));
-        const sit = phys32.data.situation || "cette situation";
+        const sitRaw = phys32.data.situation || "cette situation";
+        const sit = nominalizeSituation(sitRaw); // fallback de sécurité
         setRows(r => [...r, { who: "bot", text:
           `Connecte-toi à ${answer} quand tu penses à « ${sit} ».\nIndique un SUD (0–10).` }]);
         setLoading(false);
@@ -512,14 +488,15 @@ export default function Page() {
           return;
         }
         const data = { ...phys32.data, sud: sud3 };
-        const situation = data.situation || "";
+        const situationRaw = data.situation || "";
+        const situation = nominalizeSituation(situationRaw); // 👉 IMPORTANT : nominalisation avant envoi serveur
         const sensLoc = data.sensLoc || "";
 
         // Appel serveur direct pour Étape 5 (Setup) en mode 'situation'
         const newSlots: Slots = {
           ...slots,
-          intake: situation || (slots.intake ?? ""),
-          context: sensLoc, // déjà sensation+localisation
+          intake: situation,          // ← garanti nominal
+          context: sensLoc,           // sensation + localisation
           sud: sud3,
           round: 1,
           prevSud: undefined,
@@ -556,6 +533,7 @@ export default function Page() {
         const answerTxt: string = raw && "answer" in raw ? raw.answer : "";
         const cleaned = cleanAnswerForDisplay(answerTxt, "Setup");
         setRows(r => [...r, { who: "bot", text: cleaned }]);
+        setJustShowedSetup(true); // évite le doublon de setup
 
         // On sort du mode 3.2, on passe à la ronde habituelle
         setPhys32({ active: false, step: 1, data: {} });
@@ -646,9 +624,23 @@ export default function Page() {
       if (sud2 !== null) updated.sud = sud2;
     }
 
+    // Gestion spéciale : si on est juste après un setup et que l’utilisateur tape "OK"/"d'accord" sans SUD → demander SUD sans relancer setup
     if (stage === "Tapping") {
       const sudInline = parseSUD(userText);
-      if (sudInline !== null) updated.sud = sudInline;
+
+      if (sudInline === null && justShowedSetup) {
+        setRows(r => [...r, { who: "bot", text: "Indique ton SUD (0–10)." }]);
+        setStage("Réévaluation");
+        setEtape(7);
+        setJustShowedSetup(false);
+        setLoading(false);
+        return;
+      }
+
+      if (sudInline !== null) {
+        updated.sud = sudInline;
+        setJustShowedSetup(false);
+      }
     }
 
     // Aspect
@@ -668,7 +660,6 @@ export default function Page() {
     }
     else if (stage === "Contexte")    { stageForAPI = "Évaluation";   etapeForAPI = 4; }
     else if (stage === "Évaluation" && typeof updated.sud === "number") {
-      // Mémorise la douleur initiale si flux physique (pour le retour post-3.2)
       if (isPhysicalIntake(updated.intake)) {
         setPhysBackup({ intake: updated.intake, detail: updated.context });
       }
@@ -679,12 +670,10 @@ export default function Page() {
     else if (stage === "Setup")       { stageForAPI = "Tapping";      etapeForAPI = 6; }
     else if (stage === "Tapping") {
       if (typeof updated.sud === "number") {
-        // --- Règle delta SUD pour flux physique ---
         const prev = typeof slots.sud === "number" ? slots.sud : (typeof slots.prevSud === "number" ? slots.prevSud : undefined);
         const delta = (typeof prev === "number") ? (prev - updated.sud) : 999;
 
         if (isPhysicalIntake(slots.intake) && (slots.round ?? 1) >= 1 && delta < 2 && updated.sud > 0) {
-          // Sauvegarde douleur avant de basculer vers 3.2
           if (!physBackup && isPhysicalIntake(slots.intake)) {
             setPhysBackup({ intake: slots.intake, detail: slots.context });
           }
@@ -695,9 +684,7 @@ export default function Page() {
           return;
         }
 
-        // Gestion fin de cible
         if (updated.sud === 0) {
-          // Si on vient d’un détour 3.2, on revient sur la douleur initiale
           if (post32CheckPending && physBackup?.intake) {
             setSlots((s) => ({
               ...s,
@@ -716,7 +703,6 @@ export default function Page() {
             return;
           }
 
-          // Sinon, clôture standard
           setRows((r) => [...r, {
             who: "bot",
             text:
@@ -741,7 +727,6 @@ export default function Page() {
       }
     }
     else if (stage === "Réévaluation" && typeof updated.sud === "number") {
-      // --- Règle delta SUD pour flux physique ---
       const prev = typeof slots.sud === "number" ? slots.sud : (typeof slots.prevSud === "number" ? slots.prevSud : undefined);
       const delta = (typeof prev === "number") ? (prev - updated.sud) : 999;
 
@@ -751,7 +736,7 @@ export default function Page() {
         }
         setPhys32({ active: true, step: 1, data: {} });
         setRows(r => [...r, { who: "bot", text:
-          "Comme l’intensité bouge peu, revenons au moment d’apparition pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
+          "Comme l’intensité bouge pas ou peu, revenons au moment de l’apparition de cette douleur pour être plus précis.\nDepuis quand as-tu cette douleur ?" }]);
         setLoading(false);
         return;
       }
@@ -984,13 +969,13 @@ export default function Page() {
         </div>
 
         {/* Promo */}
-        <div className="xl:col-span-1 xl:max-h=[72vh] xl:overflow-auto">
+        <div className="xl:col-span-1 xl:max-h-[72vh] xl:overflow-auto">
           <PromoAside />
         </div>
       </div>
 
       {/* Note de prudence */}
-      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
+      <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
         <strong className="block mb-1">Note de prudence</strong>
         <p className="text-sm leading-relaxed">
           Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
