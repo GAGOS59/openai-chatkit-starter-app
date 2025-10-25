@@ -1,3 +1,4 @@
+// app/api/guide-eft/route.ts
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -306,43 +307,43 @@ export async function POST(req: Request) {
     const etape = Number.isFinite(raw.etape) ? Math.min(8, Math.max(1, Number(raw.etape))) : 1;
 
     /* ---- Barrière de sécurité oui/non (ordre strict) ---- */
-if (prompt) {
-  const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
-  const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
+    if (prompt) {
+      const ynIfAny: 'yes' | 'no' | 'unknown' = interpretYesNoServer(prompt);
+      const askedBefore: boolean = lastBotAskedSuicideQuestion(transcript);
 
-  if (askedBefore && ynIfAny === "yes") {
-    return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
-  }
-  if (askedBefore && ynIfAny === "no") {
-    return NextResponse.json({
-      answer:
-        "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
-        "En quoi puis-je vous aider ?",
-      kind: "resume" as const,
-    });
-  }
-  if (!askedBefore && ynIfAny === "yes") {
-    return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
-  }
-  if (!askedBefore && ynIfAny === "no") {
-    return NextResponse.json({
-      answer:
-        "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
-        "En quoi puis-je vous aider ?",
-      kind: "resume" as const,
-    });
-  }
-  if (isCrisis(prompt)) {
-    return NextResponse.json({
-      answer: "Avez-vous des idées suicidaires ? (oui / non)",
-      kind: "gate" as const,
-    });
-  }
-}
+      if (askedBefore && ynIfAny === "yes") {
+        return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
+      }
+      if (askedBefore && ynIfAny === "no") {
+        return NextResponse.json({
+          answer:
+            "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
+            "En quoi puis-je vous aider ?",
+          kind: "resume" as const,
+        });
+      }
+      if (!askedBefore && ynIfAny === "yes") {
+        return NextResponse.json({ answer: crisisMessage(), kind: "crisis" as const });
+      }
+      if (!askedBefore && ynIfAny === "no") {
+        return NextResponse.json({
+          answer:
+            "Merci pour votre réponse. Je note que ça n'est pas le cas. Reprenons.\n\n" +
+            "En quoi puis-je vous aider ?",
+          kind: "resume" as const,
+        });
+      }
+      if (isCrisis(prompt)) {
+        return NextResponse.json({
+          answer: "Avez-vous des idées suicidaires ? (oui / non)",
+          kind: "gate" as const,
+        });
+      }
+    }
 
     /* ---- Étapes EFT (déterministes) ---- */
 
-    // Étape 1 — Intake
+    // Étape 1 — Intake (3 flux)
     if (etape === 1) {
       const intakeRaw = slots.intake ?? prompt ?? "";
       const intakeNorm = clean(intakeRaw);
@@ -351,58 +352,82 @@ if (prompt) {
       if (kind === "physique") {
         const hints = hintsForLocation(intakeNorm);
         const txt =
-`Étape 1 — Tu dis « ${intakeNorm} ». Peux-tu préciser la localisation exacte${hints}
-et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.) ?`;
+`Étape 1 — Tu dis « ${intakeNorm} ». 
+Précise la localisation exacte${hints}
+et le type de douleur (lancinante, sourde, aiguë, comme une aiguille, etc.).`;
         return NextResponse.json({ answer: txt });
       }
 
       if (kind === "emotion") {
         const txt =
-`Étape 1 — Tu dis « ${intakeNorm} ». Où ressens-tu cela dans ton corps (poitrine, gorge, ventre, tête…) ?
-Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
+`Étape 1 — Tu dis « ${intakeNorm} ». 
+Si tu te places juste avant de pouvoir nommer cette émotion : que se passe-t-il dans ton corps ?
+Décris brièvement la sensation (serrement, pression, chaleur, vide…) 
+et où tu la ressens (poitrine, gorge, ventre, tête…).`;
         return NextResponse.json({ answer: txt });
       }
 
-      // ✅ SITUATION / FAIT — D’ABORD le ressenti corporel
+      // ✅ SITUATION / FAIT — d’abord le ressenti corporel
       const txt =
 `Étape 1 — Quand tu penses à « ${intakeNorm} », que ressens-tu dans ton corps ?
-(On peut donner des exemples : un serrement dans la poitrine ; la gorge se serre ; une crispation dans le ventre...)`;
+(Exemples : serrement dans la poitrine, gorge qui se serre, crispation dans le ventre…)`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 3 — (utile pour les autres cas ; pour "situation", on posera le SUD à l’étape 4)
+    // Étape 3 — Contexte (facultatif pour le physique ; neutre sinon)
     if (etape === 3) {
       const intake = clean(slots.intake ?? "");
+      const kind = classifyIntake(intake);
+
+      if (kind === "physique") {
+        const txt =
+`Étape 3 — Y a-t-il un contexte où c’est plus présent ?
+(Ex. fin de journée, posture, stress, situation particulière…)`;
+        return NextResponse.json({ answer: txt });
+      }
+
       const txt =
-`Étape 3 — Merci. En quelques mots, tu dirais que c’est lié à quoi et quand cela se manifeste-t-il ?
-(Ex. situation, événement, pensée, moment de la journée, posture, fatigue, stress, etc.)`;
+`Étape 3 — Merci. Si tu identifies un déclencheur particulier, indique-le en quelques mots (facultatif).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 4 — Évaluation (SUD) — inclut le cas "situation"
+    // Étape 4 — Évaluation (SUD) — formulation par flux
     if (etape === 4) {
       const intake = clean(slots.intake ?? "");
       const ctx = clean(slots.context ?? "");
-      if (classifyIntake(intake) === "situation") {
+      const kind = classifyIntake(intake);
+
+      if (kind === "situation") {
         const sensation = ctx || "ce ressenti";
         const txt =
 `Étape 4 — À combien évalues-tu « ${sensation} » (0–10), quand tu penses à « ${intake} » ?
 (0 = aucune gêne, 10 = maximum).`;
         return NextResponse.json({ answer: txt });
       }
+
+      if (kind === "emotion") {
+        const cible = ctx || "cette sensation";
+        const txt =
+`Étape 4 — Pense à ${cible}${ctx ? "" : " dans ton corps"} en te connectant au contexte qui la déclenche si tu en vois un.
+Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
+        return NextResponse.json({ answer: txt });
+      }
+
+      // Physique (douleur/tension…)
       const ctxPart = ctx ? ` en te connectant à « ${ctx} »` : "";
       const txt =
 `Étape 4 — Pense à « ${intake} »${ctxPart}. Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 5 — Setup
+    // Étape 5 — Setup — formulation par flux
     if (etape === 5) {
       const intakeOrig = clean(slots.intake ?? "");
       const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
       let base = aspectRaw;
-      let ctx = clean(slots.context ?? "");
+      let ctx  = clean(slots.context ?? "");
 
+      // Sépare "… liée à …" si présent
       const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
       if (m) {
         const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
@@ -410,7 +435,7 @@ Décris brièvement la sensation (serrement, pression, chaleur, vide, etc.).`;
         ctx  = clean(aspectRaw.slice(idx + m[0].length));
       }
 
-      // ✅ CAS "situation" : setup = (ce/cette) [ressenti] quand je pense à [situation]
+      // ✅ SITUATION — setup = (ce/cette) [ressenti] quand je pense à [situation]
       if (classifyIntake(intakeOrig) === "situation") {
         const sensation = ctx || base || "ce ressenti";
         const article = emotionArticle(sensation);
@@ -422,13 +447,29 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
         return NextResponse.json({ answer: txt });
       }
 
-      // Par défaut (physique/émotion) — inchangé
+      // Normalisations communes
       base = normalizeEmotionNoun(base)
         .replace(/^j['’]?\s*ai\s+/, "")
         .replace(/^je\s+/, "")
         .replace(/^(ce|cette)\s+/i, "");
 
       const kind = classifyIntake(intakeOrig || base);
+
+      // ✅ ÉMOTION — préférer “dès que je pense à [contexte]” si présent
+      if (kind === "emotion") {
+        const article = emotionArticle(base);
+        const setupLine = ctx
+          ? `Même si j’ai ${article} ${base} dès que je pense à ${clean(ctx)}, je m’accepte profondément et complètement.`
+          : `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
+
+        const txt =
+`Étape 5 — Setup : « ${setupLine} »
+Répète cette phrase 3 fois en tapotant sur le Point Karaté (tranche de la main).
+Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
+        return NextResponse.json({ answer: txt });
+      }
+
+      // ✅ PHYSIQUE — setup standard
       const ctxPretty = ctx ? readableContext(ctx, kind) : "";
       const g = detectGender(base);
       const hasCauseWord = /^(parce que|car|puisque)\b/i.test(ctxPretty);
@@ -462,9 +503,13 @@ Quand tu as terminé cette ronde, dis-moi ton SUD (0–10).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 7 — Réévaluation
+    // Étape 7 — Réévaluation (+ conseil 3.2 Physique)
     if (etape === 7) {
-      return NextResponse.json({ answer: "Étape 7 — Indique ton SUD (0–10) maintenant." });
+      const txt =
+"Étape 7 — Indique ton SUD (0–10) maintenant.\n\n" +
+"Si le SUD n’a pas baissé d’au moins 2 points entre deux rondes **ou** si la douleur ne descend pas à 0 avec ce processus, reviens à l’instant d’apparition (option 3.2) :\n" +
+"1) Depuis quand est-ce là ?  2) Que se passait-il alors ?  3) Que se passe-t-il dans ton corps en y pensant ?  4) Où ça ?  5) SUD → Setup → rondes → retourne évaluer la douleur.";
+      return NextResponse.json({ answer: txt });
     }
 
     // Étape 8 — Clôture
