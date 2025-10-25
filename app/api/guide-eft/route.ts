@@ -230,43 +230,38 @@ function pickArticleAndPrep(loc: string): { detPrep: string; locOut: string } {
 
   // Zones qui sonnent mieux avec "dans la/le"
   if (/\b(poitrine|gorge|ventre|mâchoire)\b/.test(L)) {
-    // dans la/ le/ l’
-    if (/\b(mâchoire)\b/.test(L)) return { detPrep: "dans la", locOut: loc };
-    if (/\b(ventre)\b/.test(L))   return { detPrep: "dans le", locOut: loc };
+    if (/\b(ventre)\b/.test(L)) return { detPrep: "dans le", locOut: loc };
     return { detPrep: "dans la", locOut: loc };
   }
 
-  // Cas fréquents en "à/au/aux/à l’"
-  // pluriel : tempes, lombaires, omoplates (entre les omoplates géré autrement)
+  // Pluriel : tempes, lombaires, omoplates
   if (/\b(tempes|lombaires|omoplates)\b/.test(L)) return { detPrep: "aux", locOut: loc };
 
-  // élision : à l’
-  if (/^(épaule|epaule|aisselle|aine|arrière du cr[aâ]ne|arriere du cr[aâ]ne|oeil|œil|école)/.test(L)) {
+  // "entre les omoplates" → on garde l’expression telle quelle
+  if (/^entre les omoplates\b/.test(L)) return { detPrep: "", locOut: loc };
+
+  // Élision : à l’
+  if (/^(épaule|epaule|aisselle|aine|arrière du cr[aâ]ne|arriere du cr[aâ]ne|œil|oeil)\b/.test(L)) {
     return { detPrep: "à l’", locOut: loc };
   }
 
-  // "entre les omoplates" → pas d’article avant, on garde l’expression
-  if (/^entre les omoplates\b/.test(L)) return { detPrep: "", locOut: loc };
-
-  // singulier masculin/féminin simple
+  // Singulier masculin/féminin simple
   if (/^(genou|cou|front|dos|cr[aâ]ne|trap[eè]zes?)\b/.test(L)) return { detPrep: "au", locOut: loc };
   if (/^(nuque|hanche|c[ôo]te|cote|tempe)\b/.test(L)) return { detPrep: "à la", locOut: loc };
 
-  // fallback neutre
+  // Fallback neutre
   return { detPrep: "à", locOut: loc };
 }
 
 /** Rend « douleur [type?] [prep] [loc] », en supprimant l’aire large redondante si la sous-zone la porte déjà */
 function buildPainNucleus(typeMaybe: string | undefined, locRaw: string, intakeRaw?: string): string {
   const type = clean(typeMaybe || "");
-  let loc = normalizePainLocation(locRaw);
+  const loc = normalizePainLocation(locRaw); // <- const (plus de prefer-const)
 
-  // Supprime l’aire large si la localisation est déjà spécifique (ex: "aux tempes" ⇒ inutile "à la tête")
-  const largeHeads = ["tête", "crâne", "tete", "crane"];
+  // Si la localisation est spécifique à la tête (tempes/front/arrière du crâne),
+  // on ignore l'aire large "à la tête/crâne" potentiellement présente dans l'intake
   const impliesHead = /\b(tempes|front|arrière du cr[aâ]ne|arriere du cr[aâ]ne|tempe)\b/.test(loc.toLowerCase());
-  if (impliesHead && intakeRaw && /\b(t[êe]te|cr[aâ]ne)\b/i.test(intakeRaw)) {
-    // on ignore "à la tête" du texte final
-  }
+  void intakeRaw; // (pas utilisé directement ici, mais conservé pour évolution)
 
   const { detPrep, locOut } = pickArticleAndPrep(loc);
   const typePart = type ? ` ${type}` : "";
@@ -279,35 +274,6 @@ function buildPainTarget(typeMaybe: string | undefined, locRaw: string, intakeRa
   return `cette ${buildPainNucleus(typeMaybe, locRaw, intakeRaw)}`;
 }
 
-
-/** Unifie “mal …” -> “douleur …” pour garantir l’article “cette” */
-function normalizePhysicalBase(s: string): string {
-  const t = clean(s);
-  if (/^mal\b/i.test(t)) {
-    return t.replace(/^mal\b/i, "douleur").replace(/\s+de\s+/, " ").trim();
-  }
-  return t;
-}
-
-/** Concatène base + détail (type/localisation) en évitant les doublons */
-function mergePhysicalPhrase(base: string, detail: string): string {
-  let b = clean(base);
-  let d = clean(detail);
-
-  // Retire un “douleur …” redondant au début du détail
-  d = d.replace(/^douleur\s+/i, "");
-
-  // Si le détail répète exactement la base, on ne le rajoute pas
-  if (d && (b.toLowerCase() === d.toLowerCase())) d = "";
-
-  // Évite “au genou … du genou”
-  const key = (b.match(/\b(dos|cou|nuque|épaule[s]?|lombaire[s]?|genou[x]?|cheville[s]?|hanche[s]?|ventre|abdomen|poignet|main[s]?|t[êe]te)\b/i) || [])[0];
-  if (key && new RegExp(`\\b${key}\\b`, "i").test(d)) {
-    b = b.replace(new RegExp(`\\s+(au|du|de la|de l’|de l'|aux)\\s+${key}\\b`, "i"), "");
-  }
-
-  return clean(`${b} ${d}`.trim());
-}
 
 
 
