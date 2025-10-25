@@ -425,60 +425,67 @@ Indique un SUD entre 0 et 10 (0 = aucune gêne, 10 = maximum).`;
       return NextResponse.json({ answer: txt });
     }
 
-    // Étape 5 — Setup — renvoyer UNIQUEMENT la phrase centrale (UI fera l’enrobage)
-    if (etape === 5) {
-      const intakeOrig = clean(slots.intake ?? "");
-      const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
-      let base = aspectRaw;
-      let ctx  = clean(slots.context ?? "");
+    // Étape 5 — Setup — renvoyer la phrase + instruction finale (UI ajoute l’enrobage)
+if (etape === 5) {
+  const intakeOrig = clean(slots.intake ?? "");
+  const aspectRaw  = clean(slots.aspect ?? slots.intake ?? "");
+  let base = aspectRaw;
+  let ctx  = clean(slots.context ?? "");
 
-      // Sépare "… liée à …" si présent (utile pour émotion/situation)
-      const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
-      if (m) {
-        const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
-        base = clean(aspectRaw.slice(0, idx));
-        ctx  = clean(aspectRaw.slice(idx + m[0].length));
-      }
+  const m = aspectRaw.match(/\s+liée?\s+à\s+/i);
+  if (m) {
+    const idx = aspectRaw.toLowerCase().indexOf(m[0].toLowerCase());
+    base = clean(aspectRaw.slice(0, idx));
+    ctx  = clean(aspectRaw.slice(idx + m[0].length));
+  }
 
-      // SITUATION
-      if (classifyIntake(intakeOrig) === "situation") {
-        const sensation = ctx || base || "ce ressenti";
-        const article = emotionArticle(sensation);
-        const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
-        return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
-      }
+  // SITUATION
+  if (classifyIntake(intakeOrig) === "situation") {
+    const sensation = ctx || base || "ce ressenti";
+    const article = emotionArticle(sensation);
+    const setupLine = `Même si j’ai ${article} ${sensation} quand je pense à ${intakeOrig}, je m’accepte profondément et complètement.`;
+    return NextResponse.json({
+      answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
+    });
+  }
 
-      // Normalisations communes
-      base = normalizeEmotionNoun(base)
-        .replace(/^j['’]?\s*ai\s+/, "")
-        .replace(/^je\s+/, "")
-        .replace(/^(ce|cette)\s+/i, "");
+  base = normalizeEmotionNoun(base)
+    .replace(/^j['’]?\s*ai\s+/, "")
+    .replace(/^je\s+/, "")
+    .replace(/^(ce|cette)\s+/i, "");
 
-      const kind = classifyIntake(intakeOrig || base);
+  const kind = classifyIntake(intakeOrig || base);
 
-      // ÉMOTION
-      if (kind === "emotion") {
-        const article = emotionArticle(base);
-        const setupLine = ctx
-          ? `Même si j’ai ${article} ${base} dès que je pense à ${clean(ctx)}, je m’accepte profondément et complètement.`
-          : `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
-        return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
-      }
+  // ÉMOTION
+  if (kind === "emotion") {
+    const article = emotionArticle(base);
+    const setupLine = ctx
+      ? `Même si j’ai ${article} ${base} dès que je pense à ${clean(ctx)}, je m’accepte profondément et complètement.`
+      : `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
+    return NextResponse.json({
+      answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
+    });
+  }
 
-      // PHYSIQUE — Setup sur l’étiquette fusionnée
-      if (kind === "physique") {
-        const physBase = normalizePhysicalBase(intakeOrig);
-        const merged = mergePhysicalPhrase(physBase, ctx);
-        const setupLine = `Même si j’ai cette ${merged}, je m’accepte profondément et complètement.`
-          .replace(/\bcette\s+douleur\b/i, "cette douleur"); // garde l’article correct
-        return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
-      }
+  // PHYSIQUE
+  if (kind === "physique") {
+    const physBase = normalizePhysicalBase(intakeOrig);
+    const merged = mergePhysicalPhrase(physBase, ctx);
+    const setupLine = `Même si j’ai cette ${merged}, je m’accepte profondément et complètement.`
+      .replace(/\bcette\s+douleur\b/i, "cette douleur");
+    return NextResponse.json({
+      answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
+    });
+  }
 
-      // Fallback
-      const article = emotionArticle(base);
-      const setupLine = `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
-      return NextResponse.json({ answer: `Étape 5 — Setup : « ${setupLine} »` });
-    }
+  // Fallback
+  const article = emotionArticle(base);
+  const setupLine = `Même si j’ai ${article} ${base}, je m’accepte profondément et complètement.`;
+  return NextResponse.json({
+    answer: `Étape 5 — Setup : « ${setupLine} »\nQuand c’est fait, envoie un OK et nous passerons à la ronde.`
+  });
+}
+
 
     // Étape 6 — Ronde (points)
     if (etape === 6) {
