@@ -200,8 +200,6 @@ function buildRappelPhrases(slots: Slots): string[] {
 
 /* ---------- Helpers spécifiques “physique” ---------- */
 
-/** --- Helpers douleur : localisation, articles, prépositions, rendu --- **/
-
 /** Normalise certaines typos fréquentes de localisation (tempes, mâchoire, etc.) */
 function normalizePainLocation(raw: string): string {
   let s = clean(raw).toLowerCase();
@@ -223,6 +221,33 @@ function normalizePainLocation(raw: string): string {
   s = s.replace(/^(dans|au|à|aux|à la|à l’|à l')\s*/g, "");
   return clean(s);
 }
+
+function readableContext(ctx: string, kind?: IntakeKind): string {
+  let c = clean(ctx);
+  if (!c) return "";
+
+  if (
+    kind === "physique" &&
+    !/^(parce que|car|puisque)\b/i.test(c) &&
+    /^(?:j['’]ai|j['’]étais|j['’]etais|je\s+me|je\s+suis|je\s+)/i.test(c)
+  ) {
+    c = "parce que " + c.replace(/^parce que\s+/i, "");
+  }
+
+  if (!/^(parce que|car|puisque)\b/i.test(c)) {
+    const needsQue = /^(il|elle|ils|elles|on|que|qu’|qu'|le|la|les|mon|ma|mes|son|sa|ses)\b/i.test(c);
+    if (needsQue && !/^au\s+fait\s+que\b/i.test(c)) {
+      c = "au fait que " + c;
+    }
+    c = c
+      .replace(/\bau\s+fait\s+que\s+il\b/gi, "au fait qu'il")
+      .replace(/\bau\s+fait\s+que\s+elle\b/gi, "au fait qu'elle")
+      .replace(/\bau\s+fait\s+que\s+ils\b/gi, "au fait qu'ils")
+      .replace(/\bau\s+fait\s+que\s+elles\b/gi, "au fait qu'elles");
+  }
+  return c;
+}
+
 
 /** Retourne l’article + préposition correct(e) pour une localisation */
 function pickArticleAndPrep(loc: string): { detPrep: string; locOut: string } {
@@ -260,7 +285,7 @@ function buildPainNucleus(typeMaybe: string | undefined, locRaw: string, intakeR
 
   // Si la localisation est spécifique à la tête (tempes/front/arrière du crâne),
   // on ignore l'aire large "à la tête/crâne" potentiellement présente dans l'intake
-  const impliesHead = /\b(tempes|front|arrière du cr[aâ]ne|arriere du cr[aâ]ne|tempe)\b/.test(loc.toLowerCase());
+
   void intakeRaw; // (pas utilisé directement ici, mais conservé pour évolution)
 
   const { detPrep, locOut } = pickArticleAndPrep(loc);
@@ -526,6 +551,8 @@ Quand c’est fait, envoie un OK et nous passerons à la ronde.`;
     const connector = ctxPretty ? (hasCauseWord ? " " : (g === "f" ? " liée à " : " lié à ")) : "";
     const aspectPretty = (base + connector + (ctxPretty || "")).replace(/\s{2,}/g, " ").trim();
     const article = emotionArticle(base);
+
+    
 
     const setupLine = `Même si j’ai ${article} ${aspectPretty}, je m’accepte profondément et complètement.`;
     const txt =
