@@ -8,7 +8,6 @@ import React, {
   useCallback,
   FormEvent,
 } from "react";
-import Image from "next/image";
 
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
@@ -45,6 +44,7 @@ export default function Page() {
     }
   }, [messages]);
 
+  // Afficher un toast quand l'état de crise change
   useEffect(() => {
     if (crisisMode === "ask") {
       showToast("Sécurité : réponds simplement par oui ou non.");
@@ -60,12 +60,38 @@ export default function Page() {
     }
   }, [messages, loading, crisisMode]);
 
+  // --- Heuristiques de crise côté client ---
+  function inferAskFromReply(text: string) {
+    const t = text.toLowerCase();
+    return (
+      t.includes("as-tu des idées suicidaires") ||
+      t.includes("as tu des idees suicidaires") ||
+      t.includes("réponds par oui ou non") ||
+      t.includes("reponds par oui ou non") ||
+      t.includes("réponds par oui/non") ||
+      t.includes("reponds par oui/non")
+    );
+  }
+
+  function isAffirmativeYes(text: string) {
+    const t = text.trim().toLowerCase();
+    // gère "oui", "oui.", "oui !", "yes" (au cas où), etc.
+    return /^oui\b|^yes\b/.test(t);
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!input.trim() || loading) return;
+    const value = input.trim();
+    if (!value || loading) return;
 
     setError(null);
-    const userMsg: Message = { role: "user", content: input.trim() };
+
+    // 🔒 Si on demande oui/non et que l’utilisateur répond "oui" → lock immédiat
+    if (crisisMode === "ask" && isAffirmativeYes(value)) {
+      setCrisisMode("lock");
+    }
+
+    const userMsg: Message = { role: "user", content: value };
 
     // Affiche immédiatement le message utilisateur
     setMessages((prev) => [...prev, userMsg]);
@@ -95,8 +121,19 @@ export default function Page() {
         },
       ]);
 
-      setCrisisMode(data.crisis ?? "none");
-      // console.log("API crisis =", data.crisis); // debug si besoin
+      // 1) Priorité au flag renvoyé par l'API
+      if (data.crisis && data.crisis !== "none") {
+        setCrisisMode(data.crisis);
+      } else {
+        // 2) Sinon, heuristique : si la réponse contient la question oui/non → ask
+        if (inferAskFromReply(reply)) {
+          setCrisisMode("ask");
+        }
+        // 3) Si on était déjà en ask et que l'utilisateur vient de dire "oui" → lock
+        if (crisisMode === "ask" && isAffirmativeYes(value)) {
+          setCrisisMode("lock");
+        }
+      }
     } catch {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
@@ -124,21 +161,47 @@ export default function Page() {
               Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
             </p>
           </div>
-          <Image
+          {/* Revenir à <img> pour un affichage immédiat (pas de whitelist nécessaire) */}
+          <img
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
             alt="Logo École EFT France"
-            width={160}
-            height={40}
             className="h-10 w-auto"
-            priority
+            loading="eager"
           />
         </div>
       </div>
 
+      {/* ⛑️ Message important en cas de crise */}
+      {crisisMode !== "none" && (
+        <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
+          <strong className="block">Message important</strong>
+          <p className="text-sm">
+            Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+            Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta sécurité est prioritaire.
+          </p>
+          <p className="text-sm">
+            <span className="font-semibold">📞 En France :</span><br />
+            • 3114 — Prévention du suicide (gratuit, 24/7)<br />
+            • 15 — SAMU<br />
+            • 112 — Urgences (si danger immédiat)
+          </p>
+          {crisisMode === "ask" && (
+            <p className="text-sm">
+              Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+            </p>
+          )}
+          {crisisMode === "lock" && (
+            <p className="text-sm">
+              Ta sécurité est prioritaire. Je ne poursuivrai pas l’EFT dans cette situation.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Zone de chat */}
       <div
         ref={chatRef}
-        className="h-[70vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+        className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
       >
         <div className="space-y-3">
           {messages.map((m, i) => (
@@ -194,7 +257,7 @@ export default function Page() {
         )}
       </form>
 
-      {/* 🔒 Bloc d’aide en cas de crise */}
+      {/* 🔒 Bloc d’aide en cas de crise (persistant sous le chat) */}
       {crisisMode === "lock" && (
         <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
           <p className="text-sm">
@@ -250,51 +313,6 @@ export default function Page() {
         </p>
       </div>
 
-      {/* 🌿 Pour aller plus loin */}
-      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mt-8 text-center">
-        <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
-        <p className="text-sm mb-3 leading-relaxed">
-          Vous pratiquez déjà l’EFT ou vous souhaitez affiner votre approche ?  
-          Le programme <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité et la profondeur du geste EFT d’origine,  
-          tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>, pour ceux qui désirent aller encore plus loin dans la compréhension du problème source.
-        </p>
-
-        <div className="flex flex-wrap justify-center gap-3 text-center">
-          <a
-            href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
-          >
-            Réaligner sa pratique EFT
-          </a>
-          <a
-            href="https://ecole-eft-france.fr/pages/formations-eft.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
-          >
-            Formations EFT
-          </a>
-          <a
-            href="https://ecole-eft-france.fr/pages/formation-tips"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
-          >
-            Méthode TIPS®
-          </a>
-          <a
-            href="https://technique-eft.com/livres-eft.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
-          >
-            Les livres de Geneviève Gagos
-          </a>
-        </div>
-      </div>
-
       {/* 🔔 Toast visuel (notif) */}
       <div
         aria-live="assertive"
@@ -314,7 +332,33 @@ export default function Page() {
           )}
         </div>
       </div>
+
+      {/* 📞 Boutons d’urgence flottants (ASK + LOCK) */}
+      {crisisMode !== "none" && (
+        <div
+          aria-label="Accès rapide urgence"
+          className="fixed bottom-20 right-4 z-50 flex flex-col gap-2"
+        >
+          <a
+            href="tel:3114"
+            className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
+          >
+            📞 3114 — Prévention du suicide (24/7)
+          </a>
+          <a
+            href="tel:112"
+            className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
+          >
+            🚨 112 — Urgences
+          </a>
+          <a
+            href="tel:15"
+            className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
+          >
+            🏥 15 — SAMU
+          </a>
+        </div>
+      )}
     </main>
   );
 }
-
