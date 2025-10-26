@@ -338,7 +338,6 @@ export async function POST(req: Request) {
 // Récupération du dernier message utilisateur (brut + minuscule)
 const userTurns = history.filter(m => m.role === "user");
 const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
-const lastUserText = lastUserMsg.toLowerCase();
 
 /* ---------- 🎯 Bloc A : détection du type de départ (physique / émotion / situation) ---------- */
 const isPhysicalIntake = (s: string) =>
@@ -350,7 +349,7 @@ const isSituationIntake = (s: string) =>
 
 if (userTurns.length === 1 && lastUserMsg) {
   /* 🩹 Physique — douleur, tension, gêne */
-  if (isPhysicalIntake(lastUserText)) {
+  if (isPhysicalIntake(lastUserMsg.toLowerCase)) {
     return new NextResponse(
       JSON.stringify({
         answer: `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.  
@@ -367,7 +366,7 @@ Où ressens-tu exactement cette douleur ?`,
   }
 
   /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
-  if (isEmotionIntake(lastUserText)) {
+  if (isEmotionIntake(lastUserMsg.toLowerCase)) {
     return new NextResponse(
       JSON.stringify({
         answer: `Tu dis « ${normalizeForDisplay(lastUserMsg)} ».  
@@ -381,7 +380,7 @@ Et où précisément ressens-tu cette sensation ?`,
   }
 
   /* 🌿 Situation — contexte directement exprimé */
-  if (isSituationIntake(lastUserText)) {
+if (isSituationIntake(lastUserMsg.toLowerCase)) {
     return new NextResponse(
       JSON.stringify({
         answer: `Tu évoques « ${normalizeForDisplay(lastUserMsg)} ».  
