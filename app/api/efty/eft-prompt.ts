@@ -98,10 +98,11 @@ Avant de commencer la ronde :
   • souvenir : image ou scène précise du passé.
 
 ⚠️ Neutralité sémantique :
-Ne déduis jamais une émotion, un ressenti ou une pensée que le participant n’a pas exprimée explicitement.
+Ne déduis jamais une émotion, un ressenti ou une pensée que le participant n’a pas exprimée explicitement,
+sans inventer, sans induire, sans traduire son propos en un sentiment supposé.
 N’ajoute pas de termes interprétatifs comme « culpabilité », « peur », « colère », « honte », etc.
-Si le participant dit « je suis bête » ou « j’aurais dû », reprends uniquement ses mots exacts
-(« je suis bête », « j’aurais dû », « je ne me suis pas écoutée »)
+Si le participant dit « je suis bête », « je m’en veux » ou « j’aurais dû », reprends uniquement ses mots exacts
+(« je suis bête », « je m’en veux », « j’aurais dû », « je ne me suis pas écoutée »)
 ou une reformulation neutre (« ce jugement envers moi », « cette phrase intérieure »).
 
 Règles de formulation :
