@@ -1,3 +1,23 @@
+{/* ============================================================
+   🎉 Bandeau – Édition spéciale 30 ans d’EFT
+   ============================================================ */}
+<div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-6">
+  <div className="flex items-center justify-between gap-4">
+    <div>
+      <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
+      <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
+      <p className="text-sm mt-1 opacity-90">
+        Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
+      </p>
+    </div>
+    <img
+      src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
+      alt="Logo École EFT France"
+      className="h-10 w-auto"
+    />
+  </div>
+</div>
+
 /* app/page.tsx */
 "use client";
 
@@ -159,3 +179,75 @@ export default function Page() {
     </main>
   );
 }
+
+{/* ============================================================
+   ⚠️ Note de prudence – Mention légale et confidentialité
+   ============================================================ */}
+<div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-6">
+  <strong className="block mb-1">Note de prudence</strong>
+  <p className="text-sm leading-relaxed">
+    Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
+    psychologique ou professionnel.<br />
+    L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation,
+    l&apos;usage ou les conséquences liés à l&apos;application des informations ou protocoles présentés.<br />
+    Chaque utilisateur reste responsable de sa pratique et de ses choix.
+    <br /><br />
+    <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas
+    vos échanges réalisés dans ce chat.  
+    Mais comme pour tout ce qui transite par Internet, nous vous invitons à rester prudents et à ne pas
+    divulguer d&apos;éléments très personnels.
+  </p>
+  <p className="text-xs mt-3 opacity-80">
+    — Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos
+  </p>
+</div>
+
+{/* -------------------------------------------------------------
+   🌿 Pour aller plus loin – Réaligner sa pratique & Ressources
+   ------------------------------------------------------------- */}
+<div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mt-8">
+  <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
+  <p className="text-sm mb-3 leading-relaxed">
+    Vous pratiquez déjà l’EFT ou vous souhaitez affiner votre approche ?  
+    Le programme <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité et la profondeur du geste EFT d’origine,  
+    tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>, pour ceux qui désirent aller encore plus loin dans la compréhension du problème source.
+  </p>
+
+  <div className="flex flex-wrap gap-3">
+    <a
+      href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      🎓 Réaligner sa pratique EFT
+    </a>
+
+    <a
+      href="https://ecole-eft-france.fr/pages/formations-eft.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      🌿 Formations EFT
+    </a>
+
+    <a
+      href="https://ecole-eft-france.fr/pages/formation-tips"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      🔎 Méthode TIPS®
+    </a>
+
+    <a
+      href="https://technique-eft.com/livres-eft.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      📚 Les livres de Geneviève Gagos
+    </a>
+  </div>
+</div>
