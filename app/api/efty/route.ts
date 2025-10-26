@@ -327,6 +327,9 @@ export async function POST(req: Request) {
       ),
     });
   }
+// Récupération du dernier message utilisateur (brut + minuscule)
+const userTurns = history.filter(m => m.role === "user");
+const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
 
 /* ---------- 🎯 Bloc A : détection du type de départ (physique / émotion / situation) ---------- */
 const isPhysicalIntake = (s: string) =>
@@ -352,6 +355,7 @@ Où ressens-tu exactement cette douleur ?`,
     { headers }
   );
 }
+
 
 /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
 if (isEmotionIntake(lastUserText)) {
