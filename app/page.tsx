@@ -8,6 +8,7 @@ import React, {
   useCallback,
   FormEvent,
 } from "react";
+import Image from "next/image";
 
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
@@ -161,12 +162,14 @@ export default function Page() {
               Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
             </p>
           </div>
-          {/* Revenir à <img> pour un affichage immédiat (pas de whitelist nécessaire) */}
-          <img
+          {/* ⛳ version optimisée (next/image) */}
+          <Image
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
             alt="Logo École EFT France"
+            width={160}
+            height={40}
             className="h-10 w-auto"
-            loading="eager"
+            priority
           />
         </div>
       </div>
