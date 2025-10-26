@@ -133,9 +133,7 @@ export default function Page() {
       role: "assistant",
       content:
         `Ton SUD est à ${sud} (≤ 1).\n` +
-        `Ça pourrait être quoi, ce petit reste ?\n\n` +
-        `• Si tu ne sais pas : on peut tapoter sur « ce reste de [douleur/sensation] ».\n` +
-        `• Si une idée ou une émotion apparaît : dis-la ; on l’évaluera (SUD), puis Setup + ronde.`,
+        `Ça pourrait être quoi, ce petit reste ?\n\n`,
     },
   ]);
   setInput("");
