@@ -501,7 +501,6 @@ Exemples : serrement dans la poitrine, pression dans la tête, chaleur sur mes �
       }
 
       // PHYSIQUE — ancrage sur [type + localisation précise]
-      const intakeRaw = intake;      // ex : "mal à la tête"
       const detail = ctx;            // ex : "lancinante aux tempes"
       let typePart = "";
       let locPart = detail;
