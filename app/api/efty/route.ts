@@ -336,8 +336,9 @@ export async function POST(req: Request) {
   }
 
 // Récupération du dernier message utilisateur (brut + minuscule)
-const userTurns = history.filter(m => m.role === "user");
+const userTurns = history.filter((m) => m.role === "user");
 const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
+const lastUserMsgLower = lastUserMsg.toLowerCase();
 
 /* ---------- 🎯 Bloc A : détection du type de départ (physique / émotion / situation) ---------- */
 const isPhysicalIntake = (s: string) =>
@@ -349,7 +350,7 @@ const isSituationIntake = (s: string) =>
 
 if (userTurns.length === 1 && lastUserMsg) {
   /* 🩹 Physique — douleur, tension, gêne */
-  if (isPhysicalIntake(lastUserMsg.toLowerCase))() {
+  if (isPhysicalIntake(lastUserMsgLower)) {
     return new NextResponse(
       JSON.stringify({
         answer: `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.  
@@ -366,7 +367,7 @@ Où ressens-tu exactement cette douleur ?`,
   }
 
   /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
-  if (isEmotionIntake(lastUserMsg.toLowerCase))(){
+  if (isEmotionIntake(lastUserMsgLower)) {
     return new NextResponse(
       JSON.stringify({
         answer: `Tu dis « ${normalizeForDisplay(lastUserMsg)} ».  
@@ -380,7 +381,7 @@ Et où précisément ressens-tu cette sensation ?`,
   }
 
   /* 🌿 Situation — contexte directement exprimé */
-if (isSituationIntake(lastUserMsg.toLowerCase))(){
+  if (isSituationIntake(lastUserMsgLower)) {
     return new NextResponse(
       JSON.stringify({
         answer: `Tu évoques « ${normalizeForDisplay(lastUserMsg)} ».  
@@ -392,7 +393,6 @@ Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?`,
     );
   }
 }
-
 /* ---------- 🎯 Bloc B : gestion du SUD et écart minimal de progression (fidèle au prompt) ---------- */
 const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
 const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
