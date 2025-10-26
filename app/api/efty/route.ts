@@ -19,6 +19,14 @@ interface ChatMessage {
   content: string;
 }
 
+interface MotsClient {
+  emotion?: string;
+  sensation?: string;
+  localisation?: string;
+  pensee?: string;   // ex: "je n’y arriverai pas"
+  souvenir?: string; // ex: "regard dur de mon chef"
+}
+
 interface BodyWithMessages {
   messages?: ChatMessage[];
 }
@@ -27,7 +35,25 @@ interface BodyWithMessage {
   message?: string;
 }
 
-type Payload = BodyWithMessages & BodyWithMessage;
+/**
+ * Optionnel — si présent, on génère des candidats de rappels côté app
+ * et on les fournit au modèle dans un court JSON.
+ */
+interface BodyWithMotsClient {
+  mots_client?: MotsClient;
+  /**
+   * Par défaut true : on injecte le JSON de candidats dans la requête modèle.
+   * Mets à false si tu veux désactiver ponctuellement.
+   */
+  injectRappels?: boolean;
+  /**
+   * Nombre de rappels souhaités (le modèle n'est pas obligé mais c'est indicatif).
+   * Par défaut 6.
+   */
+  rappelsVoulus?: number;
+}
+
+type Payload = BodyWithMessages & BodyWithMessage & BodyWithMotsClient;
 
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   if (!Array.isArray(x)) return false;
@@ -52,8 +78,7 @@ function isAllowedOrigin(origin: string | null): boolean {
     "https://www.ecole-eft-france.fr",
   ]);
 
-  // Environnements Vercel : autoriser l’URL exacte du déploiement en preview
-  // VERCEL_ENV ∈ "production" | "preview" | "development"
+  // Environnements Vercel
   const vercelEnv = process.env.VERCEL_ENV;
   const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
 
@@ -74,6 +99,47 @@ function isAllowedOrigin(origin: string | null): boolean {
   return ALLOWED_BASE.has(o);
 }
 
+/* ---------- Micro-grammaire rappels (local, sûr, fidèle Gary Craig) ---------- */
+function generateRappelsBruts(m?: MotsClient): string[] {
+  if (!m) return [];
+  const out = new Set<string>();
+  const push = (s?: string) => {
+    if (!s) return;
+    const t = s.trim().replace(/\s+/g, " ");
+    if (t && t.length <= 40) out.add(t);
+  };
+
+  // patrons courts (neutres, 3–8 mots conseillés par le prompt système)
+  if (m.emotion) push(`cette ${m.emotion}`);
+  if (m.sensation && m.localisation) {
+    // accords basiques "dans la/le/l’ / à la/au/à l’"
+    const loc = m.localisation.trim();
+    const prep = /^[aeiouhâêîôûàéèêëïîöôù]/i.test(loc) ? "l’" : (loc.match(/^(épaule|hanche|jambe|cheville|main|gorge|poitrine|tête|machoire|mâchoire|nuque|fesse|cuisse|cervelle|bouche|oreille|épigastre|cervicale|dent|épaule)/i) ? "la " : (loc.match(/^(ventre|dos|bras|cou|pied|genou|mollet|front|thorax|crâne)/i) ? "le " : ""));
+    const locFmt = prep ? `${prep}${loc.replace(/^l[’']\s*/i, "")}` : loc;
+    push(`cette ${m.sensation} dans ${locFmt}`); // "dans l’/la/le"
+  }
+  if (m.sensation && !m.localisation) push(`cette ${m.sensation}`);
+  if (m.pensee) push(`cette pensée : « ${m.pensee} »`);
+  if (m.souvenir) push(`ce souvenir qui revient`);
+  if (m.localisation && !m.sensation) {
+    const loc = m.localisation.trim();
+    const prep = /^[aeiouhâêîôûàéèêëïîöôù]/i.test(loc) ? "l’" : (loc.match(/^(épaule|hanche|jambe|cheville|main|gorge|poitrine|tête|machoire|mâchoire|nuque|fesse|cuisse|cervelle|bouche|oreille|épigastre|cervicale|dent|épaule)/i) ? "la " : (loc.match(/^(ventre|dos|bras|cou|pied|genou|mollet|front|thorax|crâne)/i) ? "le " : ""));
+    const locFmt = prep ? `${prep}${loc.replace(/^l[’']\s*/i, "")}` : loc;
+    push(`cette gêne dans ${locFmt}`);
+  }
+
+  // variantes très légères (toujours neutres, sans ajout d’intention)
+  if (m.emotion) push(`ce ${m.emotion} présent`);
+  if (m.sensation && m.localisation) {
+    const loc = m.localisation.trim();
+    const prep = /^[aeiouhâêîôûàéèêëïîöôù]/i.test(loc) ? "l’" : (loc.match(/^(épaule|hanche|jambe|cheville|main|gorge|poitrine|tête|machoire|mâchoire|nuque|fesse|cuisse|cervelle|bouche|oreille|épigastre|cervicale|dent|épaule)/i) ? "la " : (loc.match(/^(ventre|dos|bras|cou|pied|genou|mollet|front|thorax|crâne)/i) ? "le " : ""));
+    const locFmt = prep ? `${prep}${loc.replace(/^l[’']\s*/i, "")}` : loc;
+    push(`ce ${m.sensation} à ${locFmt}`); // "à l’/la/le"
+  }
+  if (m.pensee) push(`cette pensée qui insiste`);
+
+  return Array.from(out).slice(0, 10);
+}
 
 /* ---------- Handlers ---------- */
 export async function POST(req: Request) {
@@ -109,6 +175,28 @@ export async function POST(req: Request) {
     messages.push({ role: "user", content: single });
   } else {
     return NextResponse.json({ error: "Aucun message fourni." }, { status: 400 });
+  }
+
+  // --- Nouveau : injection optionnelle de candidats de rappels
+  const injectRappels = body.injectRappels !== false; // par défaut true
+  const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
+  const candidats = generateRappelsBruts(body.mots_client);
+
+  if (injectRappels && candidats.length > 0) {
+    // On fournit un petit JSON clair au modèle. Le prompt système sait rester sobre
+    // et se contente d'utiliser ces candidats comme matière première (sans les dénaturer).
+    messages.push({
+      role: "user",
+      content: JSON.stringify(
+        {
+          meta: "CANDIDATS_RAPPELS",
+          candidats_app: candidats,
+          voulu: rappelsVoulus,
+        },
+        null,
+        2
+      ),
+    });
   }
 
   try {
