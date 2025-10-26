@@ -162,6 +162,45 @@ export default function Page() {
           </p>
         )}
       </form>
+      {/* Formulaire d’envoi */}
+      <form onSubmit={onSubmit} className="flex flex-col gap-2">
+        ...
+      </form>
+
+      {/* 🔒 Bloc d’aide en cas de crise */}
+      {crisisMode === "lock" && (
+        <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
+          <p className="text-sm">
+            Ta sécurité est prioritaire. Parle à quelqu’un maintenant :
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <a
+              href="tel:3114"
+              className="inline-block rounded-lg bg-[#7a1f1f] text-white px-4 py-2 text-sm hover:opacity-90 transition"
+            >
+              📞 Appeler le 3114 (24/7)
+            </a>
+            <a
+              href="tel:112"
+              className="inline-block rounded-lg bg-[#7a1f1f] text-white px-4 py-2 text-sm hover:opacity-90 transition"
+            >
+              🚨 Appeler le 112 (urgence)
+            </a>
+            <a
+              href="tel:15"
+              className="inline-block rounded-lg bg-[#7a1f1f] text-white px-4 py-2 text-sm hover:opacity-90 transition"
+            >
+              🏥 Appeler le 15 (SAMU)
+            </a>
+          </div>
+          <p className="text-xs opacity-80">
+            Tu peux aussi joindre un proche de confiance ou ton/ta médecin.  
+            Je reste ici, mais je ne poursuivrai pas l’EFT dans cette situation.
+          </p>
+        </div>
+      )}
+
+      {error && <div className="text-red-600">{error}</div>}
 
       {error && <div className="text-red-600">{error}</div>}
 
