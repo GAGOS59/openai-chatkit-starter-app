@@ -52,6 +52,13 @@ type Payload = BodyWithMessages & BodyWithMessage & BodyWithMotsClient;
 function clean(s?: string): string {
   return (s ?? "").replace(/\s+/g, " ").trim();
 }
+// Supprime un éventuel "j'ai" / "j ai" en début de phrase
+function normalizeForDisplay(s?: string): string {
+  let t = clean(s);
+  t = t.replace(/^j['’]?\s*ai\s+/i, ""); // évite "tu as j'ai ..."
+  return t;
+}
+
 
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   if (!Array.isArray(x)) return false;
@@ -339,11 +346,15 @@ const isEmotionIntake = (s: string) =>
 const isSituationIntake = (s: string) =>
   /\b(quand|lorsque|pendant|chaque\s+fois|à\s+l’idée|au\s+moment|face\s+à|devant|en\s+parlant|en\s+pensant)\b/i.test(s);
 
+  if (userTurns.length === 1 && lastUserMsg) {
+  // …tes trois blocs A ici (physique / émotion / situation)
+}
+
 /* 🩹 Physique — douleur, tension, gêne */
 if (isPhysicalIntake(lastUserText)) {
   return new NextResponse(
     JSON.stringify({
-      answer: `Tu dis que tu as ${clean(lastUserMsg)}.  
+      answer: `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.  
 Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).  
 Par exemple :  
 – pour un genou : la rotule, la face interne ou externe, l’arrière du genou ;  
@@ -357,13 +368,14 @@ Où ressens-tu exactement cette douleur ?`,
 }
 
 
+
 /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
 if (isEmotionIntake(lastUserText)) {
   return new NextResponse(
     JSON.stringify({
-      answer: `Tu dis « ${clean(lastUserMsg)} ».  
-Dans quelle situation ressens-tu « ${clean(lastUserMsg)} » ?  
-Comment se manifeste « ${clean(lastUserMsg)} » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)  
+      answer: `Tu dis « ${normalizeForDisplay(lastUserMsg)} ».  
+Dans quelle situation ressens-tu « ${normalizeForDisplay(lastUserMsg)} » ?  
+Comment se manifeste « ${normalizeForDisplay(lastUserMsg)} » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)  
 Et où précisément ressens-tu cette sensation ?`,
       crisis: "none" as const,
     }),
@@ -375,7 +387,7 @@ Et où précisément ressens-tu cette sensation ?`,
 if (isSituationIntake(lastUserText)) {
   return new NextResponse(
     JSON.stringify({
-      answer: `Tu évoques « ${clean(lastUserMsg)} ».  
+      answer: `Tu évoques « ${normalizeForDisplay(lastUserMsg)} ».  
 Qu’est-ce qui te gêne le plus à ce moment-là ?  
 Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?`,
       crisis: "none" as const,
