@@ -16,15 +16,28 @@ export const metadata: Metadata = {
       "EFTY — auto-séance EFT guidée, simple et rigoureuse, proposée par Geneviève Gagos.",
     url: "https://appli.ecole-eft-france.fr/",
     siteName: "École EFT France — EFTY",
+    images: [
+      {
+        url: "https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png",
+        width: 600,
+        height: 200,
+        alt: "Logo École EFT France",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "École EFT France — EFTY",
     description:
       "EFTY — auto-séance EFT guidée, fidèle à l’EFT d’origine et à la méthode TIPS®.",
+    images: [
+      "https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png",
+    ],
   },
   icons: {
     icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
 };
 
