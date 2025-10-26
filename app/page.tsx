@@ -22,12 +22,27 @@ export default function Page() {
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null); // focus auto
 
+  // 🔔 petit message visuel temporaire (toast)
+function showToast(message: string) {
+  setToast({ msg: message, key: Date.now() });
+  setTimeout(() => setToast(null), 4000); // ← celui dont je parlais 😄
+}
+
   /* Auto-scroll en bas à chaque nouveau message */
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages]);
+
+  useEffect(() => {
+  if (crisisMode === "ask") {
+    showToast("Sécurité : réponds simplement par oui ou non.");
+  } else if (crisisMode === "lock") {
+    showToast("Séance EFT verrouillée : appelle le 3114 / 112 si besoin.");
+  }
+}, [crisisMode]);
+
 
   /* Focus automatique sur le champ après chaque réponse (hors crisis lock) */
   useEffect(() => {
@@ -267,6 +282,26 @@ export default function Page() {
           </a>
         </div>
       </div>
+      {/* 🔔 Toast visuel (notif) */}
+<div
+  aria-live="assertive"
+  className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50"
+>
+  <div className="flex w-full flex-col items-center space-y-4 sm:items-end">
+    {toast && (
+      <div
+        key={toast.key}
+        role="status"
+        className="pointer-events-auto w-full sm:w-auto max-w-sm overflow-hidden rounded-xl border bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5"
+      >
+        <div className="p-4">
+          <p className="text-sm text-gray-900">{toast.msg}</p>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
     </main>
   );
 }
