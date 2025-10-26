@@ -7,18 +7,75 @@ import React, { useEffect, useRef, useState, FormEvent } from "react";
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 
+/* ---------- 🔐 CRISIS: Détection & gestion ---------- */
+const CRISIS_PATTERNS: RegExp[] = [
+  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
+  /\bsu[cs]sid[ea]\b/iu,
+  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/iu,
+  /j['’]?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,
+  /j['’]?\s*en\s+ai\s+marre\s+de\s+(cette\s+)?vie\b/iu,
+  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/iu,
+  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/iu,
+  /\b(foutre|jeter)\s+en\s+l[’']?air\b/iu,
+  /\bje\s+(veux|voudrais|vais)\s+dispara[iî]tre\b/iu,
+  /\bplus\s+(envie|go[uû]t)\s+de\s+vivre\b/iu,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
+  /\bje\s+suis\s+de\s+trop\b/iu,
+  /\bje\s+me\s+sens\s+de\s+trop\b/iu,
+  /\bid[ée]es?\s+noires?\b/iu,
+  /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
+  /\bme\s+pendre\b/iu
+];
+function isCrisis(text: string): boolean {
+  const t = (text || "").toLowerCase();
+  return CRISIS_PATTERNS.some((rx) => rx.test(t));
+}
+const YES_PATTERNS: RegExp[] = [
+  /\b(oui|ouais|yep|yes)\b/i,
+  /\b(plut[oô]t\s+)?oui\b/i,
+  /\b(carr[ée]ment|clairement)\b/i,
+  /\b(je\s+c(r|’|')ains\s+que\s+oui)\b/i,
+];
+const NO_PATTERNS: RegExp[] = [
+  /\b(non|nan|nope)\b/i,
+  /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
+  /\b(aucune?\s+id[ée]e\s+suicidaire)\b/i,
+  /\b(je\s+n['’]?ai\s+pas\s+d['’]?id[ée]es?\s+suicidaires?)\b/i,
+];
+function interpretYesNo(text: string): "yes" | "no" | "unknown" {
+  if (YES_PATTERNS.some((rx) => rx.test(text))) return "yes";
+  if (NO_PATTERNS.some((rx) => rx.test(text))) return "no";
+  return "unknown";
+}
+function crisisMessage(): string {
+  return (
+`Message important
+Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta sécurité est prioritaire.
+
+📞 En France :
+• 3114 — Prévention du suicide (gratuit, 24/7)
+• 15 — SAMU
+• 112 — Urgences (si danger immédiat)
+
+Tu n’es pas seul·e — ces services peuvent t’aider dès maintenant.`
+  );
+}
+const ASK_SUICIDE_Q = "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
+
 /* ---------- Page ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content: "Bonjour 😊 Sur quoi souhaites-tu travailler aujourd’hui ?",
-    },
+    { role: "assistant", content: "Bonjour 😊 Sur quoi souhaites-tu travailler aujourd’hui ?" },
   ]);
 
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [crisisActive, setCrisisActive] = useState<boolean>(false); // 🔐 CRISIS: verrouille l’EFT si vrai
+  const [awaitingSuicideAnswer, setAwaitingSuicideAnswer] = useState<boolean>(false); // 🔐 CRISIS: attend oui/non
 
   const chatRef = useRef<HTMLDivElement>(null);
 
@@ -33,20 +90,85 @@ export default function Page() {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
+    const userText = input.trim();
     setError(null);
-    const userMsg: Message = { role: "user", content: input.trim() };
-    const historyToSend: Message[] = [...messages, userMsg];
 
-    // Affiche immédiatement le message utilisateur
-    setMessages(historyToSend);
+    // Afficher immédiatement le message utilisateur
+    const userMsg: Message = { role: "user", content: userText };
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    setLoading(true);
 
+    /* ---------- 🔐 CRISIS: logique de priorité absolue ---------- */
+    // 1) Si on attend oui/non à la question suicidaire
+    if (awaitingSuicideAnswer) {
+      const yn = interpretYesNo(userText);
+      if (yn === "yes") {
+        // OUI → orientation immédiate + verrouillage EFT
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: crisisMessage() },
+          { role: "assistant", content: "Je reste avec toi ici, mais je n’irai pas plus loin en EFT. Appelle le 3114 ou le 112 si tu es en danger immédiat." },
+        ]);
+        setCrisisActive(true);
+        setAwaitingSuicideAnswer(false);
+        return;
+      }
+      if (yn === "no") {
+        // NON → prudence + reprise possible
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              "Merci pour ta réponse. Je reste attentif·ve : si à un moment tu te sens en danger, arrêtons l’EFT et contacte le 3114. Quand tu es prêt·e, dis-moi ce qui te dérange le plus maintenant.",
+          },
+        ]);
+        setAwaitingSuicideAnswer(false);
+        // On ne “return” pas : on laisse la personne poursuivre (elle renverra un nouveau message)
+        return;
+      }
+      // UNKNOWN → redemander explicitement oui/non
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Je n’ai pas bien compris. Peux-tu répondre par « oui » ou « non » s’il te plaît ?" },
+      ]);
+      return;
+    }
+
+    // 2) Détection spontanée d’un contenu de crise dans le message actuel
+    if (isCrisis(userText)) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: crisisMessage() },
+        { role: "assistant", content: ASK_SUICIDE_Q },
+      ]);
+      setAwaitingSuicideAnswer(true);
+      // ⚠️ On N’APPELLE PAS l’API d’EFT dans ce cas
+      return;
+    }
+
+    // 3) Si une crise a déjà été confirmée → on reste verrouillé (pas d’EFT)
+    if (crisisActive) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Je ne peux pas poursuivre une séance d’EFT en cas de détresse aiguë. Appelle le 3114 (24/7) ou le 112 si tu es en danger immédiat. Je suis de tout cœur avec toi.",
+        },
+      ]);
+      return;
+    }
+    /* ---------- 🔐 FIN CRISIS ---------- */
+
+    // Flux normal : appel API EFT
+    setLoading(true);
     try {
+      // On envoie tout l’historique pour un guidage fluide
+      const historyToSend: Message[] = [...messages, userMsg];
       const res = await fetch("/api/efty", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // On envoie tout l’historique pour un guidage fluide
         body: JSON.stringify({ messages: historyToSend }),
       });
 
@@ -140,11 +262,11 @@ export default function Page() {
           className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
           placeholder="Écris ici… (ex. « J’ai mal au genou », « Je me sens anxieuse », …)"
           aria-label="Saisis ton message"
-          disabled={loading}
+          disabled={loading || crisisActive /* 🔐 CRISIS: on bloque si crise confirmée */}
         />
         <button
           type="submit"
-          disabled={loading || !input.trim()}
+          disabled={loading || !input.trim() || crisisActive /* 🔐 */}
           className="rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99]"
         >
           {loading ? "Envoi..." : "Envoyer"}
@@ -174,8 +296,8 @@ export default function Page() {
         </p>
       </div>
 
-      {/* Pour aller plus loin – Réaligner sa pratique & Ressources */}
-      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mt-8">
+      {/* 🌿 Pour aller plus loin – Réaligner sa pratique & Ressources */}
+      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mt-8 text-center">
         <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
         <p className="text-sm mb-3 leading-relaxed">
           Vous pratiquez déjà l’EFT ou vous souhaitez affiner votre approche ?  
@@ -183,16 +305,15 @@ export default function Page() {
           tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>, pour ceux qui désirent aller encore plus loin dans la compréhension du problème source.
         </p>
 
-  <div className="flex flex-wrap justify-center gap-3 text-center">
+        <div className="flex flex-wrap justify-center gap-3 text-center">
           <a
             href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
           >
-          Réaligner sa pratique EFT
+            Réaligner sa pratique EFT
           </a>
-
           <a
             href="https://ecole-eft-france.fr/pages/formations-eft.html"
             target="_blank"
@@ -201,23 +322,21 @@ export default function Page() {
           >
           Formations EFT
           </a>
-
           <a
-            href="https://ecole-eft-france.fr/pages/tips.html"
+            href="https://ecole-eft-france.fr/pages/formation-tips"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
           >
           Méthode TIPS®
           </a>
-
           <a
             href="https://technique-eft.com/livres-eft.html"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
           >
-            Les livres EFT
+           Les livres de Geneviève Gagos
           </a>
         </div>
       </div>
