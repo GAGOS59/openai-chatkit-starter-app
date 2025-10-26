@@ -334,9 +334,11 @@ export async function POST(req: Request) {
       ),
     });
   }
+
 // Récupération du dernier message utilisateur (brut + minuscule)
 const userTurns = history.filter(m => m.role === "user");
 const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
+const lastUserText = lastUserMsg.toLowerCase();
 
 /* ---------- 🎯 Bloc A : détection du type de départ (physique / émotion / situation) ---------- */
 const isPhysicalIntake = (s: string) =>
@@ -346,55 +348,52 @@ const isEmotionIntake = (s: string) =>
 const isSituationIntake = (s: string) =>
   /\b(quand|lorsque|pendant|chaque\s+fois|à\s+l’idée|au\s+moment|face\s+à|devant|en\s+parlant|en\s+pensant)\b/i.test(s);
 
-  if (userTurns.length === 1 && lastUserMsg) {
-  // …tes trois blocs A ici (physique / émotion / situation)
-}
-
-/* 🩹 Physique — douleur, tension, gêne */
-if (isPhysicalIntake(lastUserText)) {
-  return new NextResponse(
-    JSON.stringify({
-      answer: `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.  
+if (userTurns.length === 1 && lastUserMsg) {
+  /* 🩹 Physique — douleur, tension, gêne */
+  if (isPhysicalIntake(lastUserText)) {
+    return new NextResponse(
+      JSON.stringify({
+        answer: `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.  
 Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).  
 Par exemple :  
 – pour un genou : la rotule, la face interne ou externe, l’arrière du genou ;  
 – pour la tête : les tempes, le front, l’arrière du crâne ;  
 – pour le dos : les lombaires, entre les omoplates, la nuque.  
 Où ressens-tu exactement cette douleur ?`,
-      crisis: "none" as const,
-    }),
-    { headers }
-  );
-}
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
+  }
 
-
-
-/* 💓 Émotion — peur, colère, tristesse, honte, etc. */
-if (isEmotionIntake(lastUserText)) {
-  return new NextResponse(
-    JSON.stringify({
-      answer: `Tu dis « ${normalizeForDisplay(lastUserMsg)} ».  
+  /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
+  if (isEmotionIntake(lastUserText)) {
+    return new NextResponse(
+      JSON.stringify({
+        answer: `Tu dis « ${normalizeForDisplay(lastUserMsg)} ».  
 Dans quelle situation ressens-tu « ${normalizeForDisplay(lastUserMsg)} » ?  
 Comment se manifeste « ${normalizeForDisplay(lastUserMsg)} » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)  
 Et où précisément ressens-tu cette sensation ?`,
-      crisis: "none" as const,
-    }),
-    { headers }
-  );
-}
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
+  }
 
-/* 🌿 Situation — contexte directement exprimé */
-if (isSituationIntake(lastUserText)) {
-  return new NextResponse(
-    JSON.stringify({
-      answer: `Tu évoques « ${normalizeForDisplay(lastUserMsg)} ».  
+  /* 🌿 Situation — contexte directement exprimé */
+  if (isSituationIntake(lastUserText)) {
+    return new NextResponse(
+      JSON.stringify({
+        answer: `Tu évoques « ${normalizeForDisplay(lastUserMsg)} ».  
 Qu’est-ce qui te gêne le plus à ce moment-là ?  
 Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?`,
-      crisis: "none" as const,
-    }),
-    { headers }
-  );
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
+  }
 }
+
 /* ---------- 🎯 Bloc B : gestion du SUD et écart minimal de progression (fidèle au prompt) ---------- */
 const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
 const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
