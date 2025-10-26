@@ -20,7 +20,7 @@ export default function Page() {
   const [crisisMode, setCrisisMode] = useState<CrisisFlag>("none");
 
   const chatRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null); // 👈 référence du champ
+  const inputRef = useRef<HTMLInputElement>(null); // focus auto
 
   /* Auto-scroll en bas à chaque nouveau message */
   useEffect(() => {
@@ -65,18 +65,22 @@ export default function Page() {
         ...prev,
         {
           role: "assistant",
-          content: reply || "Je n’ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?",
+          content:
+            reply ||
+            "Je n’ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?",
         },
       ]);
 
       setCrisisMode(data.crisis ?? "none");
+      // console.log("API crisis =", data.crisis); // debug si besoin
     } catch {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Désolé, je n’ai pas pu répondre. Réessaie dans un instant ou reformule ta demande.",
+          content:
+            "Désolé, je n’ai pas pu répondre. Réessaie dans un instant ou reformule ta demande.",
         },
       ]);
     } finally {
@@ -139,7 +143,7 @@ export default function Page() {
       <form onSubmit={onSubmit} className="flex flex-col gap-2">
         <div className="flex gap-2">
           <input
-            ref={inputRef} // 👈 référence pour le focus automatique
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
@@ -161,10 +165,6 @@ export default function Page() {
             Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s’il te plaît.
           </p>
         )}
-      </form>
-      {/* Formulaire d’envoi */}
-      <form onSubmit={onSubmit} className="flex flex-col gap-2">
-        ...
       </form>
 
       {/* 🔒 Bloc d’aide en cas de crise */}
@@ -200,8 +200,7 @@ export default function Page() {
         </div>
       )}
 
-      {error && <div className="text-red-600">{error}</div>}
-
+      {/* Message d’erreur (optionnel) */}
       {error && <div className="text-red-600">{error}</div>}
 
       {/* ⚠️ Note de prudence */}
