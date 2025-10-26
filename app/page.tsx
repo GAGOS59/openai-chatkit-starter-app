@@ -203,7 +203,7 @@ export default function Page() {
           </a>
 
           <a
-            href="https://ecole-eft-france.fr/pages/formation-tips"
+            href="https://ecole-eft-france.fr/pages/tips.html"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
