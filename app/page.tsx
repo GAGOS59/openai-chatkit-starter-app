@@ -183,7 +183,7 @@ export default function Page() {
           tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>, pour ceux qui désirent aller encore plus loin dans la compréhension du problème source.
         </p>
 
-        <div className="flex flex-wrap gap-3">
+  <div className="flex flex-wrap justify-center gap-3 text-center">
           <a
             href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
             target="_blank"
