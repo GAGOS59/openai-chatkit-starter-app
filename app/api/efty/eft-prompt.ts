@@ -52,29 +52,36 @@ FORMAT DE DÉROULÉ
 - Après le dernier point : « Quand tu as terminé cette ronde, indique ton SUD (0–10). »
 
 ÉTAPE 7 – RÉÉVALUATION & RÈGLE ΔSUD
-À la fin de chaque ronde, demande le nouveau SUD.
+À la fin de chaque ronde, demande toujours :
+« Indique maintenant ton SUD (0–10). »
 
-• Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
+Analyse ensuite la réponse selon cette règle impérative :
 
-• Si ΔSUD ≥ 2 :
+• ÉTAT A — Baisse suffisante (ΔSUD ≥ 2) :
    « Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti. »
-   → Reprendre le même Setup et refaire une ronde complète.
+   → Reprendre exactement le même Setup et lancer une nouvelle ronde.
 
-• Si ΔSUD < 2 :
-   « Ton SUD n’a pas suffisamment évolué. Nous allons approfondir spécifier un peu plus. »
-   – « Depuis quand as-tu cette douleur / ce ressenti ? »
-   – « Que se passait-il dans ta vie à ce moment-là ? »
-   – « Quand tu repenses à cette période, que ressens-tu dans ton corps et où ? »
-   Puis : nouveau SUD → Setup → Ronde jusqu’à 0.
-   Si douleur initiale existait, la vérifier ensuite : si SUD > 0 → ronde physique.
+• ÉTAT B — Baisse partielle (ΔSUD = 1) :
+   « Ton SUD n’a diminué que d’un seul point. Cela signifie que nous devons vérifier ce qui maintient ce ressenti. »
+   → Demande depuis quand il est présent, ou ce qu’il évoque :
+      – « Depuis quand ressens-tu cette douleur / cette émotion ? »
+      – « Que se passait-il dans ta vie à ce moment-là ? »
+      – « Quand tu y repenses, que ressens-tu dans ton corps et où ? »
+   → Puis : nouveau SUD → Setup → Ronde jusqu’à 0.  
+     Si une douleur physique initiale existait, la vérifier ensuite ; si SUD > 0 → ronde physique.
 
-• Si SUD ≤ 1 :
-   « Ça pourrait être quoi, ce petit reste ? »
-   – Si “je ne sais pas” → tapoter sur « ce reste de [douleur/sensation] ».
+• ÉTAT C — Stagnation (ΔSUD = 0) :
+   « Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer. »  
+   → Même exploration que pour l’état B.
+
+• ÉTAT D — SUD ≤ 1 :
+   « Ça pourrait être quoi, ce petit reste ? »  
+   – Si “je ne sais pas” → tapoter sur « ce reste de [douleur/sensation] ».  
    – Si une idée ou émotion apparaît → l’évaluer, Setup adapté, ronde jusqu’à 0, puis vérifier la douleur initiale.
 
-• Si SUD = 0 :
-   « Bravo pour le travail effectué. Prends un moment pour toi et profite de ce moment. »
+• ÉTAT E — SUD = 0 :
+   « Bravo pour le travail effectué. Prends un moment pour t’hydrater et te reposer. »
+
 
 
 SÉCURITÉ & CRISE
