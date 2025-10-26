@@ -1,12 +1,20 @@
 /* app/page.tsx */
 "use client";
 
-import React, { useEffect, useRef, useState, FormEvent } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  FormEvent,
+} from "react";
+import Image from "next/image";
 
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
+type ToastState = { msg: string; key: number } | null;
 
 /* ---------- Page ---------- */
 export default function Page() {
@@ -19,14 +27,16 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const [crisisMode, setCrisisMode] = useState<CrisisFlag>("none");
 
+  const [toast, setToast] = useState<ToastState>(null);
+
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null); // focus auto
 
   // 🔔 petit message visuel temporaire (toast)
-function showToast(message: string) {
-  setToast({ msg: message, key: Date.now() });
-  setTimeout(() => setToast(null), 4000); // ← celui dont je parlais 😄
-}
+  const showToast = useCallback((message: string) => {
+    setToast({ msg: message, key: Date.now() });
+    setTimeout(() => setToast(null), 4000);
+  }, []);
 
   /* Auto-scroll en bas à chaque nouveau message */
   useEffect(() => {
@@ -36,13 +46,12 @@ function showToast(message: string) {
   }, [messages]);
 
   useEffect(() => {
-  if (crisisMode === "ask") {
-    showToast("Sécurité : réponds simplement par oui ou non.");
-  } else if (crisisMode === "lock") {
-    showToast("Séance EFT verrouillée : appelle le 3114 / 112 si besoin.");
-  }
-}, [crisisMode]);
-
+    if (crisisMode === "ask") {
+      showToast("Sécurité : réponds simplement par oui ou non.");
+    } else if (crisisMode === "lock") {
+      showToast("Séance EFT verrouillée : appelle le 3114 / 112 si besoin.");
+    }
+  }, [crisisMode, showToast]);
 
   /* Focus automatique sur le champ après chaque réponse (hors crisis lock) */
   useEffect(() => {
@@ -115,10 +124,13 @@ function showToast(message: string) {
               Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
             </p>
           </div>
-          <img
+          <Image
             src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
             alt="Logo École EFT France"
+            width={160}
+            height={40}
             className="h-10 w-auto"
+            priority
           />
         </div>
       </div>
@@ -282,26 +294,27 @@ function showToast(message: string) {
           </a>
         </div>
       </div>
+
       {/* 🔔 Toast visuel (notif) */}
-<div
-  aria-live="assertive"
-  className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50"
->
-  <div className="flex w-full flex-col items-center space-y-4 sm:items-end">
-    {toast && (
       <div
-        key={toast.key}
-        role="status"
-        className="pointer-events-auto w-full sm:w-auto max-w-sm overflow-hidden rounded-xl border bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5"
+        aria-live="assertive"
+        className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50"
       >
-        <div className="p-4">
-          <p className="text-sm text-gray-900">{toast.msg}</p>
+        <div className="flex w-full flex-col items-center space-y-4 sm:items-end">
+          {toast && (
+            <div
+              key={toast.key}
+              role="status"
+              className="pointer-events-auto w-full sm:w-auto max-w-sm overflow-hidden rounded-xl border bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5"
+            >
+              <div className="p-4">
+                <p className="text-sm text-gray-900">{toast.msg}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    )}
-  </div>
-</div>
-
     </main>
   );
 }
+
