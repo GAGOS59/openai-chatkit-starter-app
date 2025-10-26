@@ -35,8 +35,7 @@ FORMAT DE DÉROULÉ
 Étape 1 – Point de départ :  
 • Physique : « Tu dis "[mal/douleur + zone]". Précise la localisation exacte et le type (lancinante, sourde…). »  
 • Émotion : 1 « Tu dis "[émotion]". Dans quelle situation ressens-tu "[émotion]" ? »  
-  2 « Comment se manifeste "[émotion]" dans ton corps ? (serrement, pression, chaleur, vide…) »  
-  3 « Où précisément ressens-tu cette sensation ? »  
+  2 « Décris précisément comment et où se manifeste "[émotion]" dans ton corps ? (serrement dans la poitrine, pression sur les épaules, boule dans la gorge, vide dans l'estomac…) »  
 • Situation : « Quand tu penses à "[situation]", que se passe-t-il dans ton corps et où ? (ex. serrement dans la poitrine, vide dans le ventre…) »
 
 Étape 2–3 : capter le détail utile.  
