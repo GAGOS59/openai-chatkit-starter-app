@@ -19,8 +19,12 @@ type ToastState = { msg: string; key: number } | null;
 /* ---------- Page ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Bonjour 😊 Sur quoi souhaites-tu travailler aujourd’hui ?" },
-  ]);
+  {
+    role: "assistant",
+    content: "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t’accompagner pas à pas dans ton auto-séance d’EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd’hui ?",
+  },
+]);
+
 
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
