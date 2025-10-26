@@ -33,6 +33,17 @@ export default function Page() {
 
   const [toast, setToast] = useState<ToastState>(null);
 
+  // ⤵️ AJOUT : états SUD + utilitaire d'extraction
+  const [lastAskedSud, setLastAskedSud] = useState(false);
+  const [prevSud, setPrevSud] = useState<number | null>(null);
+
+  function extractSud(v: string): number | null {
+    const m = v.trim().match(/\b([0-9]|10)\b/);
+    if (!m) return null;
+    const n = parseInt(m[1], 10);
+    return n >= 0 && n <= 10 ? n : null;
+  }
+
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null); // focus auto
 
@@ -65,6 +76,16 @@ export default function Page() {
     }
   }, [messages, loading, crisisMode]);
 
+  // ⤵️ AJOUT : arme le crochet quand l'assistant demande un SUD
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant") {
+      const t = last.content.toLowerCase();
+      const asked = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/.test(t);
+      if (asked) setLastAskedSud(true);
+    }
+  }, [messages]);
+
   // --- Heuristiques de crise côté client ---
   function inferAskFromReply(text: string) {
     const t = text.toLowerCase();
@@ -94,6 +115,31 @@ export default function Page() {
     // 🔒 Si on demande oui/non et que l’utilisateur répond "oui" → lock immédiat
     if (crisisMode === "ask" && isAffirmativeYes(value)) {
       setCrisisMode("lock");
+    }
+
+    // ⤵️ AJOUT : si on vient de demander un SUD et que l'utilisateur répond par un nombre
+    if (lastAskedSud) {
+      const sud = extractSud(value);
+      if (sud !== null) {
+        setPrevSud(sud);
+        setLastAskedSud(false);
+
+        if (sud <= 1) {
+          // ✅ Règle SUD ≤ 1 : on clôture côté UI, pas d'appel API
+          setMessages((prev) => [
+            ...prev,
+            { role: "user", content: value },
+            {
+              role: "assistant",
+              content:
+                "Ton SUD est inférieur ou égal à 1. Bravo pour ce beau travail ! 💧 Bois un peu d’eau et prends un moment pour te poser avant de poursuivre ta journée.",
+            },
+          ]);
+          setInput("");
+          return;
+        }
+        // sinon (SUD > 1) on laisse filer le flux normal vers l'API
+      }
     }
 
     const userMsg: Message = { role: "user", content: value };
