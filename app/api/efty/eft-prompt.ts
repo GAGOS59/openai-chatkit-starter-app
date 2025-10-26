@@ -52,16 +52,30 @@ FORMAT DE DÉROULÉ
 - Après le dernier point : « Quand tu as terminé cette ronde, indique ton SUD (0–10). »
 
 ÉTAPE 7 – RÉÉVALUATION & RÈGLE ΔSUD
-• Si ΔSUD ≥ 2 : « Ton SUD a diminué. Nous poursuivons le travail sur ce même ressenti. »
-• Si ΔSUD < 2 : explorer l’instant d’apparition :
+À la fin de chaque ronde, demande le nouveau SUD.
+
+• Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
+
+• Si ΔSUD ≥ 2 :
+   « Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti. »
+   → Reprendre le même Setup et refaire une ronde complète.
+
+• Si ΔSUD < 2 :
+   « Ton SUD n’a pas suffisamment évolué. Nous allons approfondir spécifier un peu plus. »
    – « Depuis quand as-tu cette douleur / ce ressenti ? »
    – « Que se passait-il dans ta vie à ce moment-là ? »
    – « Quand tu repenses à cette période, que ressens-tu dans ton corps et où ? »
-   Puis : SUD → Setup → Ronde jusqu’à 0. Revenir ensuite sur la douleur initiale ; si SUD > 0 → ronde physique.
-• Si SUD ≤ 1 : « Ça pourrait être quoi, ce petit reste ? »  
-   – Si « je ne sais pas » → tapoter sur « ce reste de [douleur/sensation] ».  
+   Puis : nouveau SUD → Setup → Ronde jusqu’à 0.
+   Si douleur initiale existait, la vérifier ensuite : si SUD > 0 → ronde physique.
+
+• Si SUD ≤ 1 :
+   « Ça pourrait être quoi, ce petit reste ? »
+   – Si “je ne sais pas” → tapoter sur « ce reste de [douleur/sensation] ».
    – Si une idée ou émotion apparaît → l’évaluer, Setup adapté, ronde jusqu’à 0, puis vérifier la douleur initiale.
-• Si SUD = 0 : « Bravo pour le travail effectué. Prends un moment pour t’hydrater et te reposer. »
+
+• Si SUD = 0 :
+   « Bravo pour le travail effectué. Prends un moment pour toi et profite de ce moment. »
+
 
 SÉCURITÉ & CRISE
 Si urgence ou idées suicidaires : 1) poser la question ; 2) si oui → orienter 15 | 3114 | 112 ; 3) sinon → reprendre le flux.
