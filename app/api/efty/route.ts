@@ -41,16 +41,8 @@ interface BodyWithMessage {
  */
 interface BodyWithMotsClient {
   mots_client?: MotsClient;
-  /**
-   * Par défaut true : on injecte le JSON de candidats dans la requête modèle.
-   * Mets à false si tu veux désactiver ponctuellement.
-   */
-  injectRappels?: boolean;
-  /**
-   * Nombre de rappels souhaités (le modèle n'est pas obligé mais c'est indicatif).
-   * Par défaut 6.
-   */
-  rappelsVoulus?: number;
+  injectRappels?: boolean; // défaut: true
+  rappelsVoulus?: number; // défaut: 6
 }
 
 type Payload = BodyWithMessages & BodyWithMessage & BodyWithMotsClient;
@@ -73,30 +65,23 @@ function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
   const o = origin.toLowerCase();
 
-  // Autorisations strictes en production
   const ALLOWED_BASE = new Set<string>([
     "https://appli.ecole-eft-france.fr",
     "https://www.ecole-eft-france.fr",
   ]);
 
-  // Environnements Vercel
   const vercelEnv = process.env.VERCEL_ENV;
   const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
 
   if (vercelEnv === "production") {
     return ALLOWED_BASE.has(o);
   }
-
-  // En preview/dev, autoriser aussi l’URL de build courante si présente
   if (vercelEnv === "preview" && vercelUrl) {
     return o === vercelUrl || ALLOWED_BASE.has(o);
   }
-
-  // Facultatif : conserver localhost si tu testes depuis un navigateur local
   if (o.startsWith("http://localhost:") || o === "http://localhost") {
     return true;
   }
-
   return ALLOWED_BASE.has(o);
 }
 
@@ -132,20 +117,21 @@ function anyMatch(xs: RegExp[], s: string) {
   return xs.some((rx) => rx.test(s));
 }
 
-const ASK_SUICIDE_Q =
-  "Avant toute chose, avez-vous des idées suicidaires en ce moment ? (répondez par oui ou non)";
+/* ——— Versions tutoyées ——— */
+const ASK_SUICIDE_Q_TU =
+  "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
 
-function crisisOrientationMessage(): string {
+function crisisOrientationMessage_TU(): string {
   return `Message important
-Il semble que vous traversiez un moment très difficile. Je vous prends au sérieux.
-Je ne peux pas vous accompagner avec l’EFT dans une situation d’urgence : votre sécurité est prioritaire.
+Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta sécurité est prioritaire.
 
 📞 En France :
 • 3114 — Prévention du suicide (gratuit, 24/7)
 • 15 — SAMU
 • 112 — Urgences (si danger immédiat)
 
-Vous n’êtes pas seul·e — ces services peuvent vous aider dès maintenant.`;
+Tu n’es pas seul·e — ces services peuvent t’aider dès maintenant.`;
 }
 
 const YES_PATTERNS: RegExp[] = [
@@ -162,8 +148,9 @@ const NO_PATTERNS: RegExp[] = [
 ];
 
 function interpretYesNoServer(text: string): "yes" | "no" | "unknown" {
-  if (YES_PATTERNS.some((rx) => rx.test(text))) return "yes";
-  if (NO_PATTERNS.some((rx) => rx.test(text))) return "no";
+  const t = (text || "").toLowerCase();
+  if (YES_PATTERNS.some((rx) => rx.test(t))) return "yes";
+  if (NO_PATTERNS.some((rx) => rx.test(t))) return "no";
   return "unknown";
 }
 
@@ -191,10 +178,9 @@ function generateRappelsBruts(m?: MotsClient): string[] {
     if (t && t.length <= 40) out.add(t);
   };
 
-  // patrons courts (neutres, 3–8 mots conseillés par le prompt système)
+  // patrons courts (neutres)
   if (m.emotion) push(`cette ${m.emotion}`);
   if (m.sensation && m.localisation) {
-    // accords basiques "dans la/le/l’ / à la/au/à l’"
     const loc = m.localisation.trim();
     const prep = /^[aeiouhâêîôûàéèêëïîöôù]/i.test(loc)
       ? "l’"
@@ -202,7 +188,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
           ? "la "
           : (loc.match(/^(ventre|dos|bras|cou|pied|genou|mollet|front|thorax|crâne)/i) ? "le " : ""));
     const locFmt = prep ? `${prep}${loc.replace(/^l[’']\s*/i, "")}` : loc;
-    push(`cette ${m.sensation} dans ${locFmt}`); // "dans l’/la/le"
+    push(`cette ${m.sensation} dans ${locFmt}`);
   }
   if (m.sensation && !m.localisation) push(`cette ${m.sensation}`);
   if (m.pensee) push(`cette pensée : « ${m.pensee} »`);
@@ -218,7 +204,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
     push(`cette gêne dans ${locFmt}`);
   }
 
-  // variantes très légères (toujours neutres, sans ajout d’intention)
+  // variantes très légères
   if (m.emotion) push(`ce ${m.emotion} présent`);
   if (m.sensation && m.localisation) {
     const loc = m.localisation.trim();
@@ -228,7 +214,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
           ? "la "
           : (loc.match(/^(ventre|dos|bras|cou|pied|genou|mollet|front|thorax|crâne)/i) ? "le " : ""));
     const locFmt = prep ? `${prep}${loc.replace(/^l[’']\s*/i, "")}` : loc;
-    push(`ce ${m.sensation} à ${locFmt}`); // "à l’/la/le"
+    push(`ce ${m.sensation} à ${locFmt}`);
   }
   if (m.pensee) push(`cette pensée qui insiste`);
 
@@ -277,51 +263,47 @@ export async function POST(req: Request) {
     "Vary": "Origin",
   });
 
-  /* ---------- 🔐 Interception sécurité AVANT d'appeler le modèle ---------- */
+  /* ---------- 🔐 Interception sécurité AVANT modèle ---------- */
   const lastUserText =
     [...messages].reverse().find((m) => m.role === "user")?.content?.toLowerCase() ?? "";
   const askedSuicide = lastAssistantAskedSuicideQuestion(history);
 
-  // Si on attend la réponse oui/non à la question suicidaire posée au tour précédent
   if (askedSuicide) {
     const yn = interpretYesNoServer(lastUserText);
 
     if (yn === "yes") {
       const answer =
-        crisisOrientationMessage() +
-        "\n\nJe reste avec vous ici, mais je n’irai pas plus loin en EFT. " +
-        "Appelez le 3114 ou le 112 si vous êtes en danger immédiat.";
+        crisisOrientationMessage_TU() +
+        "\n\nJe reste avec toi ici, mais je n’irai pas plus loin en EFT. " +
+        "Appelle le 3114 ou le 112 si tu es en danger immédiat.";
       return new NextResponse(JSON.stringify({ answer, crisis: "lock" as const }), { headers });
     }
 
     if (yn === "no") {
       const answer =
-        "Merci pour votre réponse. Si à un moment vous vous sentez en danger, stoppons l’EFT et contactez le 3114 (24/7). " +
-        "Quand vous êtes prêt·e, dites en une phrase ce qui vous dérange le plus maintenant.";
+        "Merci pour ta réponse. Si à un moment tu te sens en danger, stoppons l’EFT et contacte le 3114 (24/7). " +
+        "Quand tu es prêt·e, dis en une phrase ce qui te dérange le plus maintenant.";
       return new NextResponse(JSON.stringify({ answer, crisis: "none" as const }), { headers });
     }
 
-    const answer =
-      "Je n’ai pas bien compris. Pouvez-vous répondre par « oui » ou « non », s’il vous plaît ?";
+    const answer = "Je n’ai pas bien compris. Peux-tu répondre par « oui » ou « non », s’il te plaît ?";
     return new NextResponse(JSON.stringify({ answer, crisis: "ask" as const }), { headers });
   }
 
-  // Détection directe des signaux forts → orientation + question oui/non
   if (anyMatch(CRISIS_HARD, lastUserText)) {
-    const answer = crisisOrientationMessage() + "\n\n" + ASK_SUICIDE_Q;
+    const answer = crisisOrientationMessage_TU() + "\n\n" + ASK_SUICIDE_Q_TU;
     return new NextResponse(JSON.stringify({ answer, crisis: "ask" as const }), { headers });
   }
 
-  // Détection des signaux souples → empathie + question oui/non
   if (anyMatch(CRISIS_SOFT, lastUserText)) {
     const answer =
       "J’entends que c’est très difficile en ce moment. J’ai une question importante de sécurité avant de poursuivre.\n\n" +
-      ASK_SUICIDE_Q;
+      ASK_SUICIDE_Q_TU;
     return new NextResponse(JSON.stringify({ answer, crisis: "ask" as const }), { headers });
   }
-  /* ---------- 🔐 Fin interception sécurité ---------- */
+  /* ---------- 🔐 Fin interception ---------- */
 
-  // --- Injection optionnelle de candidats de rappels (ta version d'origine conservée)
+  // --- Injection optionnelle de candidats de rappels
   const injectRappels = body.injectRappels !== false; // par défaut true
   const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
   const candidats = generateRappelsBruts(body.mots_client);
