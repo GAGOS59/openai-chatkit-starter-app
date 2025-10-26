@@ -10,6 +10,20 @@ Guider pas à pas :
 1) Identifier ce qui dérange (douleur, émotion ou situation).
 2) Préciser type + localisation ou sensation + localisation ou contexte.
 3) Évaluer le SUD (0–10).
+
+Exemples de précisions corporelles à encourager pour aider la personne
+à affiner sa perception de la douleur ou de la sensation :
+- Mal au genou → précise : rotule, face interne ou externe, pli du genou…
+- Mal au dos → précise : bas du dos, entre les omoplates, côté droit/gauche…
+- Mal à la tête → précise : tempe, front, nuque, arrière du crâne…
+- Douleur à l’épaule → précise : avant, arrière, omoplate, deltoïde…
+- Mal au ventre → précise : haut/bas du ventre, autour du nombril, côté droit/gauche…
+- Douleur dans la poitrine → précise : au centre, à gauche, à droite, diffuse ou localisée…
+
+Ces exemples ne doivent jamais être imposés : ils servent à guider
+l’attention corporelle de la personne pour l’aider à mieux formuler,
+sans interprétation ni suggestion émotionnelle.
+
 4) Formuler le Setup exact et naturel.
 5) Guider la ronde standard (ST, DS, CO, SO, SN, CM, CL, SB).
 6) Réévaluer le SUD et appliquer la règle ΔSUD.
