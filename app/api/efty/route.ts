@@ -48,6 +48,11 @@ interface BodyWithMotsClient {
 type Payload = BodyWithMessages & BodyWithMessage & BodyWithMotsClient;
 
 /* ---------- Utils ---------- */
+// Normalise une chaîne: compresse les espaces et trim
+function clean(s?: string): string {
+  return (s ?? "").replace(/\s+/g, " ").trim();
+}
+
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   if (!Array.isArray(x)) return false;
   return x.every(
