@@ -349,7 +349,7 @@ const isSituationIntake = (s: string) =>
 
 if (userTurns.length === 1 && lastUserMsg) {
   /* 🩹 Physique — douleur, tension, gêne */
-  if (isPhysicalIntake(lastUserMsg.toLowerCase)) {
+  if (isPhysicalIntake(lastUserMsg.toLowerCase))() {
     return new NextResponse(
       JSON.stringify({
         answer: `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.  
@@ -366,7 +366,7 @@ Où ressens-tu exactement cette douleur ?`,
   }
 
   /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
-  if (isEmotionIntake(lastUserMsg.toLowerCase)) {
+  if (isEmotionIntake(lastUserMsg.toLowerCase))(){
     return new NextResponse(
       JSON.stringify({
         answer: `Tu dis « ${normalizeForDisplay(lastUserMsg)} ».  
@@ -380,7 +380,7 @@ Et où précisément ressens-tu cette sensation ?`,
   }
 
   /* 🌿 Situation — contexte directement exprimé */
-if (isSituationIntake(lastUserMsg.toLowerCase)) {
+if (isSituationIntake(lastUserMsg.toLowerCase))(){
     return new NextResponse(
       JSON.stringify({
         answer: `Tu évoques « ${normalizeForDisplay(lastUserMsg)} ».  
