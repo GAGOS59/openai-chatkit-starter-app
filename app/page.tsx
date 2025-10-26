@@ -1,23 +1,3 @@
-{/* ============================================================
-   🎉 Bandeau – Édition spéciale 30 ans d’EFT
-   ============================================================ */}
-<div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-6">
-  <div className="flex items-center justify-between gap-4">
-    <div>
-      <p className="text-xs tracking-wide uppercase opacity-80">Édition spéciale</p>
-      <h1 className="text-xl sm:text-2xl font-semibold">30 ans d&apos;EFT — 1995 → 2025</h1>
-      <p className="text-sm mt-1 opacity-90">
-        Une pratique de libération émotionnelle transmise avec rigueur et bienveillance.
-      </p>
-    </div>
-    <img
-      src="https://ecole-eft-france.fr/assets/front/logo-a8701fa15e57e02bbd8f53cf7a5de54b.png"
-      alt="Logo École EFT France"
-      className="h-10 w-auto"
-    />
-  </div>
-</div>
-
 /* app/page.tsx */
 "use client";
 
@@ -166,19 +146,6 @@ export default function Page() {
       {/* Message d’erreur (optionnel) */}
       {error && <div className="text-red-600">{error}</div>}
 
-      {/* Note de prudence */}
-      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
-        <strong className="block mb-1">Note de prudence</strong>
-        <p className="text-sm leading-relaxed">
-          Cet assistant est un outil éducatif. Il ne remplace pas un avis médical, psychologique ou
-          thérapeutique. <br />
-          En cas de détresse ou d’idées suicidaires : 15 (SAMU), 3114 (prévention du suicide, 24/7),
-          112 (urgence).
-        </p>
-      </div>
-    </main>
-  );
-}
 
 {/* ============================================================
    ⚠️ Note de prudence – Mention légale et confidentialité
@@ -229,7 +196,7 @@ export default function Page() {
       rel="noopener noreferrer"
       className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
     >
-      🌿 Formations EFT
+      Formations EFT
     </a>
 
     <a
@@ -238,7 +205,7 @@ export default function Page() {
       rel="noopener noreferrer"
       className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
     >
-      🔎 Méthode TIPS®
+      Méthode TIPS®
     </a>
 
     <a
@@ -247,7 +214,15 @@ export default function Page() {
       rel="noopener noreferrer"
       className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
     >
-      📚 Les livres de Geneviève Gagos
+      Les livres de Geneviève Gagos
     </a>
   </div>
 </div>
+
+
+
+       
+    </main>
+  );
+}
+
