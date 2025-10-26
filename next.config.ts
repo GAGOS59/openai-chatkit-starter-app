@@ -1,29 +1,27 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  // Autorise les images distantes depuis ton domaine (pour next/image)
+// next.config.ts
+import type { NextConfig } from "next";
+import type { Configuration as WebpackConfig } from "webpack";
+
+const nextConfig: NextConfig = {
   images: {
-    domains: ['ecole-eft-france.fr'],
-    // ou, si tu préfères une règle plus fine :
-    // remotePatterns: [
-    //   {
-    //     protocol: 'https',
-    //     hostname: 'ecole-eft-france.fr',
-    //     pathname: '/**',
-    //   },
-    // ],
+    domains: ["ecole-eft-france.fr"],
+    // ou remotePatterns si tu veux être plus fin
+    // remotePatterns: [{ protocol: "https", hostname: "ecole-eft-france.fr", pathname: "/**" }],
   },
 
-  // Laisse ton hook webpack (même s'il ne fait rien pour l’instant)
-  webpack: (config) => {
+  // ✅ Type explicite sur `config`
+  webpack: (config: WebpackConfig) => {
+    // garde ton alias, même s'il est vide pour l'instant
+    config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
     };
     return config;
   },
 
-  // 🚀 Clé factice pour invalider le cache de build Vercel si besoin
+  // 🚀 clé factice pour invalider le cache de build Vercel si besoin
   env: {
-    FORCE_REBUILD: '2025-10-13',
+    FORCE_REBUILD: "2025-10-13",
   },
 };
 
