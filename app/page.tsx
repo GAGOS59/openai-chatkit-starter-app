@@ -366,6 +366,51 @@ export default function Page() {
           </a>
         </div>
       )}
+      {/* 🌿 Pour aller plus loin */}
+<div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mt-8 text-center">
+  <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
+  <p className="text-sm mb-3 leading-relaxed">
+    Vous pratiquez déjà l’EFT ou vous souhaitez affiner votre approche ?  
+    Le programme <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité et la profondeur du geste EFT d’origine,  
+    tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>, pour ceux qui désirent aller encore plus loin dans la compréhension du problème source.
+  </p>
+
+  <div className="flex flex-wrap justify-center gap-3 text-center">
+    <a
+      href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      Réaligner sa pratique EFT
+    </a>
+    <a
+      href="https://ecole-eft-france.fr/pages/formations-eft.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      Formations EFT
+    </a>
+    <a
+      href="https://ecole-eft-france.fr/pages/tips.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      Méthode TIPS®
+    </a>
+    <a
+      href="https://technique-eft.com/livres-eft.html"
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-block rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+    >
+      Les livres de Geneviève Gagos
+    </a>
+  </div>
+</div>
+
     </main>
   );
 }
