@@ -125,19 +125,23 @@ export default function Page() {
         setLastAskedSud(false);
 
         if (sud <= 1) {
-          // ✅ Règle SUD ≤ 1 : on clôture côté UI, pas d'appel API
-          setMessages((prev) => [
-            ...prev,
-            { role: "user", content: value },
-            {
-              role: "assistant",
-              content:
-                "Ton SUD est inférieur ou égal à 1. Bravo pour ce beau travail ! 💧 Bois un peu d’eau et prends un moment pour te poser avant de poursuivre ta journée.",
-            },
-          ]);
-          setInput("");
-          return;
-        }
+  // Règle SUD ≤ 1 : investiguer le "petit reste" (PAS de clôture immédiate)
+  setMessages((prev) => [
+    ...prev,
+    { role: "user", content: value },
+    {
+      role: "assistant",
+      content:
+        `Ton SUD est à ${sud} (≤ 1).\n` +
+        `Ça pourrait être quoi, ce petit reste ?\n\n` +
+        `• Si tu ne sais pas : on peut tapoter sur « ce reste de [douleur/sensation] ».\n` +
+        `• Si une idée ou une émotion apparaît : dis-la ; on l’évaluera (SUD), puis Setup + ronde.`,
+    },
+  ]);
+  setInput("");
+  return;
+}
+
         // sinon (SUD > 1) on laisse filer le flux normal vers l'API
       }
     }
