@@ -77,11 +77,11 @@ function PromoBlock() {
 function AyniCard() {
   return (
     <div className="rounded-2xl border bg-white p-4 shadow-sm">
-      <p className="text-sm text-gray-700 mb-3 justify-center">
+      <p className="text-sm text-gray-700 mb-3 text-align:center">
         EFTY te soutient. Voudrais-tu soutenir EFTY ?
       </p>
       <AyniButton />
-      <p className="text-xs text-gray-500 mt-3 justify-center">
+      <p className="text-xs text-gray-500 mt-3 text-align:center">
         Merci du fond du cœur pour ton soutien.
       </p>
     </div>
