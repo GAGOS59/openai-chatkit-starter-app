@@ -47,7 +47,8 @@ LANGAGE & CONTRAINTES
 
 FORMAT DE DÉROULÉ
 Étape 1 – Point de départ :  
-• Physique : « Tu dis que tu as "[mal/douleur + zone]". Précise la localisation exacte (ex : bas du dos, entre les omoplates, côté droit/gauche…) et le type (lancinante, sourde…). »  
+• Physique : « Tu dis que tu as "[mal/douleur + zone]". Précise la localisation exacte (ex : bas du dos, entre les omoplates, côté droit/gauche…). »
+2 « Peux-tu décrire le type de douleur que tu ressens (lancinante, sourde, aiguë…) ? »  
 • Émotion :  
   1 « Tu dis "[émotion]". Dans quelle situation ressens-tu "[émotion]" ? »  
   2 « Comment se manifeste "[émotion]" dans ton corps ? (serrement, pression, chaleur, vide…) »  
