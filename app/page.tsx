@@ -13,24 +13,27 @@ import Image from "next/image";
 /* === AJOUTER SOUS LES IMPORTS DE page.tsx === */
 const PAYPAL_URL = "https://paypal.me/efty25";
 
-/** Bouton AYNI réutilisable (cœur + lien PayPal) */
+/** Bouton AYNI réutilisable (cœur + lien PayPal, centré) */
 function AyniButton({ className = "" }: { className?: string }) {
   return (
-    <a
-      href={PAYPAL_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={
-        "inline-flex items-center gap-2 rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99] " +
-        className
-      }
-      aria-label="Soutenir EFTY sur PayPal"
-    >
-      <span aria-hidden>❤️</span>
-      <span>Soutenir EFTY</span>
-    </a>
+    <div className="flex justify-center">
+      <a
+        href={PAYPAL_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={
+          "inline-flex items-center gap-2 rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99] transition " +
+          className
+        }
+        aria-label="Soutenir EFTY sur PayPal"
+      >
+        <span aria-hidden>❤️</span>
+        <span>Soutenir EFTY</span>
+      </a>
+    </div>
   );
 }
+
 
 /** Colonne / encart promo très simple (liens École EFT France) */
 function PromoBlock() {
@@ -74,11 +77,11 @@ function PromoBlock() {
 function AyniCard() {
   return (
     <div className="rounded-2xl border bg-white p-4 shadow-sm">
-      <p className="text-sm text-gray-700 mb-3">
+      <p className="text-sm text-gray-700 mb-3 justify-center">
         EFTY te soutient. Voudrais-tu soutenir EFTY ?
       </p>
       <AyniButton />
-      <p className="text-xs text-gray-500 mt-3">
+      <p className="text-xs text-gray-500 mt-3 justify-center">
         Merci du fond du cœur pour ton soutien.
       </p>
     </div>
