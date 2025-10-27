@@ -287,7 +287,7 @@ SYNTHÈSE RÈGLE ΔSUD (rappel strict, UNE SEULE ACTION)
 - ΔSUD ≥ 2 : poursuivre **le même** ressenti (même Setup + ronde), sans exploration.
 - ΔSUD = 1 : poser **une seule** question d’exploration (pas de liste), puis revenir au flux.
 - ΔSUD = 0 : poser **une seule** question d’exploration, puis revenir au flux.
-- ΔSUD < 0 (hausse) : **Setup + ronde immédiates** sur le même aspect (pas d’exploration).
+- ΔSUD < 0 (hausse) : **Setup + ronde immédiate** sur le même aspect (pas d’exploration).
 
 RYTHME ET SORTIE (rappel)
 - Une seule question par tour.
@@ -296,9 +296,8 @@ RYTHME ET SORTIE (rappel)
 
 EXEMPLES DE FORMULATIONS À UTILISER SELON LES CAS
 - Si le SUD augmente :
-  « Le SUD a augmenté. Cela arrive parfois et montre que tu es bien connecté.e à ton ressenti : continuons sur ce même aspect. »
-  Puis : « Même si cette sensation s’est intensifiée, je m’accepte profondément et complètement. »
-  → OK → Ronde → Re-SUD.
+  « Le SUD a augmenté. Cela arrive parfois. Rien de grave. Peut-être n'étais-tu juste, pas encore totalement connecté.e à ton ressenti : continuons sur ce même aspect. »
+  → Setup → OK → Ronde → Re-SUD.
 
 - Si le SUD = 0 sur un aspect émergé :
   « Félicitations, tu es à 0 pour cet aspect. Avant de conclure, revenons à [aspect initial]. »
