@@ -1,5 +1,3 @@
-je te donne mon prompt actuel afin de vérifier qu'il n'y a pas de doublon. Peux-tu me le renvoyer complété ?
-
 import "server-only";
 
 export const EFT_SYSTEM_PROMPT = `
