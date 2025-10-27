@@ -258,6 +258,38 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out).slice(0, 10);
 }
 
+/** Questions d’exploration à poser UNE PAR UNE dans l’ordre */
+const EXPLORE_QUESTIONS = [
+  "Depuis quand ressens-tu cela ?",
+  "Que se passait-il dans ta vie à ce moment-là ?",
+  "Si tu penses à une période (ex. « depuis toute petite »), cela te fait-il penser à quelque chose de particulier ?",
+  "Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
+] as const;
+
+/** Renvoie 0..4 (4 = toutes les questions ont déjà été posées) */
+function exploreProgressIndex(history: ChatMessage[]): number {
+  let idx = 0;
+  for (const m of history) {
+    if (m.role !== "assistant") continue;
+    const t = (m.content || "").toLowerCase();
+    if (t.includes("depuis quand ressens-tu cela")) idx = Math.max(idx, 1);
+    if (t.includes("que se passait-il dans ta vie")) idx = Math.max(idx, 2);
+    if (t.includes("si tu penses à une période")) idx = Math.max(idx, 3);
+    if (t.includes("quand tu repenses à cette période")) idx = Math.max(idx, 4);
+  }
+  return Math.min(idx, 4);
+}
+
+/** Donne la prochaine question ou `null` si le cycle est terminé */
+function nextExploreQuestion(history: ChatMessage[]): string | null {
+  const idx = exploreProgressIndex(history);
+  return idx >= EXPLORE_QUESTIONS.length ? null : EXPLORE_QUESTIONS[idx];
+}
+
+
+
+
+
 /* ---------- Handlers ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
@@ -466,37 +498,36 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
     );
   }
 
-  /* --- Cas 3 : ΔSUD = 1 --- */
-  if (delta === 1) {
-    return new NextResponse(
-      JSON.stringify({
-        answer:
-          'Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti.\n' +
-          '– Depuis quand ressens-tu cette douleur / cette émotion ?\n' +
-          '– Que se passait-il dans ta vie à ce moment-là ?\n' +
-          '– Si tu penses à une période (ex. « depuis toute petite ») : cela te fait-il penser à quelque chose de particulier ?\n' +
-          '– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
-  }
+ /* --- Cas 3 : ΔSUD = 1 --- */
+if (delta === 1) {
+  const q = nextExploreQuestion(history);
+  return new NextResponse(
+    JSON.stringify({
+      answer: q
+        ? "Ton SUD n’a baissé que d’un point. Nous allons explorer ce qui maintient ce ressenti.\n" + q + "\n"
+        : "Merci pour tes réponses. Pense maintenant à ce que tu viens d'exprimer et indique un SUD (0–10).",
+      crisis: "none" as const,
+    }),
+    { headers }
+  );
+}
 
-  /* --- Cas 4 : ΔSUD = 0 (ou hausse) --- */
-  if (delta !== null && delta <= 0) {
-    return new NextResponse(
-      JSON.stringify({
-        answer:
-          'Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer.\n' +
-          '– Depuis quand ressens-tu cela ?\n' +
-          '– Que se passait-il dans ta vie à ce moment-là ?\n' +
-          '– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n' +
-          '– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
-  }
+
+/* --- Cas 4 : ΔSUD = 0 (ou hausse) --- */
+if (delta !== null && delta <= 0) {
+  const q = nextExploreQuestion(history);
+  return new NextResponse(
+    JSON.stringify({
+      answer: q
+        ? "Le SUD n’a pas changé. Explorons la racine du problème avant de continuer.\n" + q + "\n"
+        : "Merci pour tes réponses. Pense maintenant à ce que tu viens d'exprimer et indique un SUD (0–10).",
+      crisis: "none" as const,
+    }),
+    { headers }
+  );
+}
+
+
 
   /* --- Cas 5 : ΔSUD ≥ 2 (et SUD > 0) --- */
   if (delta !== null && delta >= 2 && sud > 0) {
