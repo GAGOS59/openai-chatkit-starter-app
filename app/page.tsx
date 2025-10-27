@@ -10,6 +10,81 @@ import React, {
 } from "react";
 import Image from "next/image";
 
+/* === AJOUTER SOUS LES IMPORTS DE page.tsx === */
+const PAYPAL_URL = "https://paypal.me/efty25";
+
+/** Bouton AYNI réutilisable (cœur + lien PayPal) */
+function AyniButton({ className = "" }: { className?: string }) {
+  return (
+    <a
+      href={PAYPAL_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={
+        "inline-flex items-center gap-2 rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99] " +
+        className
+      }
+      aria-label="Soutenir EFTY sur PayPal"
+    >
+      <span aria-hidden>❤️</span>
+      <span>Soutenir EFTY</span>
+    </a>
+  );
+}
+
+/** Colonne / encart promo très simple (liens École EFT France) */
+function PromoBlock() {
+  return (
+    <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
+      <h2 className="text-base font-semibold mb-2">Pour aller plus loin</h2>
+      <p className="text-sm mb-3">
+        Formations fidèles à l’EFT d’origine & méthode TIPS®.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <a
+          href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
+        >
+          Réaligner sa pratique EFT
+        </a>
+        <a
+          href="https://ecole-eft-france.fr/pages/formations-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
+        >
+          Formations EFT
+        </a>
+        <a
+          href="https://ecole-eft-france.fr/pages/tips.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
+        >
+          Méthode TIPS®
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/** Carte AYNI – Version B choisie */
+function AyniCard() {
+  return (
+    <div className="rounded-2xl border bg-white p-4 shadow-sm">
+      <p className="text-sm text-gray-700 mb-3">
+        EFTY te soutient. Voudrais-tu soutenir EFTY ?
+      </p>
+      <AyniButton />
+      <p className="text-xs text-gray-500 mt-3">
+        Merci du fond du cœur pour ton soutien.
+      </p>
+    </div>
+  );
+}
+
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
@@ -64,29 +139,6 @@ function PromoCard() {
     </aside>
   );
 }
-{/* Variant B: Emphase (deux cartes séparées) */}
-<div className="rounded-2xl border shadow-sm overflow-hidden">
-<div className="bg-[#F3EEE6] text-[#0f3d69] p-4">
-<h2 className="text-lg font-semibold">Variante B — Emphase</h2>
-<p className="text-xs opacity-80">Deux cartes distinctes, plus visibles</p>
-</div>
-<div className="p-4 space-y-4">
-<div className="rounded-2xl border bg-white p-4">
-<PromoBlock />
-</div>
-<div className="rounded-2xl border bg-white p-4">
-<div className="space-y-3">
-<h3 className="text-base font-semibold text-[#0f3d69] flex items-center gap-2">
-<span>AYNI</span>
-<span className="text-xs font-normal text-[#0f3d69]/70">(don & recevoir)</span>
-</h3>
-{AyniText}
-<div className="pt-1"><AyniButton full /></div>
-</div>
-</div>
-</div>
-</div>
-
 
 
 /* ---------- Page ---------- */
