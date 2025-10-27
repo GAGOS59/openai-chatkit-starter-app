@@ -243,12 +243,18 @@ export default function Page() {
     }
 
     // ——— interception SUD si on vient de le demander ———
-    if (lastAskedSud) {
-      const sud = extractSud(value);
-      if (sud !== null) {
-        const previous = prevSud;
-        setPrevSud(sud);
-        setLastAskedSud(false); // on a consommé la réponse SUD
+if (lastAskedSud) {
+  const sud = extractSud(value);
+  if (sud !== null) {
+    // On mémorise le SUD puis on "désarme" le crochet.
+    setPrevSud(sud);
+    setLastAskedSud(false);
+
+    // Important : on NE génère plus de texte côté client.
+    // On laisse l’API appliquer Setup/Ronde selon le prompt (anti-boucle SUD).
+  }
+}
+
 
        
 
