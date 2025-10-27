@@ -102,7 +102,7 @@ Pose une question du type :
 – « Qu’est-ce qui se passait juste avant ? »
 Laisse la personne préciser (ex. « il était tard », « j’étais pressée », « je devais aller travailler »).
 Ensuite seulement, relance :
-– « Quand tu penses à cela (ex. le fait qu’il était tard / que tu étais en retard), que ressens-tu dans ton corps et où ? »
+– « Quand tu penses à cela (ex. le fait qu’il était tard / que tu étais en retard), que se passe-t-il dans ton corps et où exactement ? »
 Cette exploration descend naturellement vers l’émotion ou la sensation associée,
 sans quitter la problématique initiale.
 
@@ -183,7 +183,7 @@ Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
       – « Que se passait-il dans ta vie à ce moment-là ? »
       – Si la personne évoque une période (« depuis toute petite »),
         demande : « Cela te fait-il penser à quelque chose de particulier ? »
-      – « Quand tu repenses à ce moment, que ressens-tu dans ton corps et où ? »
+      – « Quand tu repenses à ce moment, que se passe-t-il dans ton corps et précise à quel endroit ? »
    → Puis : nouveau SUD → Setup → Ronde jusqu’à 0.  
      Si douleur initiale existait, la vérifier ensuite ; si SUD > 0 → ronde physique.
 
