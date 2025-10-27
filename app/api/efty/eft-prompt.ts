@@ -165,8 +165,6 @@ Déroule ensuite la ronde standard sur les 8 points EFT, en annonçant chaque po
 8. **Sous le bras (SB)** : [phrase de rappel n°8]
 
 Le ton reste calme, fluide et bienveillant.
-Après le dernier point :
-« Quand tu as terminé cette ronde, indique ton SUD (0–10). »
 
 ÉTAPE 7 – RÉÉVALUATION & RÈGLE ΔSUD
 À la fin de chaque ronde, demande le nouveau SUD.
