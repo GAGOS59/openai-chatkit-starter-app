@@ -56,7 +56,7 @@ function clean(s?: string): string {
 // Supprime un éventuel "j'ai" / "j ai" en début de phrase
 function normalizeForDisplay(s?: string): string {
   let t = clean(s);
-  t = t.replace(/^j['’]?\s*ai\s+/i, ""); // évite "tu as j'ai ..."
+  t = t.replace(/^j['’]?\s*ai\s+/i, "");
   return t;
 }
 
@@ -97,7 +97,7 @@ function isAllowedOrigin(origin: string | null): boolean {
   return ALLOWED_BASE.has(o);
 }
 
-/** Aide à l’affinage de la localisation selon la zone mentionnée */
+/** Aide à l’affinage de la localisation selon la zone mentionnée (utilisée par le modèle si besoin) */
 function hintsForLocation(intakeRaw: string): string {
   const s = clean(intakeRaw).toLowerCase();
   const table: Array<[RegExp, string]> = [
@@ -121,7 +121,6 @@ function hintsForLocation(intakeRaw: string): string {
 }
 
 /* ---------- 🔐 Sécurité suicidaire : détection & réponses (serveur) ---------- */
-/** Étage 1 : signaux forts (idéation explicite) */
 const CRISIS_HARD: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
   /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
@@ -135,7 +134,6 @@ const CRISIS_HARD: RegExp[] = [
   /\bj[’']?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,
 ];
 
-/** Étage 2 : signaux “souples” (détresse lourde) → question de sécurité posée */
 const CRISIS_SOFT: RegExp[] = [
   /\bj[’']?\s*en\s+peux?\s+plus\b/iu,
   /\bj[’']?\s*en\s+ai\s+marre\b/iu,
@@ -152,7 +150,6 @@ function anyMatch(xs: RegExp[], s: string) {
   return xs.some((rx) => rx.test(s));
 }
 
-/* ——— Versions tutoyées ——— */
 const ASK_SUICIDE_Q_TU =
   "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
 
@@ -189,7 +186,6 @@ function interpretYesNoServer(text: string): "yes" | "no" | "unknown" {
   return "unknown";
 }
 
-/** A-t-on posé la question "avez-vous/as-tu des idées suicidaires" au tour assistant précédent ? */
 function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
   for (let i = history.length - 1; i >= 0; i--) {
     const m = history[i];
@@ -198,12 +194,12 @@ function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
       return /avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires/.test(t) ||
              /as[-\s]?tu\s+des\s+id[ée]es?\s+suicidaires/.test(t);
     }
-    if (m.role === "user") break; // on s'arrête au dernier échange
+    if (m.role === "user") break;
   }
   return false;
 }
 
-/* ---------- Micro-grammaire rappels (local, sûr, fidèle Gary Craig) ---------- */
+/* ---------- Micro-grammaire rappels ---------- */
 function generateRappelsBruts(m?: MotsClient): string[] {
   if (!m) return [];
   const out = new Set<string>();
@@ -213,7 +209,6 @@ function generateRappelsBruts(m?: MotsClient): string[] {
     if (t && t.length <= 40) out.add(t);
   };
 
-  // patrons courts (neutres)
   if (m.emotion) push(`cette ${m.emotion}`);
   if (m.sensation && m.localisation) {
     const loc = m.localisation.trim();
@@ -239,7 +234,6 @@ function generateRappelsBruts(m?: MotsClient): string[] {
     push(`cette gêne dans ${locFmt}`);
   }
 
-  // variantes très légères
   if (m.emotion) push(`ce ${m.emotion} présent`);
   if (m.sensation && m.localisation) {
     const loc = m.localisation.trim();
@@ -358,143 +352,55 @@ export async function POST(req: Request) {
     });
   }
 
-  // Récupération du dernier message utilisateur (brut + minuscule)
+  // ---- ÉTAT LÉGER POUR LE MODÈLE (liaison naturelle prompt↔app)
   const userTurns = history.filter((m) => m.role === "user");
   const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
-  const lastUserMsgLower = lastUserMsg.toLowerCase();
-
-  /* ---------- 🎯 Bloc A : détection du type de départ (physique / émotion / situation) ---------- */
-  const isPhysicalIntake = (s: string) =>
-    /\b(mal|douleur|tension|crispation|gêne|brûlure|piqûre|raideur|contracture|migraine|maux?)\b/i.test(s);
-  const isEmotionIntake = (s: string) =>
-    /\b(peur|col[eè]re|tristesse|culpabilit[ée]|angoisse|stress|honte|dégoût|inqui[ée]tude|anxi[ée]t[ée]|énervement|désespoir|impuissance|solitude|frustration|fatigue|lassitude)\b/i.test(s);
-  const isSituationIntake = (s: string) =>
-    /\b(quand|lorsque|pendant|chaque\s+fois|à\s+l’idée|au\s+moment|face\s+à|devant|en\s+parlant|en\s+pensant)\b/i.test(s);
-
-  if (userTurns.length === 1 && lastUserMsg) {
-    /* 🩹 Physique — douleur, tension, gêne */
-    if (isPhysicalIntake(lastUserMsgLower)) {
-      const hint = hintsForLocation(lastUserMsg);
-      return new NextResponse(
-        JSON.stringify({
-          answer:
-            'Tu dis que tu as ' +
-            normalizeForDisplay(lastUserMsg) +
-            '.\n' +
-            'Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).' +
-            hint +
-            '\n',
-          crisis: "none" as const,
-        }),
-        { headers }
-      );
-    }
-
-    /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
-    if (isEmotionIntake(lastUserMsgLower)) {
-      return new NextResponse(
-        JSON.stringify({
-          answer:
-            'Tu dis « ' + normalizeForDisplay(lastUserMsg) + ' ».\n' +
-            'Dans quelle situation ressens-tu « ' + normalizeForDisplay(lastUserMsg) + ' » ?\n' +
-            'Comment se manifeste « ' + normalizeForDisplay(lastUserMsg) + ' » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)\n' +
-            'Et où précisément ressens-tu cette sensation ?',
-          crisis: "none" as const,
-        }),
-        { headers }
-      );
-    }
-
-    /* 🌿 Situation — contexte directement exprimé */
-    if (isSituationIntake(lastUserMsgLower)) {
-      return new NextResponse(
-        JSON.stringify({
-          answer:
-            'Tu évoques « ' + normalizeForDisplay(lastUserMsg) + ' ».\n' +
-            'Qu’est-ce qui te gêne le plus à ce moment-là ?\n' +
-            'Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?',
-          crisis: "none" as const,
-        }),
-        { headers }
-      );
-    }
-  }
-
-  /* ---------- 🎯 Bloc B : gestion du SUD et écart minimal de progression (fidèle au prompt d’origine) ---------- */
-  const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
   const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+  const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
 
-  if (sudMatch && /SUD/i.test(lastAssistant)) {
-    const sud = parseInt(sudMatch[1], 10);
 
-    // Retrouver le précédent SUD "nu" côté user
-    let prevSud: number | null = null;
-    for (let i = history.length - 2; i >= 0; i--) {
-      const m = history[i];
-      if (m.role === "user") {
-        const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
-        if (mm) { prevSud = parseInt(mm[1], 10); break; }
-      }
+         // SUD précédent saisi par l’utilisateur (pour info au modèle)
+  let prevSud: number | null = null;
+  for (let i = history.length - 2; i >= 0; i--) {
+    const m = history[i];
+    if (m.role === "user") {
+      const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
+      if (mm) { prevSud = parseInt(mm[1], 10); break; }
     }
-    const delta = prevSud !== null ? (prevSud - sud) : null;
-
-    /* --- Cas 1 : SUD = 0 --- */
-    if (sud === 0) {
-      return new NextResponse(JSON.stringify({
-        answer:
-          "Ton SUD est à 0.\n" +
-          "Vérifie toujours l’aspect ou la situation initiale avant de conclure.\n" +
-          "Si tout est à 0 → clôture : félicitations, hydratation, repos.\n" +
-          "Si un élément initial reste > 0 → refais une courte ronde ciblée dessus.",
-        crisis: "none" as const,
-      }), { headers });
-    }
-
-    /* --- Cas 2 : SUD ≤ 1 --- */
-    if (sud <= 1) {
-      return new NextResponse(JSON.stringify({
-        answer: "Ça pourrait être quoi, ce petit reste ?",
-        crisis: "none" as const,
-      }), { headers });
-    }
-
-    /* --- Cas 3 : ΔSUD = 1 --- */
-    if (delta === 1) {
-      return new NextResponse(JSON.stringify({
-        answer:
-          "Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti.\n" +
-          "– Depuis quand ressens-tu cette douleur / cette émotion ?\n" +
-          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
-          "– Si tu penses à une période (ex. « depuis toute petite ») : cela te fait-il penser à quelque chose de particulier ?\n" +
-          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
-        crisis: "none" as const,
-      }), { headers });
-    }
-
-    /* --- Cas 4 : ΔSUD = 0 (ou hausse) --- */
-    if (delta !== null && delta <= 0) {
-      return new NextResponse(JSON.stringify({
-        answer:
-          "Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer.\n" +
-          "– Depuis quand ressens-tu cela ?\n" +
-          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
-          "– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n" +
-          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
-        crisis: "none" as const,
-      }), { headers });
-    }
-
-    /* --- Cas 5 : ΔSUD ≥ 2 (et SUD > 0) --- */
-    if (delta !== null && delta >= 2 && sud > 0) {
-      return new NextResponse(JSON.stringify({
-        answer:
-          "Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti.",
-        crisis: "none" as const,
-      }), { headers });
-    }
-
-    // Premier SUD (pas de précédent) → laisser le modèle gérer la suite
   }
+
+  // Paquet d'état minimal : donne au modèle le contexte pour appliquer le prompt
+  messages.push({
+    role: "user",
+    content: JSON.stringify({
+      meta: "STATE",
+      history_len: history.length,
+      last_user: lastUserMsg,
+      asked_sud: askedSud,
+      prev_sud: prevSud,
+    }),
+  });
+
+  // Rappel doux (réversible) : une seule question à la fois, respecter asked_sud
+  messages.push({
+    role: "user",
+    content:
+      "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
+      "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question. " +
+      "Sinon, pose une unique question adaptée à l’étape en réutilisant les mots exacts de l’utilisateur.",
+  });
+
+  // =========================
+  // (Variante A) Model-driven
+  // -------------------------
+  // Les blocs procéduraux ci-dessous sont désactivés pour laisser le prompt mener la danse.
+  //
+  // /* ---------- 🎯 Bloc A : détection physique/émotion/situation ---------- */
+  // ... (désactivé dans la variante A)
+  //
+  // /* ---------- 🎯 Bloc B : gestion SUD / ΔSUD ---------- */
+  // ... (désactivé dans la variante A)
+  // =========================
 
   try {
     const completion = await openai.chat.completions.create({
