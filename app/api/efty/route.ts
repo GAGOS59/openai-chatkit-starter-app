@@ -376,17 +376,23 @@ const isSituationIntake = (s: string) =>
 if (userTurns.length === 1 && lastUserMsg) {
   /* 🩹 Physique — douleur, tension, gêne */
   if (isPhysicalIntake(lastUserMsgLower)) {
-  const hint = hintsForLocation(lastUserMsg);
-  return new NextResponse(
-    JSON.stringify({
-      answer:
-        `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.\n` +
-        `Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).${hint}\n`,
-      crisis: "none" as const,
-    }),
-    { headers }
-  );
+    const hint = hintsForLocation(lastUserMsg);
+    return new NextResponse(
+      JSON.stringify({
+        answer:
+          'Tu dis que tu as ' +
+          normalizeForDisplay(lastUserMsg) +
+          '.\n' +
+          'Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).' +
+          hint +
+          '\n',
+        crisis: 'none' as const,
+      }),
+      { headers }
+    );
+  }
 }
+
         
 
   for (const [rx, hint] of table) if (rx.test(s)) return hint;
