@@ -76,12 +76,12 @@ function PromoBlock() {
 /** Carte AYNI – Version B choisie */
 function AyniCard() {
   return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm">
-      <p className="text-sm text-gray-700 mb-3 text-align:center">
+    <div className="rounded-2xl border bg-white p-4 shadow-sm align=center">
+      <p className="text-sm text-gray-700 mb-3">
         EFTY te soutient. Voudrais-tu soutenir EFTY ?
       </p>
       <AyniButton />
-      <p className="text-xs text-gray-500 mt-3 text-align:center">
+      <p className="text-xs text-gray-500 mt-3">
         Merci du fond du cœur pour ton soutien.
       </p>
     </div>
