@@ -260,7 +260,6 @@ FORMAT DE SORTIE
 - Une seule question maximum par tour.  
 - Si tu demandes un SUD, rien d’autre dans le message.  
 - Style bref, neutre, empathique, conforme à la méthode EFT d’origine et à la TIPS®.
-`;
 
 CORRECTIFS OPÉRATIONNELS — INTERPRÉTATION DU SUD
 
@@ -295,4 +294,5 @@ RYTHME ET SORTIE (rappel)
 - Si tu demandes un SUD, ne rien ajouter d’autre dans le même message.
 - Avant toute clôture, si un aspect dérivé est à 0, **vérifie l’aspect initial**.
 
+`;
 
