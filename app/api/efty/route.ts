@@ -430,7 +430,7 @@ Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?`,
 const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
 const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
 
-// 🔎 On cherche un SUD précédent côté user
+// 🔎 On cherche un SUD précédent côté user (pour calculer Δ)
 let prevSud: number | null = null;
 for (let i = history.length - 2; i >= 0; i--) {
   const m = history[i];
@@ -449,61 +449,77 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
 
   /* --- Cas 1 : SUD = 0 --- */
   if (sud === 0) {
-    return new NextResponse(JSON.stringify({
-      answer:
-        "Ton SUD est à 0.\n" +
-        "Vérifie toujours l’aspect ou la situation initiale avant de conclure.\n" +
-        "Si tout est à 0 → clôture : félicitations, hydratation, repos.\n" +
-        "Si un élément initial reste > 0 → refais une courte ronde ciblée dessus.",
-      crisis: "none" as const,
-    }), { headers });
+    return new NextResponse(
+      JSON.stringify({
+        answer:
+          "Ton SUD est à 0.\n" +
+          "Vérifie toujours l’aspect ou la situation initiale avant de conclure.\n" +
+          "Si tout est à 0 → clôture : félicitations, hydratation, repos.\n" +
+          "Si un élément initial reste > 0 → refais une courte ronde ciblée dessus.",
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
   }
 
   /* --- Cas 2 : SUD ≤ 1 --- */
   if (sud <= 1) {
-    return new NextResponse(JSON.stringify({
-      answer: "Ça pourrait être quoi, ce petit reste ?",
-      crisis: "none" as const,
-    }), { headers });
+    return new NextResponse(
+      JSON.stringify({
+        answer: "Ça pourrait être quoi, ce petit reste ?",
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
   }
 
   /* --- Cas 3 : ΔSUD = 1 --- */
   if (delta === 1) {
-    return new NextResponse(JSON.stringify({
-      answer:
-        "Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti.\n" +
-        "– Depuis quand ressens-tu cette douleur / cette émotion ?\n" +
-        "– Que se passait-il dans ta vie à ce moment-là ?\n" +
-        "– Si tu penses à une période (ex. « depuis toute petite ») : cela te fait-il penser à quelque chose de particulier ?\n" +
-        "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
-      crisis: "none" as const,
-    }), { headers });
+    return new NextResponse(
+      JSON.stringify({
+        answer:
+          "Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti.\n" +
+          "– Depuis quand ressens-tu cette douleur / cette émotion ?\n" +
+          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
+          "– Si tu penses à une période (ex. « depuis toute petite ») : cela te fait-il penser à quelque chose de particulier ?\n" +
+          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
   }
 
   /* --- Cas 4 : ΔSUD = 0 (ou hausse) --- */
   if (delta !== null && delta <= 0) {
-    return new NextResponse(JSON.stringify({
-      answer:
-        "Le SUD n’a pas changé. Nous allons explorer ce qui peut bloquer avant de continuer.\n" +
-        "– Depuis quand ressens-tu cela ?\n" +
-        "– Que se passait-il dans ta vie à ce moment-là ?\n" +
-        "– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n" +
-        "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
-      crisis: "none" as const,
-    }), { headers });
+    return new NextResponse(
+      JSON.stringify({
+        answer:
+          "Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer.\n" +
+          "– Depuis quand ressens-tu cela ?\n" +
+          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
+          "– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n" +
+          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
   }
 
   /* --- Cas 5 : ΔSUD ≥ 2 (et SUD > 0) --- */
   if (delta !== null && delta >= 2 && sud > 0) {
-    return new NextResponse(JSON.stringify({
-      answer:
-        "Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti.",
-      crisis: "none" as const,
-    }), { headers });
+    return new NextResponse(
+      JSON.stringify({
+        answer:
+          "Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti.",
+        crisis: "none" as const,
+      }),
+      { headers }
+    );
   }
 
   // Premier SUD (pas de précédent) ou autre cas non capté → laisser le modèle gérer la suite
 }
+
 
   
   try {
