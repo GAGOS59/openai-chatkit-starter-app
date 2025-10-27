@@ -374,18 +374,44 @@ const isSituationIntake = (s: string) =>
   /\b(quand|lorsque|pendant|chaque\s+fois|à\s+l’idée|au\s+moment|face\s+à|devant|en\s+parlant|en\s+pensant)\b/i.test(s);
 
 if (userTurns.length === 1 && lastUserMsg) {
+  const msgNorm = normalizeForDisplay(lastUserMsg);
+
   /* 🩹 Physique — douleur, tension, gêne */
   if (isPhysicalIntake(lastUserMsgLower)) {
     const hint = hintsForLocation(lastUserMsg);
     return new NextResponse(
       JSON.stringify({
         answer:
-          'Tu dis que tu as ' +
-          normalizeForDisplay(lastUserMsg) +
-          '.\n' +
+          'Tu dis que tu as ' + msgNorm + '.\n' +
           'Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).' +
-          hint +
-          '\n',
+          hint + '\n',
+        crisis: 'none' as const,
+      }),
+      { headers }
+    );
+  }
+  /* 💓 Émotion */
+  else if (isEmotionIntake(lastUserMsgLower)) {
+    return new NextResponse(
+      JSON.stringify({
+        answer:
+          'Tu dis « ' + msgNorm + ' ».\n' +
+          'Dans quelle situation ressens-tu « ' + msgNorm + ' » ?\n' +
+          'Comment se manifeste « ' + msgNorm + ' » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)\n' +
+          'Et où précisément ressens-tu cette sensation ?',
+        crisis: 'none' as const,
+      }),
+      { headers }
+    );
+  }
+  /* 🌿 Situation */
+  else if (isSituationIntake(lastUserMsgLower)) {
+    return new NextResponse(
+      JSON.stringify({
+        answer:
+          'Tu évoques « ' + msgNorm + ' ».\n' +
+          'Qu’est-ce qui te gêne le plus à ce moment-là ?\n' +
+          'Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?',
         crisis: 'none' as const,
       }),
       { headers }
@@ -393,55 +419,16 @@ if (userTurns.length === 1 && lastUserMsg) {
   }
 }
 
-        
-
-  for (const [rx, hint] of table) if (rx.test(s)) return hint;
-  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
-}
-
-        crisis: "none" as const,
-      }),
-      { headers }
-    );
-  }
-
-  /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
-  if (isEmotionIntake(lastUserMsgLower)) {
-    return new NextResponse(
-      JSON.stringify({
-        answer: `Tu dis « ${normalizeForDisplay(lastUserMsg)} ».  
-Dans quelle situation ressens-tu « ${normalizeForDisplay(lastUserMsg)} » ?  
-Comment se manifeste « ${normalizeForDisplay(lastUserMsg)} » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)  
-Et où précisément ressens-tu cette sensation ?`,
-        crisis: "none" as const,
-      }),
-      { headers }
-    );
-  }
-
-  /* 🌿 Situation — contexte directement exprimé */
-  if (isSituationIntake(lastUserMsgLower)) {
-    return new NextResponse(
-      JSON.stringify({
-        answer: `Tu évoques « ${normalizeForDisplay(lastUserMsg)} ».  
-Qu’est-ce qui te gêne le plus à ce moment-là ?  
-Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?`,
-        crisis: "none" as const,
-      }),
-      { headers }
-    );
-  }
-}
 /* ---------- 🎯 Bloc B : gestion du SUD et écart minimal de progression (fidèle au prompt) ---------- */
 const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
-const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant')?.content || '';
 
-// 🔎 On cherche un SUD précédent côté user (pour calculer Δ)
+// 🔎 Cherche un SUD précédent côté user (pour calculer Δ)
 let prevSud: number | null = null;
 for (let i = history.length - 2; i >= 0; i--) {
   const m = history[i];
-  if (m.role === "user") {
-    const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
+  if (m.role === 'user') {
+    const mm = (m.content || '').match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
     if (mm) { prevSud = parseInt(mm[1], 10); break; }
   }
 }
@@ -458,11 +445,11 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
     return new NextResponse(
       JSON.stringify({
         answer:
-          "Ton SUD est à 0.\n" +
-          "Vérifie toujours l’aspect ou la situation initiale avant de conclure.\n" +
-          "Si tout est à 0 → clôture : félicitations, hydratation, repos.\n" +
-          "Si un élément initial reste > 0 → refais une courte ronde ciblée dessus.",
-        crisis: "none" as const,
+          'Ton SUD est à 0.\n' +
+          'Vérifie toujours l’aspect ou la situation initiale avant de conclure.\n' +
+          'Si tout est à 0 → clôture : félicitations, hydratation, repos.\n' +
+          'Si un élément initial reste > 0 → refais une courte ronde ciblée dessus.',
+        crisis: 'none' as const,
       }),
       { headers }
     );
@@ -472,8 +459,8 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
   if (sud <= 1) {
     return new NextResponse(
       JSON.stringify({
-        answer: "Ça pourrait être quoi, ce petit reste ?",
-        crisis: "none" as const,
+        answer: 'Ça pourrait être quoi, ce petit reste ?',
+        crisis: 'none' as const,
       }),
       { headers }
     );
@@ -484,12 +471,12 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
     return new NextResponse(
       JSON.stringify({
         answer:
-          "Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti.\n" +
-          "– Depuis quand ressens-tu cette douleur / cette émotion ?\n" +
-          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
-          "– Si tu penses à une période (ex. « depuis toute petite ») : cela te fait-il penser à quelque chose de particulier ?\n" +
-          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
-        crisis: "none" as const,
+          'Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti.\n' +
+          '– Depuis quand ressens-tu cette douleur / cette émotion ?\n' +
+          '– Que se passait-il dans ta vie à ce moment-là ?\n' +
+          '– Si tu penses à une période (ex. « depuis toute petite ») : cela te fait-il penser à quelque chose de particulier ?\n' +
+          '– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?',
+        crisis: 'none' as const,
       }),
       { headers }
     );
@@ -500,12 +487,12 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
     return new NextResponse(
       JSON.stringify({
         answer:
-          "Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer.\n" +
-          "– Depuis quand ressens-tu cela ?\n" +
-          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
-          "– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n" +
-          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
-        crisis: "none" as const,
+          'Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer.\n' +
+          '– Depuis quand ressens-tu cela ?\n' +
+          '– Que se passait-il dans ta vie à ce moment-là ?\n' +
+          '– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n' +
+          '– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?',
+        crisis: 'none' as const,
       }),
       { headers }
     );
@@ -515,9 +502,8 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
   if (delta !== null && delta >= 2 && sud > 0) {
     return new NextResponse(
       JSON.stringify({
-        answer:
-          "Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti.",
-        crisis: "none" as const,
+        answer: 'Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti.',
+        crisis: 'none' as const,
       }),
       { headers }
     );
@@ -525,7 +511,6 @@ if (sudMatch && (prevSud !== null || assistantAskedSud)) {
 
   // Premier SUD (pas de précédent) ou autre cas non capté → laisser le modèle gérer la suite
 }
-
 
   
   try {
