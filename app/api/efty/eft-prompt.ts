@@ -173,26 +173,26 @@ Après le dernier point :
 Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
 
 • Si ΔSUD ≥ 2 :
-   « Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti. »
+   « Super, poursuivons le travail sur ce même ressenti. »
    → Reprendre le même Setup et refaire une ronde complète.
 
 • Si ΔSUD = 1 :
    « Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti. »
    → Demande depuis quand il est présent, ou ce qu’il évoque :
-      – « Depuis quand ressens-tu cette douleur / cette émotion ? »
-      – « Que se passait-il dans ta vie à ce moment-là ? »
+      – « Depuis quand ressens-tu cette douleur / cette émotion ? » → Attends la réponse avant de poser la question suivante.
+      – « Que se passait-il dans ta vie à ce moment-là ? » → Attends la réponse
       – Si la personne évoque une période (ex. « depuis toute petite »),
         demande : « Cela te fait-il penser à quelque chose de particulier ? »
-      – « Quand tu repenses à cette période, que ressens-tu dans ton corps et où ? »
+      – « Quand tu repenses à ce moment, que ressens-tu dans ton corps et où ? »
    → Puis : nouveau SUD → Setup → Ronde jusqu’à 0.  
      Si douleur initiale existait, la vérifier ensuite ; si SUD > 0 → ronde physique.
 
 • Si ΔSUD = 0 :
-   « Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer. »
+   « Le SUD n’a pas changé. Nous allons approfondir un peu avant de continuer. »
    → Même exploration que pour ΔSUD = 1.
 
 • Si SUD ≤ 1 :
-   « Ça pourrait être quoi, ce petit reste ? »
+   « Ça pourrait être quoi, ce petit reste-là ? »
    – Si “je ne sais pas” → tapoter sur « ce reste de [douleur/sensation] ».
    – Si une idée ou émotion apparaît → l’évaluer, Setup adapté, ronde jusqu’à 0, puis vérifier la douleur initiale.
 
