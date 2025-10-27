@@ -64,29 +64,29 @@ function PromoCard() {
     </aside>
   );
 }
+{/* Variant B: Emphase (deux cartes séparées) */}
+<div className="rounded-2xl border shadow-sm overflow-hidden">
+<div className="bg-[#F3EEE6] text-[#0f3d69] p-4">
+<h2 className="text-lg font-semibold">Variante B — Emphase</h2>
+<p className="text-xs opacity-80">Deux cartes distinctes, plus visibles</p>
+</div>
+<div className="p-4 space-y-4">
+<div className="rounded-2xl border bg-white p-4">
+<PromoBlock />
+</div>
+<div className="rounded-2xl border bg-white p-4">
+<div className="space-y-3">
+<h3 className="text-base font-semibold text-[#0f3d69] flex items-center gap-2">
+<span>AYNI</span>
+<span className="text-xs font-normal text-[#0f3d69]/70">(don & recevoir)</span>
+</h3>
+{AyniText}
+<div className="pt-1"><AyniButton full /></div>
+</div>
+</div>
+</div>
+</div>
 
-function AyniCard() {
-  return (
-    <section className="gg-ayni rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-6 text-center shadow-sm">
-      <p className="text-lg font-medium mb-2">
-        🌿 <strong>AYNI</strong> — l’équilibre du don et du recevoir
-      </p>
-      <p className="text-base mb-4 italic">EFTY te soutient… soutiendrais-tu EFTY ?</p>
-      <p className="text-sm mb-5">
-        Si cette application t’a aidé·e, tu peux participer librement à son équilibre.<br />
-        Chaque geste aide à maintenir EFTY libre, bienveillant et sans publicité.
-      </p>
-      <a
-        href="https://ko-fi.com/genevievegagos"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-block bg-[#0f3d69] text-white rounded-full px-6 py-2 text-base font-semibold hover:bg-[#143f70] transition-all"
-      >
-        💗 Soutenir EFTY
-      </a>
-    </section>
-  );
-}
 
 
 /* ---------- Page ---------- */
