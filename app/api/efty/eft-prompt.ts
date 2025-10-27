@@ -75,8 +75,6 @@ FORMAT DE DÉROULÉ
 → « Quand c’est fait, envoie un OK et nous passerons à la ronde. »
 
 ÉTAPE 6 – RONDE STANDARD
-
-⚠️ Règle fondamentale — Un seul aspect à la fois :
 Ne combine jamais deux aspects différents dans un même Setup ou une même ronde.
 Chaque ronde doit cibler une seule dimension du problème :
 - soit un aspect physique (ex. douleur, tension, gêne localisée),
