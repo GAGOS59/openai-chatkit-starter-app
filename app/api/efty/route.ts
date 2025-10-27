@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
+import "server-only";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,30 +60,6 @@ function normalizeForDisplay(s?: string): string {
   return t;
 }
 
-/** Exemples d’affinage selon la zone (étape 1 douleurs) */
-function hintsForLocation(intakeRaw: string): string {
-  const s = clean(intakeRaw).toLowerCase();
-  const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
-    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"],
-  ];
-  for (const [rx, hint] of table) if (rx.test(s)) return hint;
-  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
-}
-
-
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   if (!Array.isArray(x)) return false;
   return x.every(
@@ -95,8 +72,6 @@ function isChatMessageArray(x: unknown): x is ChatMessage[] {
       typeof (m as { content: unknown }).content === "string"
   );
 }
-
-
 
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
@@ -120,6 +95,29 @@ function isAllowedOrigin(origin: string | null): boolean {
     return true;
   }
   return ALLOWED_BASE.has(o);
+}
+
+/** Aide à l’affinage de la localisation selon la zone mentionnée */
+function hintsForLocation(intakeRaw: string): string {
+  const s = clean(intakeRaw).toLowerCase();
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"],
+  ];
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
 }
 
 /* ---------- 🔐 Sécurité suicidaire : détection & réponses (serveur) ---------- */
@@ -258,38 +256,6 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out).slice(0, 10);
 }
 
-/** Questions d’exploration à poser UNE PAR UNE dans l’ordre */
-const EXPLORE_QUESTIONS = [
-  "Depuis quand ressens-tu cela ?",
-  "Que se passait-il dans ta vie à ce moment-là ?",
-  "Si tu penses à une période (ex. « depuis toute petite »), cela te fait-il penser à quelque chose de particulier ?",
-  "Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
-] as const;
-
-/** Renvoie 0..4 (4 = toutes les questions ont déjà été posées) */
-function exploreProgressIndex(history: ChatMessage[]): number {
-  let idx = 0;
-  for (const m of history) {
-    if (m.role !== "assistant") continue;
-    const t = (m.content || "").toLowerCase();
-    if (t.includes("depuis quand ressens-tu cela")) idx = Math.max(idx, 1);
-    if (t.includes("que se passait-il dans ta vie")) idx = Math.max(idx, 2);
-    if (t.includes("si tu penses à une période")) idx = Math.max(idx, 3);
-    if (t.includes("quand tu repenses à cette période")) idx = Math.max(idx, 4);
-  }
-  return Math.min(idx, 4);
-}
-
-/** Donne la prochaine question ou `null` si le cycle est terminé */
-function nextExploreQuestion(history: ChatMessage[]): string | null {
-  const idx = exploreProgressIndex(history);
-  return idx >= EXPLORE_QUESTIONS.length ? null : EXPLORE_QUESTIONS[idx];
-}
-
-
-
-
-
 /* ---------- Handlers ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
@@ -392,158 +358,144 @@ export async function POST(req: Request) {
     });
   }
 
-// Récupération du dernier message utilisateur (brut + minuscule)
-const userTurns = history.filter((m) => m.role === "user");
-const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
-const lastUserMsgLower = lastUserMsg.toLowerCase();
+  // Récupération du dernier message utilisateur (brut + minuscule)
+  const userTurns = history.filter((m) => m.role === "user");
+  const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
+  const lastUserMsgLower = lastUserMsg.toLowerCase();
 
-/* ---------- 🎯 Bloc A : détection du type de départ (physique / émotion / situation) ---------- */
-const isPhysicalIntake = (s: string) =>
-  /\b(mal|douleur|tension|crispation|gêne|brûlure|piqûre|raideur|contracture|migraine|maux?)\b/i.test(s);
-const isEmotionIntake = (s: string) =>
-  /\b(peur|col[eè]re|tristesse|culpabilit[ée]|angoisse|stress|honte|dégoût|inqui[ée]tude|anxi[ée]t[ée]|énervement|désespoir|impuissance|solitude|frustration|fatigue|lassitude)\b/i.test(s);
-const isSituationIntake = (s: string) =>
-  /\b(quand|lorsque|pendant|chaque\s+fois|à\s+l’idée|au\s+moment|face\s+à|devant|en\s+parlant|en\s+pensant)\b/i.test(s);
+  /* ---------- 🎯 Bloc A : détection du type de départ (physique / émotion / situation) ---------- */
+  const isPhysicalIntake = (s: string) =>
+    /\b(mal|douleur|tension|crispation|gêne|brûlure|piqûre|raideur|contracture|migraine|maux?)\b/i.test(s);
+  const isEmotionIntake = (s: string) =>
+    /\b(peur|col[eè]re|tristesse|culpabilit[ée]|angoisse|stress|honte|dégoût|inqui[ée]tude|anxi[ée]t[ée]|énervement|désespoir|impuissance|solitude|frustration|fatigue|lassitude)\b/i.test(s);
+  const isSituationIntake = (s: string) =>
+    /\b(quand|lorsque|pendant|chaque\s+fois|à\s+l’idée|au\s+moment|face\s+à|devant|en\s+parlant|en\s+pensant)\b/i.test(s);
 
-if (userTurns.length === 1 && lastUserMsg) {
-  const msgNorm = normalizeForDisplay(lastUserMsg);
+  if (userTurns.length === 1 && lastUserMsg) {
+    /* 🩹 Physique — douleur, tension, gêne */
+    if (isPhysicalIntake(lastUserMsgLower)) {
+      const hint = hintsForLocation(lastUserMsg);
+      return new NextResponse(
+        JSON.stringify({
+          answer:
+            'Tu dis que tu as ' +
+            normalizeForDisplay(lastUserMsg) +
+            '.\n' +
+            'Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).' +
+            hint +
+            '\n',
+          crisis: "none" as const,
+        }),
+        { headers }
+      );
+    }
 
-  /* 🩹 Physique — douleur, tension, gêne */
-  if (isPhysicalIntake(lastUserMsgLower)) {
-    const hint = hintsForLocation(lastUserMsg);
-    return new NextResponse(
-      JSON.stringify({
+    /* 💓 Émotion — peur, colère, tristesse, honte, etc. */
+    if (isEmotionIntake(lastUserMsgLower)) {
+      return new NextResponse(
+        JSON.stringify({
+          answer:
+            'Tu dis « ' + normalizeForDisplay(lastUserMsg) + ' ».\n' +
+            'Dans quelle situation ressens-tu « ' + normalizeForDisplay(lastUserMsg) + ' » ?\n' +
+            'Comment se manifeste « ' + normalizeForDisplay(lastUserMsg) + ' » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)\n' +
+            'Et où précisément ressens-tu cette sensation ?',
+          crisis: "none" as const,
+        }),
+        { headers }
+      );
+    }
+
+    /* 🌿 Situation — contexte directement exprimé */
+    if (isSituationIntake(lastUserMsgLower)) {
+      return new NextResponse(
+        JSON.stringify({
+          answer:
+            'Tu évoques « ' + normalizeForDisplay(lastUserMsg) + ' ».\n' +
+            'Qu’est-ce qui te gêne le plus à ce moment-là ?\n' +
+            'Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?',
+          crisis: "none" as const,
+        }),
+        { headers }
+      );
+    }
+  }
+
+  /* ---------- 🎯 Bloc B : gestion du SUD et écart minimal de progression (fidèle au prompt d’origine) ---------- */
+  const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
+  const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+
+  if (sudMatch && /SUD/i.test(lastAssistant)) {
+    const sud = parseInt(sudMatch[1], 10);
+
+    // Retrouver le précédent SUD "nu" côté user
+    let prevSud: number | null = null;
+    for (let i = history.length - 2; i >= 0; i--) {
+      const m = history[i];
+      if (m.role === "user") {
+        const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
+        if (mm) { prevSud = parseInt(mm[1], 10); break; }
+      }
+    }
+    const delta = prevSud !== null ? (prevSud - sud) : null;
+
+    /* --- Cas 1 : SUD = 0 --- */
+    if (sud === 0) {
+      return new NextResponse(JSON.stringify({
         answer:
-          'Tu dis que tu as ' + msgNorm + '.\n' +
-          'Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).' +
-          hint + '\n',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
-  }
-  /* 💓 Émotion */
-  else if (isEmotionIntake(lastUserMsgLower)) {
-    return new NextResponse(
-      JSON.stringify({
+          "Ton SUD est à 0.\n" +
+          "Vérifie toujours l’aspect ou la situation initiale avant de conclure.\n" +
+          "Si tout est à 0 → clôture : félicitations, hydratation, repos.\n" +
+          "Si un élément initial reste > 0 → refais une courte ronde ciblée dessus.",
+        crisis: "none" as const,
+      }), { headers });
+    }
+
+    /* --- Cas 2 : SUD ≤ 1 --- */
+    if (sud <= 1) {
+      return new NextResponse(JSON.stringify({
+        answer: "Ça pourrait être quoi, ce petit reste ?",
+        crisis: "none" as const,
+      }), { headers });
+    }
+
+    /* --- Cas 3 : ΔSUD = 1 --- */
+    if (delta === 1) {
+      return new NextResponse(JSON.stringify({
         answer:
-          'Tu dis « ' + msgNorm + ' ».\n' +
-          'Dans quelle situation ressens-tu « ' + msgNorm + ' » ?\n' +
-          'Comment se manifeste « ' + msgNorm + ' » dans ton corps quand tu penses à cette situation ? (serrement, pression, chaleur, vide, etc.)\n' +
-          'Et où précisément ressens-tu cette sensation ?',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
-  }
-  /* 🌿 Situation */
-  else if (isSituationIntake(lastUserMsgLower)) {
-    return new NextResponse(
-      JSON.stringify({
+          "Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti.\n" +
+          "– Depuis quand ressens-tu cette douleur / cette émotion ?\n" +
+          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
+          "– Si tu penses à une période (ex. « depuis toute petite ») : cela te fait-il penser à quelque chose de particulier ?\n" +
+          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
+        crisis: "none" as const,
+      }), { headers });
+    }
+
+    /* --- Cas 4 : ΔSUD = 0 (ou hausse) --- */
+    if (delta !== null && delta <= 0) {
+      return new NextResponse(JSON.stringify({
         answer:
-          'Tu évoques « ' + msgNorm + ' ».\n' +
-          'Qu’est-ce qui te gêne le plus à ce moment-là ?\n' +
-          'Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
-  }
-}
+          "Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer.\n" +
+          "– Depuis quand ressens-tu cela ?\n" +
+          "– Que se passait-il dans ta vie à ce moment-là ?\n" +
+          "– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n" +
+          "– Quand tu repenses à cette période, que ressens-tu dans ton corps et où ?",
+        crisis: "none" as const,
+      }), { headers });
+    }
 
-/* ---------- 🎯 Bloc B : gestion du SUD et écart minimal de progression (fidèle au prompt) ---------- */
-const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
-const lastAssistant = [...history].reverse().find((m) => m.role === 'assistant')?.content || '';
-
-// 🔎 Cherche un SUD précédent côté user (pour calculer Δ)
-let prevSud: number | null = null;
-for (let i = history.length - 2; i >= 0; i--) {
-  const m = history[i];
-  if (m.role === 'user') {
-    const mm = (m.content || '').match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
-    if (mm) { prevSud = parseInt(mm[1], 10); break; }
-  }
-}
-
-// 🧭 L’assistant a-t-il explicitement demandé un SUD juste avant ?
-const assistantAskedSud = /\b(?:sud|0\s*[–-]\s*10)\b|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
-
-if (sudMatch && (prevSud !== null || assistantAskedSud)) {
-  const sud = parseInt(sudMatch[1], 10);
-  const delta = prevSud !== null ? (prevSud - sud) : null;
-
-  /* --- Cas 1 : SUD = 0 --- */
-  if (sud === 0) {
-    return new NextResponse(
-      JSON.stringify({
+    /* --- Cas 5 : ΔSUD ≥ 2 (et SUD > 0) --- */
+    if (delta !== null && delta >= 2 && sud > 0) {
+      return new NextResponse(JSON.stringify({
         answer:
-          'Ton SUD est à 0.\n' +
-          'Vérifie toujours l’aspect ou la situation initiale avant de conclure.\n' +
-          'Si tout est à 0 → clôture : félicitations, hydratation, repos.\n' +
-          'Si un élément initial reste > 0 → refais une courte ronde ciblée dessus.',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
+          "Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti.",
+        crisis: "none" as const,
+      }), { headers });
+    }
+
+    // Premier SUD (pas de précédent) → laisser le modèle gérer la suite
   }
 
-  /* --- Cas 2 : SUD ≤ 1 --- */
-  if (sud <= 1) {
-    return new NextResponse(
-      JSON.stringify({
-        answer: 'Ça pourrait être quoi, ce petit reste ?',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
-  }
-
- /* --- Cas 3 : ΔSUD = 1 --- */
-if (delta === 1) {
-  const q = nextExploreQuestion(history);
-  return new NextResponse(
-    JSON.stringify({
-      answer: q
-        ? "Ton SUD n’a baissé que d’un point. Nous allons explorer ce qui maintient ce ressenti.\n" + q + "\n"
-        : "Merci pour tes réponses. Pense maintenant à ce que tu viens d'exprimer et indique un SUD (0–10).",
-      crisis: "none" as const,
-    }),
-    { headers }
-  );
-}
-
-
-/* --- Cas 4 : ΔSUD = 0 (ou hausse) --- */
-if (delta !== null && delta <= 0) {
-  const q = nextExploreQuestion(history);
-  return new NextResponse(
-    JSON.stringify({
-      answer: q
-        ? "Le SUD n’a pas changé. Explorons la racine du problème avant de continuer.\n" + q + "\n"
-        : "Merci pour tes réponses. Pense maintenant à ce que tu viens d'exprimer et indique un SUD (0–10).",
-      crisis: "none" as const,
-    }),
-    { headers }
-  );
-}
-
-
-
-  /* --- Cas 5 : ΔSUD ≥ 2 (et SUD > 0) --- */
-  if (delta !== null && delta >= 2 && sud > 0) {
-    return new NextResponse(
-      JSON.stringify({
-        answer: 'Ton SUD a diminué d’au moins deux points. Nous poursuivons le travail sur ce même ressenti.',
-        crisis: 'none' as const,
-      }),
-      { headers }
-    );
-  }
-
-  // Premier SUD (pas de précédent) ou autre cas non capté → laisser le modèle gérer la suite
-}
-
-  
   try {
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
