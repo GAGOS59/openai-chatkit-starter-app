@@ -9,7 +9,6 @@ import React, {
   FormEvent,
 } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
 
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
@@ -20,12 +19,7 @@ type ToastState = { msg: string; key: number } | null;
 /* ---------- Cartes sidebar ---------- */
 function PromoCard() {
   return (
-    <motion.aside
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm"
-    >
+    <aside className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
       <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
       <p className="text-sm mb-3 leading-relaxed">
         Vous pratiquez déjà l’EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
@@ -67,19 +61,13 @@ function PromoCard() {
           Les livres de Geneviève Gagos
         </a>
       </div>
-    </motion.aside>
+    </aside>
   );
 }
 
 function AyniCard() {
   return (
-    <motion.section
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.4 }}
-      transition={{ duration: 0.4 }}
-      className="gg-ayni rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-6 text-center shadow-sm"
-    >
+    <section className="gg-ayni rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-6 text-center shadow-sm">
       <p className="text-lg font-medium mb-2">
         🌿 <strong>AYNI</strong> — l’équilibre du don et du recevoir
       </p>
@@ -96,9 +84,10 @@ function AyniCard() {
       >
         💗 Soutenir EFTY
       </a>
-    </motion.section>
+    </section>
   );
 }
+
 
 /* ---------- Page ---------- */
 export default function Page() {
