@@ -73,12 +73,13 @@ function PromoBlock() {
   );
 }
 
-/** Carte AYNI – Version B choisie */
+/** Carte AYNI – Version B centrée */
 function AyniCard() {
   return (
-    <div className="rounded-2xl border bg-white p-4 shadow-sm align=center">
+    <div className="rounded-2xl border bg-white p-5 shadow-sm text-center">
       <p className="text-sm text-gray-700 mb-3">
-        EFTY te soutient. Voudrais-tu soutenir EFTY ?
+        EFTY te soutient.<br />
+        <span className="font-medium">Voudrais-tu soutenir EFTY ?</span>
       </p>
       <AyniButton />
       <p className="text-xs text-gray-500 mt-3">
@@ -87,7 +88,6 @@ function AyniCard() {
     </div>
   );
 }
-
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
