@@ -59,6 +59,29 @@ function normalizeForDisplay(s?: string): string {
   return t;
 }
 
+/** Exemples d’affinage selon la zone (étape 1 douleurs) */
+function hintsForLocation(intakeRaw: string): string {
+  const s = clean(intakeRaw).toLowerCase();
+  const table: Array<[RegExp, string]> = [
+    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
+    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
+    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
+    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
+    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
+    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
+    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
+    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
+    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
+    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
+    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
+    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
+    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
+    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"],
+  ];
+  for (const [rx, hint] of table) if (rx.test(s)) return hint;
+  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
+}
+
 
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   if (!Array.isArray(x)) return false;
@@ -72,6 +95,8 @@ function isChatMessageArray(x: unknown): x is ChatMessage[] {
       typeof (m as { content: unknown }).content === "string"
   );
 }
+
+
 
 function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false;
@@ -351,30 +376,18 @@ const isSituationIntake = (s: string) =>
 if (userTurns.length === 1 && lastUserMsg) {
   /* 🩹 Physique — douleur, tension, gêne */
   if (isPhysicalIntake(lastUserMsgLower)) {
-    return new NextResponse(
-      JSON.stringify({
-        answer: `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.  
-Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).  
-`,
-        /** Donne des exemples de précision selon la zone (utilisé à l’étape 1 pour les douleurs). */
-function hintsForLocation(intakeRaw: string): string {
-  const s = clean(intakeRaw).toLowerCase();
-  const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
-    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"]
-  ];
+  const hint = hintsForLocation(lastUserMsg);
+  return new NextResponse(
+    JSON.stringify({
+      answer:
+        `Tu dis que tu as ${normalizeForDisplay(lastUserMsg)}.\n` +
+        `Précise la localisation exacte et le type de douleur (lancinante, sourde, aiguë…).${hint}\n`,
+      crisis: "none" as const,
+    }),
+    { headers }
+  );
+}
+        
 
   for (const [rx, hint] of table) if (rx.test(s)) return hint;
   return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
@@ -417,18 +430,21 @@ Quand tu y penses maintenant, que ressens-tu dans ton corps et où ?`,
 const sudMatch = lastUserText.match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
 const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
 
-if (sudMatch && /SUD/i.test(lastAssistant)) {
-  const sud = parseInt(sudMatch[1], 10);
-
-  // Retrouver le précédent SUD "nu" côté user
-  let prevSud: number | null = null;
-  for (let i = history.length - 2; i >= 0; i--) {
-    const m = history[i];
-    if (m.role === "user") {
-      const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
-      if (mm) { prevSud = parseInt(mm[1], 10); break; }
-    }
+// 🔎 On cherche un SUD précédent côté user
+let prevSud: number | null = null;
+for (let i = history.length - 2; i >= 0; i--) {
+  const m = history[i];
+  if (m.role === "user") {
+    const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
+    if (mm) { prevSud = parseInt(mm[1], 10); break; }
   }
+}
+
+// 🧭 L’assistant a-t-il explicitement demandé un SUD juste avant ?
+const assistantAskedSud = /\b(?:sud|0\s*[–-]\s*10)\b|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
+
+if (sudMatch && (prevSud !== null || assistantAskedSud)) {
+  const sud = parseInt(sudMatch[1], 10);
   const delta = prevSud !== null ? (prevSud - sud) : null;
 
   /* --- Cas 1 : SUD = 0 --- */
@@ -468,7 +484,7 @@ if (sudMatch && /SUD/i.test(lastAssistant)) {
   if (delta !== null && delta <= 0) {
     return new NextResponse(JSON.stringify({
       answer:
-        "Le SUD n’a pas changé. Nous allons explorer la racine du problème avant de continuer.\n" +
+        "Le SUD n’a pas changé. Nous allons explorer ce qui peut bloquer avant de continuer.\n" +
         "– Depuis quand ressens-tu cela ?\n" +
         "– Que se passait-il dans ta vie à ce moment-là ?\n" +
         "– S’il y a une période en tête : cela te fait-il penser à quelque chose de particulier ?\n" +
@@ -486,7 +502,7 @@ if (sudMatch && /SUD/i.test(lastAssistant)) {
     }), { headers });
   }
 
-  // Premier SUD (pas de précédent) → laisser le modèle gérer la suite
+  // Premier SUD (pas de précédent) ou autre cas non capté → laisser le modèle gérer la suite
 }
 
   
