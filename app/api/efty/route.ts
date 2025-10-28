@@ -334,7 +334,7 @@ export async function POST(req: Request) {
 
  // --- Injection optionnelle de candidats de rappels (inchangé)
 const injectRappels = body.injectRappels !== false; // par défaut true
-const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
+const rappalsVoulus = typeof body.rappalsVoulus === "number" ? body.rappalsVoulus : 6;
 const candidats = generateRappelsBruts(body.mots_client);
 
 if (injectRappels && candidats.length > 0) {
@@ -344,7 +344,7 @@ if (injectRappels && candidats.length > 0) {
       {
         meta: "CANDIDATS_RAPPELS",
         candidats_app: candidats,
-        voulu: rappelsVoulus,
+        voulu: rappalsVoulus,
       },
       null,
       2
@@ -352,26 +352,42 @@ if (injectRappels && candidats.length > 0) {
   });
 }
 
-// ---- ÉTAT LÉGER POUR LE MODÈLE (liaison naturelle prompt↔app)
-// (version minimale et sûre — UN SEUL push STATE)
+// ---- ÉTAT LÉGER POUR LE MODÈLE (version minimale et sûre — UN SEUL push STATE)
+// Objectif : fournir au prompt la dernière saisie effective (history OU body.message),
+// et un prev_sud si disponible, sans ajouter de logique métier serveur.
+
+// lastUserFromHistory = dernière saisie trouvée dans history (si présente)
 const userTurns = history.filter((m) => m.role === "user");
-const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
+const lastUserFromHistory = userTurns[userTurns.length - 1]?.content?.trim() || "";
+
+// Priorité au canal single (body.message) s'il est fourni par l'app — sinon histoire
+const lastUserMsg = (single && single.trim()) || lastUserFromHistory;
+
+// Dernier message assistant (utile pour détecter askedSud via sa question)
 const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+
+// Boolean simple : l'assistant a-t-il explicitement demandé un SUD dans son dernier texte ?
 const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
 
-// SUD précédent saisi par l’utilisateur (pour info au modèle)
+// Détection prudente du prevSud : on regarde d'abord le single (si présent), puis l'historique.
+// On capture le premier entier 0..10 trouvé.
 let prevSud: number | null = null;
-for (let i = history.length - 2; i >= 0; i--) {
-  const m = history[i];
-  if (m.role === "user") {
-    const mm = (m.content || "").match(/\b([0-9]|10)\b/);
-if (mm) { prevSud = parseInt(mm[1], 10); break; }
-
+const mmSingle = (single || "").match(/\b([0-9]|10)\b/);
+if (mmSingle) {
+  prevSud = parseInt(mmSingle[1], 10);
+} else {
+  for (let i = history.length - 2; i >= 0; i--) {
+    const m = history[i];
+    if (m.role === "user") {
+      const mm = (m.content || "").match(/\b([0-9]|10)\b/);
+      if (mm) {
+        prevSud = parseInt(mm[1], 10);
+        break;
+      }
+    }
   }
 }
 
-
-  
 // Paquet d'état minimal : donne au modèle le contexte pour appliquer le prompt
 messages.push({
   role: "user",
@@ -384,7 +400,10 @@ messages.push({
   }),
 });
 
-// Rappel doux (réversible) : une seule question à la fois, respecter asked_sud
+// NOTE: suppression volontaire de la "NOTE: Respecte strictement..." envoyée en doublon au modèle.
+// Si tu veux la conserver (non recommandé), tu peux décommenter ci-dessous ;
+// mais elle a tendance à rendre le flux rigide et à doubler des règles déjà présentes dans le prompt.
+/*
 messages.push({
   role: "user",
   content:
@@ -392,7 +411,7 @@ messages.push({
     "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question. " +
     "Sinon, pose une unique question adaptée à l’étape en réutilisant les mots exacts de l’utilisateur.",
 });
-
+*/
 
   // =========================
   // (Variante A) Model-driven
