@@ -53,6 +53,7 @@ FORMAT DE DÉROULÉ
   1 « Tu dis "[émotion]". Dans quelle situation ressens-tu "[émotion]" ? »  
   2 « Comment se manifeste "[émotion]" dans ton corps quand tu penses à "[situation]"? (serrement, pression, chaleur, vide…) »  
   3 « Où précisément ressens-tu cette sensation quand tu penses à "[situation]"? »  
+  Mais ne repose pas la question si la réponse est déjà précise (ex. « j'ai la gorge serrée » ou « j'ai un poids sur la poitrine »). 
 • Situation :  
   Si la personne décrit déjà clairement la situation (ex. « quand je parle en public »),
   valide d’abord sa réponse et explore plus finement :  
@@ -197,7 +198,7 @@ Rappels :
 - Le reste du Setup suit le modèle : « Même si j’ai [expression adaptée selon le SUD], je m’accepte profondément et complètement. »
 
 ÉTAPE 7 – RÉÉVALUATION & RÈGLE ΔSUD
-À la fin de chaque ronde, demande le nouveau SUD.
+À la fin de chaque ronde, demande le nouveau SUD une seule fois.
 Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
 
 • Si ΔSUD ≥ 2 :
