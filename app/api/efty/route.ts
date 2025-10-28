@@ -364,11 +364,24 @@ let prevSud: number | null = null;
 for (let i = history.length - 2; i >= 0; i--) {
   const m = history[i];
   if (m.role === "user") {
-    const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
-    if (mm) { prevSud = parseInt(mm[1], 10); break; }
+    const mm = (m.content || "").match(/\b([0-9]|10)\b/);
+if (mm) { prevSud = parseInt(mm[1], 10); break; }
+
   }
 }
 
+  // Si on attend un SUD et que l'utilisateur a répondu, mais pas par un entier 0-10,
+// renvoyer une consigne unique avant d'appeler le modèle (évite la boucle "ok" -> "indique un SUD")
+if (askedSud) {
+  const lastUserIsNumber = /^\s*(?:[0-9]|10)\s*$/.test(lastUserMsg);
+  if (lastUserMsg && !lastUserIsNumber) {
+    const answer =
+      "Je n'ai pas reçu de nombre. Merci d'indiquer un SUD entre 0 et 10 (ex. 0, 1, 2...).";
+    return new NextResponse(JSON.stringify({ answer, crisis: "none" as const }), { headers });
+  }
+}
+
+  
 // Paquet d'état minimal : donne au modèle le contexte pour appliquer le prompt
 messages.push({
   role: "user",
