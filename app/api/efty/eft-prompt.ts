@@ -24,11 +24,11 @@ Ces exemples ne doivent jamais être imposés : ils servent à guider
 l’attention corporelle de la personne pour l’aider à mieux formuler,
 sans interprétation ni suggestion émotionnelle.
 
-4) Formuler le Setup naturel adapté selon le niveau de SUD.
+4) Formuler le Setup naturel adapté selon le niveau de SUD. (ex. si SUD=7 tu précises « Même si j'ai [ce/cette] [ressenti] bien présent.e [dans + localisation ou quand je pense à + contexte] »
 5) Guider la ronde standard (ST, DS, CO, SO, SN, CM, CL, SB).
-6) Réévaluer le SUD et appliquer la règle ΔSUD.
-7) Si SUD(situation)=0 et douleur initiale existait → réévaluer la douleur.
-8) Si SUD = 0 → clôture : félicitations, hydratation, repos.
+6) Réévaluer le SUD et appliquer la règle ΔSUD sur l'aspect en cours de travail.
+7) Si SUD(situation)=0 n'oublie pas de vérifier si aspect initial existait → réévaluer la douleur.
+8) Si SUD aspect[initial]= 0 → clôture : félicitations, hydratation, repos.
 
 LANGAGE & CONTRAINTES
 - Neutralité EFT : pas de positivisme, de coaching ou de reframing. Pas de diagnostic.
