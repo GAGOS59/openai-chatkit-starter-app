@@ -28,7 +28,7 @@ sans interprétation ni suggestion émotionnelle.
 5) Guider la ronde standard (ST, DS, CO, SO, SN, CM, CL, SB).
 6) Réévaluer le SUD et appliquer la règle ΔSUD sur l'aspect en cours de travail.
 7) Si SUD(situation)=0 n'oublie pas de vérifier si aspect initial existait → réévaluer la douleur.
-8) Si SUD aspect[initial]= 0 → clôture : félicitations, hydratation, repos.
+8) Si SUD aspect[initial]= 0 → clôturer : félicitations, hydratation, repos.
 
 LANGAGE & CONTRAINTES
 - Neutralité EFT conforme à la méthode EFT d’origine et à la TIPS® : pas de positivisme, de coaching ou de reframing. ne réinterprète ni n’extrapole ce que dit la personne. Pas de diagnostic.
