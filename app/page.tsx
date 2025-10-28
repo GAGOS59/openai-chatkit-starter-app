@@ -1,5 +1,13 @@
 /* app/page.tsx */
 "use client";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  FormEvent,
+} from "react";
+import Image from "next/image";
 
 
 /* === AJOUTER SOUS LES IMPORTS DE page.tsx === */
@@ -44,21 +52,7 @@ function PromoBlock() {
   );
 }
 
-/** Carte AYNI – Version B centrée */
-function AyniCard() {
-  return (
-    <div className="rounded-2xl border bg-white p-5 shadow-sm text-center">
-      <p className="text-sm text-gray-700 mb-3">
-        EFTY te soutient.<br />
-        <span className="font-medium">Voudrais-tu soutenir EFTY ?</span>
-      </p>
-      <AyniButton />
-      <p className="text-xs text-gray-500 mt-3">
-        Merci du fond du cœur pour ton soutien.
-      </p>
-    </div>
-  );
-}
+
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
