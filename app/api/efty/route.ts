@@ -334,7 +334,7 @@ export async function POST(req: Request) {
 
  // --- Injection optionnelle de candidats de rappels (inchangé)
 const injectRappels = body.injectRappels !== false; // par défaut true
-const rappalsVoulus = typeof body.rappalsVoulus === "number" ? body.rappalsVoulus : 6;
+const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
 const candidats = generateRappelsBruts(body.mots_client);
 
 if (injectRappels && candidats.length > 0) {
@@ -344,7 +344,7 @@ if (injectRappels && candidats.length > 0) {
       {
         meta: "CANDIDATS_RAPPELS",
         candidats_app: candidats,
-        voulu: rappalsVoulus,
+        voulu: rappelsVoulus,
       },
       null,
       2
