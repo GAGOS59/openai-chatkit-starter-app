@@ -31,15 +31,12 @@ type Payload = {
 // --- Utils minimal
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   if (!Array.isArray(x)) return false;
-  return x.every(
-    (m) =>
-      typeof m === "object" &&
-      m !== null &&
-      "role" in m &&
-      "content" in m &&
-      (m as any).role &&
-      typeof (m as any).content === "string"
-  );
+  return x.every((m) => {
+    if (typeof m !== "object" || m === null) return false;
+    const role = (m as Record<string, unknown>).role;
+    const content = (m as Record<string, unknown>).content;
+    return (role === "user" || role === "assistant") && typeof content === "string";
+  });
 }
 
 // micro helper to generate short rappel candidates (non-invasive)
@@ -255,6 +252,8 @@ export async function POST(req: Request) {
     asked_sud: askedSud,
     awaiting_sud,
     prev_sud: prevSud,
+    assistant_asked_suicide_question: lastAssistantAskedSuicideQuestion(history),
+    recent_suicide_answer: interpretYesNoServer(lastUserMsg),
   };
 
   messages.push({
@@ -267,6 +266,26 @@ export async function POST(req: Request) {
     role: "user",
     content: "NOTE: STATE fourni — laisse le SYSTEM PROMPT diriger le flux. N'implémente pas de logique serveur ici.",
   });
+
+  // ---- SERVER-SIDE crisis detection (avant appel OpenAI)
+  // combine recent user text to scan
+  const combinedText = (history.map((m) => m.content).join(" ") + " " + lastUserMsg).trim().toLowerCase();
+
+  if (anyMatch(CRISIS_HARD, combinedText)) {
+    return new NextResponse(JSON.stringify({
+      answer: crisisOrientationMessage_TU(),
+      crisis: "hard",
+    }), { headers });
+  }
+
+  if (anyMatch(CRISIS_SOFT, combinedText)) {
+    // propose orientation + optionally proposer la question courte pour vérification
+    return new NextResponse(JSON.stringify({
+      answer: crisisOrientationMessage_TU(),
+      crisis: "soft",
+      askQuestion: ASK_SUICIDE_Q_TU,
+    }), { headers });
+  }
 
   try {
     const completion = await openai.chat.completions.create({
@@ -281,6 +300,7 @@ export async function POST(req: Request) {
 
     return new NextResponse(JSON.stringify({ answer: text, crisis: "none" as const }), { headers });
   } catch (err) {
+    console.error("openai error:", err);
     return NextResponse.json({ error: "Service temporairement indisponible." }, { status: 503 });
   }
 }
