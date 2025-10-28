@@ -97,28 +97,7 @@ function isAllowedOrigin(origin: string | null): boolean {
   return ALLOWED_BASE.has(o);
 }
 
-/** Aide à l’affinage de la localisation selon la zone mentionnée (utilisée par le modèle si besoin) */
-function hintsForLocation(intakeRaw: string): string {
-  const s = clean(intakeRaw).toLowerCase();
-  const table: Array<[RegExp, string]> = [
-    [/\bdos\b/, " (lombaires, milieu du dos, entre les omoplates…)"],
-    [/\b(cou|nuque)\b/, " (nuque, trapèzes, base du crâne…)"],
-    [/\bépaule(s)?\b/, " (avant de l’épaule, deltoïde, omoplate…)"],
-    [/\blombaire(s)?\b/, " (L4-L5, sacrum, bas du dos…)"],
-    [/\b(coude)\b/, " (épicondyle, face interne/externe…)"],
-    [/\bpoignet\b/, " (dessus, côté pouce, côté auriculaire…)"],
-    [/\bmain(s)?\b/, " (paume, dos de la main, base des doigts…)"],
-    [/\bgenou(x)?\b/, " (rotule, pli du genou, côté interne/externe…)"],
-    [/\bcheville(s)?\b/, " (malléole interne/externe, tendon d’Achille…)"],
-    [/\bhanche(s)?\b/, " (crête iliaque, pli de l’aine, fessier…)"],
-    [/\b(m[aâ]choire|machoire)\b/, " (ATM, devant l’oreille, côté droit/gauche…)"],
-    [/\b(t[eê]te|migraine|tempe|front)\b/, " (tempe, front, arrière du crâne…)"],
-    [/\b[oe]il|yeux?\b/, " (dessus, dessous, coin interne/externe – attention douceur)"],
-    [/\b(ventre|abdomen)\b/, " (haut/bas du ventre, autour du nombril…)"],
-  ];
-  for (const [rx, hint] of table) if (rx.test(s)) return hint;
-  return " (précise côté droit/gauche, zone exacte et si c’est localisé ou étendu…)";
-}
+
 
 /* ---------- 🔐 Sécurité suicidaire : détection & réponses (serveur) ---------- */
 const CRISIS_HARD: RegExp[] = [
@@ -332,86 +311,63 @@ export async function POST(req: Request) {
   }
   /* ---------- 🔐 Fin interception ---------- */
 
- // --- Injection optionnelle de candidats de rappels (inchangé)
-const injectRappels = body.injectRappels !== false; // par défaut true
-const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
-const candidats = generateRappelsBruts(body.mots_client);
+  // --- Injection optionnelle de candidats de rappels
+  const injectRappels = body.injectRappels !== false; // par défaut true
+  const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
+  const candidats = generateRappelsBruts(body.mots_client);
 
-if (injectRappels && candidats.length > 0) {
-  messages.push({
-    role: "user",
-    content: JSON.stringify(
-      {
-        meta: "CANDIDATS_RAPPELS",
-        candidats_app: candidats,
-        voulu: rappelsVoulus,
-      },
-      null,
-      2
-    ),
-  });
-}
+  if (injectRappels && candidats.length > 0) {
+    messages.push({
+      role: "user",
+      content: JSON.stringify(
+        {
+          meta: "CANDIDATS_RAPPELS",
+          candidats_app: candidats,
+          voulu: rappelsVoulus,
+        },
+        null,
+        2
+      ),
+    });
+  }
 
-// ---- ÉTAT LÉGER POUR LE MODÈLE (version minimale et sûre — UN SEUL push STATE)
-// Objectif : fournir au prompt la dernière saisie effective (history OU body.message),
-// et un prev_sud si disponible, sans ajouter de logique métier serveur.
+  // ---- ÉTAT LÉGER POUR LE MODÈLE (liaison naturelle prompt↔app)
+  const userTurns = history.filter((m) => m.role === "user");
+  const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
+  const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+  const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
 
-// lastUserFromHistory = dernière saisie trouvée dans history (si présente)
-const userTurns = history.filter((m) => m.role === "user");
-const lastUserFromHistory = userTurns[userTurns.length - 1]?.content?.trim() || "";
 
-// Priorité au canal single (body.message) s'il est fourni par l'app — sinon histoire
-const lastUserMsg = (single && single.trim()) || lastUserFromHistory;
-
-// Dernier message assistant (utile pour détecter askedSud via sa question)
-const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
-
-// Boolean simple : l'assistant a-t-il explicitement demandé un SUD dans son dernier texte ?
-const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
-
-// Détection prudente du prevSud : on regarde d'abord le single (si présent), puis l'historique.
-// On capture le premier entier 0..10 trouvé.
-let prevSud: number | null = null;
-const mmSingle = (single || "").match(/\b([0-9]|10)\b/);
-if (mmSingle) {
-  prevSud = parseInt(mmSingle[1], 10);
-} else {
+         // SUD précédent saisi par l’utilisateur (pour info au modèle)
+  let prevSud: number | null = null;
   for (let i = history.length - 2; i >= 0; i--) {
     const m = history[i];
     if (m.role === "user") {
-      const mm = (m.content || "").match(/\b([0-9]|10)\b/);
-      if (mm) {
-        prevSud = parseInt(mm[1], 10);
-        break;
-      }
+      const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
+      if (mm) { prevSud = parseInt(mm[1], 10); break; }
     }
   }
-}
 
-// Paquet d'état minimal : donne au modèle le contexte pour appliquer le prompt
-messages.push({
-  role: "user",
-  content: JSON.stringify({
-    meta: "STATE",
-    history_len: history.length,
-    last_user: lastUserMsg,
-    asked_sud: askedSud,
-    prev_sud: prevSud,
-  }),
-});
+  // Paquet d'état minimal : donne au modèle le contexte pour appliquer le prompt
+  messages.push({
+    role: "user",
+    content: JSON.stringify({
+      meta: "STATE",
+      history_len: history.length,
+      last_user: lastUserMsg,
+      asked_sud: askedSud,
+      prev_sud: prevSud,
+    }),
+  });
 
-// NOTE: suppression volontaire de la "NOTE: Respecte strictement..." envoyée en doublon au modèle.
-// Si tu veux la conserver (non recommandé), tu peux décommenter ci-dessous ;
-// mais elle a tendance à rendre le flux rigide et à doubler des règles déjà présentes dans le prompt.
-/*
-messages.push({
-  role: "user",
-  content:
-    "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
-    "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question. " +
-    "Sinon, pose une unique question adaptée à l’étape en réutilisant les mots exacts de l’utilisateur.",
-});
-*/
+  // Rappel doux (réversible) : une seule question à la fois, respecter asked_sud
+  messages.push({
+    role: "user",
+    content:
+      "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
+      "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question. " +
+      "Sinon, pose une unique question adaptée à l’étape en réutilisant les mots exacts de l’utilisateur.",
+  });
 
   // =========================
   // (Variante A) Model-driven
