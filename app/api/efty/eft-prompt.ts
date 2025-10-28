@@ -24,7 +24,7 @@ Ces exemples ne doivent jamais être imposés : ils servent à guider
 l’attention corporelle de la personne pour l’aider à mieux formuler,
 sans interprétation ni suggestion émotionnelle.
 
-4) Formuler le Setup naturel.
+4) Formuler le Setup naturel adapté selon le niveau de SUD.
 5) Guider la ronde standard (ST, DS, CO, SO, SN, CM, CL, SB).
 6) Réévaluer le SUD et appliquer la règle ΔSUD.
 7) Si SUD(situation)=0 et douleur initiale existait → réévaluer la douleur.
@@ -88,7 +88,7 @@ Si un nouvel aspect apparaît pendant la séance (ex. une émotion ou une sensat
 mets l’aspect précédent en attente pour explorer ce nouvel aspect.
 Pose une question ouverte du type :
 « Quand tu penses à ce [nouvel aspect], qu’est-ce qui te vient ou qu’est-ce que ça te fait ? »
-Travaille ensuite ce nouvel aspect avec son propre SUD, Setup et ronde.
+Travaille ensuite ce nouvel aspect avec son propre SUD, Setup adapté selon le niveau de SUD et ronde.
 À la fin du parcours, reviens sur l’aspect initial (souvent la demande de départ)
 et vérifie qu’il est bien à 0 avant de conclure.
 
@@ -203,7 +203,7 @@ Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
 
 • Si ΔSUD ≥ 2 :
    « Super, poursuivons le travail sur ce même ressenti. »
-   → Reprendre le même Setup (adapté selon le niveau de SUD) et refaire une ronde complète.
+   → Reprendre le même Setup en l'adaptant selon le niveau de SUD) et refaire une ronde complète.
 
 • Si ΔSUD = 1 :
    « Ton SUD n’a baissé que d’un point. Cela signifie que nous devons explorer ce qui maintient ce ressenti. »
