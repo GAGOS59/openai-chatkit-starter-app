@@ -332,27 +332,28 @@ export async function POST(req: Request) {
   }
   /* ---------- 🔐 Fin interception ---------- */
 
-  // --- Injection optionnelle de candidats de rappels
-  const injectRappels = body.injectRappels !== false; // par défaut true
-  const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
-  const candidats = generateRappelsBruts(body.mots_client);
+ // --- Injection optionnelle de candidats de rappels (inchangé)
+const injectRappels = body.injectRappels !== false; // par défaut true
+const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
+const candidats = generateRappelsBruts(body.mots_client);
 
-  if (injectRappels && candidats.length > 0) {
-    messages.push({
-      role: "user",
-      content: JSON.stringify(
-        {
-          meta: "CANDIDATS_RAPPELS",
-          candidats_app: candidats,
-          voulu: rappelsVoulus,
-        },
-        null,
-        2
-      ),
-    });
-  }
+if (injectRappels && candidats.length > 0) {
+  messages.push({
+    role: "user",
+    content: JSON.stringify(
+      {
+        meta: "CANDIDATS_RAPPELS",
+        candidats_app: candidats,
+        voulu: rappelsVoulus,
+      },
+      null,
+      2
+    ),
+  });
+}
 
- // ---- ÉTAT LÉGER POUR LE MODÈLE (liaison naturelle prompt↔app)
+// ---- ÉTAT LÉGER POUR LE MODÈLE (liaison naturelle prompt↔app)
+// (version minimale et sûre — UN SEUL push STATE)
 const userTurns = history.filter((m) => m.role === "user");
 const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
 const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
@@ -368,21 +369,16 @@ for (let i = history.length - 2; i >= 0; i--) {
   }
 }
 
-// --- construire stateObj complet (unique injection dans messages)
-// Remplace le tableau aspects par ta structure réelle ou restaure-la depuis l'historique si besoin.
-const stateObj = {
-  meta: "STATE",
-  history_len: history.length,
-  last_user: lastUserMsg,
-  asked_sud: askedSud,
-  prev_sud: prevSud,
-  aspects: [ /* ex: { id, label, type, localisation, prev_sud, asked_sud, status, initial } */ ],
-};
-
-// ---- INJECTER UNE SEULE FOIS LE STATE DANS messages (supprimer l'ancien push minimal)
+// Paquet d'état minimal : donne au modèle le contexte pour appliquer le prompt
 messages.push({
   role: "user",
-  content: JSON.stringify(stateObj),
+  content: JSON.stringify({
+    meta: "STATE",
+    history_len: history.length,
+    last_user: lastUserMsg,
+    asked_sud: askedSud,
+    prev_sud: prevSud,
+  }),
 });
 
 // Rappel doux (réversible) : une seule question à la fois, respecter asked_sud
@@ -393,6 +389,7 @@ messages.push({
     "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question. " +
     "Sinon, pose une unique question adaptée à l’étape en réutilisant les mots exacts de l’utilisateur.",
 });
+
 
   // =========================
   // (Variante A) Model-driven
