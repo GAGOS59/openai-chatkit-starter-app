@@ -13,72 +13,29 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // --- Types
 type Role = "user" | "assistant";
 interface ChatMessage { role: Role; content: string; }
-interface MotsClient {
-  emotion?: string;
-  sensation?: string;
-  localisation?: string;
-  pensee?: string;
-  souvenir?: string;
-}
 type Payload = {
   messages?: ChatMessage[];
   message?: string;
-  mots_client?: MotsClient;
-  injectRappels?: boolean;
-  rappelsVoulus?: number;
 };
 
-// --- Utils
+// --- Helpers
+function normalize(s?: string): string {
+  if (!s) return "";
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // retire accents
+    .toLowerCase()
+    .replace(/[^a-z0-9'\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
-  if (!Array.isArray(x)) return false;
-  return x.every((m) => {
-    if (typeof m !== "object" || m === null) return false;
-    const role = (m as Record<string, unknown>).role;
-    const content = (m as Record<string, unknown>).content;
-    return (role === "user" || role === "assistant") && typeof content === "string";
-  });
+  return Array.isArray(x) && x.every(m => typeof m === "object" && m !== null && "role" in m && "content" in m);
 }
 
-function generateRappelsBruts(m?: MotsClient): string[] {
-  if (!m) return [];
-  const out = new Set<string>();
-  const push = (s?: string) => {
-    if (!s) return;
-    const t = s.trim().replace(/\s+/g, " ");
-    if (t && t.length <= 40) out.add(t);
-  };
-  if (m.emotion) push(`cette ${m.emotion}`);
-  if (m.sensation && m.localisation) push(`cette ${m.sensation} dans ${m.localisation}`);
-  if (m.sensation && !m.localisation) push(`cette ${m.sensation}`);
-  if (m.pensee) push(`cette pensée : « ${m.pensee} »`);
-  return Array.from(out).slice(0, 6);
-}
-
-/* ---------- Sécurité suicidaire : regex précises ---------- */
-const CRISIS_HARD: RegExp[] = [
-  /\bsuicide\b/iu, // mot suicide exact (accent tolerant)
-  /\bme\s+tuer\b/iu,
-  /\bme\s+pendre\b/iu,
-  /\bme\s+suicid(er|e)\b/iu,
-  /\bmettre\s+fin\s+à\s+mes?\s+jours?\b/iu,
-  /\bje\s+veux\s+mourir\b/iu,
-];
-
-const CRISIS_SOFT: RegExp[] = [
-  /\bj[’']?\s*en\s+peux?\s+plus\b/iu,
-  /\bj[’']?\s*en\s+ai\s+marre\b/iu,
-  /\bmarre\s+de\s+vivre\b/iu,
-  /\bidees?\s+noires?\b/iu,
-  /\bje\s+ne\s+veux\s+plus\s+vivre\b/iu,
-  /\bje\s+supporte\s+plus\s+la\s+vie\b/iu,
-];
-
-function anyMatch(xs: RegExp[], s: string) {
-  return xs.some((rx) => rx.test(s));
-}
-
-const ASK_SUICIDE_Q_TU =
-  "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
+// --- Messages / patterns
+const ASK_SUICIDE_Q_TU = "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
 
 function crisisOrientationMessage_TU(): string {
   return `Message important
@@ -93,145 +50,80 @@ Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta 
 Tu n’es pas seul·e — ces services peuvent t’aider dès maintenant.`;
 }
 
-const YES_PATTERNS: RegExp[] = [
-  /\b(oui|ouais|yep|yes)\b/i,
-  /\b(plut[oô]t\s+)?oui\b/i,
-];
-const NO_PATTERNS: RegExp[] = [
-  /\b(non|nan|nope)\b/i,
-  /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
-  /\bje\s+n['’]?ai\s+pas\s+d['’]?idees?\s+suicidaires?\b/i,
+const CRISIS_HARD: RegExp[] = [
+  /\bsuicide\b/i,
+  /\bme\s+tuer\b/i,
+  /\bme\s+pendre\b/i,
+  /\bme\s+suicid(er|e)\b/i,
+  /\bmettre\s+fin\s+à\s+mes?\s+jours?\b/i,
+  /\bje\s+veux\s+mourir\b/i,
 ];
 
-function interpretYesNoServer(text: string): "yes" | "no" | "unknown" {
-  const t = (text || "").toLowerCase();
-  if (YES_PATTERNS.some((rx) => rx.test(t))) return "yes";
-  if (NO_PATTERNS.some((rx) => rx.test(t))) return "no";
-  return "unknown";
-}
+const CRISIS_SOFT: RegExp[] = [
+  /\bj[’']?\s*en\s+peux?\s+plus\b/i,
+  /\bj[’']?\s*en\s+ai\s+marre\b/i,
+  /\bmarre\s+de\s+vivre\b/i,
+  /\bidees?\s+noires?\b/i,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
+];
 
-function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
-  for (let i = history.length - 1; i >= 0; i--) {
-    const m = history[i];
-    if (m.role === "assistant") {
-      const t = (m.content || "").toLowerCase();
-      if (/avez[-\s]?vous\s+des\s+idees?\s+suicidaires/.test(t) || /as[-\s]?tu\s+des\s+idees?\s+suicidaires/.test(t)) {
-        return true;
-      }
-    }
-    if (m.role === "user") break;
+// petites fautes/variantes courantes — traitées comme SOFT (on pose la question)
+const MISSPELLINGS_SOFT = [
+  "suisside", "suiside", "suicdie", "suicde", "me foutre en l air", "me foutre en lair", "me foutre en lair"
+].map(normalize);
+
+function containsMisspelling(text: string): boolean {
+  const n = normalize(text);
+  for (const m of MISSPELLINGS_SOFT) {
+    if (m && n.includes(m)) return true;
   }
   return false;
 }
 
-/* ---------- FUZZY DETECTION ---------- */
-function normalizeTextForMatch(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9'\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function interpretYesNo(text: string): "yes" | "no" | "unknown" {
+  const t = normalize(text);
+  if (!t) return "unknown";
+  if (/\b(oui|ouais|yes|yep|absolument|si)\b/.test(t)) return "yes";
+  if (/\b(non|nan|nope|pas du tout|absolument pas|vraiment pas|aucune idee)\b/.test(t)) return "no";
+  return "unknown";
 }
 
-function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
-  const al = a.length, bl = b.length;
-  if (al === 0) return bl;
-  if (bl === 0) return al;
-  const v0 = new Array<number>(bl + 1);
-  const v1 = new Array<number>(bl + 1);
-  for (let j = 0; j <= bl; j++) v0[j] = j;
-  for (let i = 0; i < al; i++) {
-    v1[0] = i + 1;
-    for (let j = 0; j < bl; j++) {
-      const cost = a[i] === b[j] ? 0 : 1;
-      v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
-    }
-    for (let j = 0; j <= bl; j++) v0[j] = v1[j];
-  }
-  return v1[bl];
-}
-
-const KEYWORDS_HARD_RAW = [
-  "suicide",
-  "me tuer",
-  "me pendre",
-  "me suicider",
-  "mettre fin a mes jours",
-  "je veux mourir",
-];
-
-const KEYWORDS_SOFT_RAW = [
-  "me foutre en l'air",
-  "j en ai marre",
-  "j en peux plus",
-  "marre de vivre",
-  "idees noires",
-  "je ne veux plus vivre",
-  "je supporte plus la vie",
-];
-
-const KEYWORDS_HARD = KEYWORDS_HARD_RAW.map(normalizeTextForMatch);
-const KEYWORDS_SOFT = KEYWORDS_SOFT_RAW.map(normalizeTextForMatch);
-
-function generateNgrams(tokens: string[], maxWords = 4): string[] {
-  const out: string[] = [];
-  for (let start = 0; start < tokens.length; start++) {
-    for (let len = 1; len <= maxWords && start + len <= tokens.length; len++) {
-      out.push(tokens.slice(start, start + len).join(" "));
-    }
-  }
-  return out;
-}
-
-function fuzzyDetectKeywords(text: string, keywords: string[]): { matched: string; distance: number } | null {
-  const norm = normalizeTextForMatch(text);
-  if (!norm) return null;
-  const tokens = norm.split(" ").filter(Boolean);
-  const ngrams = generateNgrams(tokens, 4);
-
-  for (const ng of ngrams) {
-    for (const kw of keywords) {
-      const maxDist = Math.max(1, Math.floor(Math.min(3, kw.length * 0.25)));
-      const dist = levenshtein(ng, kw);
-      if (dist <= maxDist) {
-        return { matched: kw, distance: dist };
+function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
+  if (!Array.isArray(history) || history.length === 0) return false;
+  // chercher le dernier message assistant (s'il existe) et comparer normalisé
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role === "assistant") {
+      const nm = normalize(history[i].content);
+      const ref = normalize(ASK_SUICIDE_Q_TU);
+      if (nm.includes(ref)) return true;
+      // variantes possibles :
+      if (nm.includes("as tu des idees suicidaires") || nm.includes("avez vous des idees suicidaires") || nm.includes("as tu des idees de te tuer")) {
+        return true;
       }
-      if (ng.includes(kw) || kw.includes(ng)) {
-        return { matched: kw, distance: 0 };
-      }
+      return false;
     }
+    if (history[i].role === "user") break;
   }
-  return null;
+  return false;
 }
 
-/* ---------- ROUTE ---------- */
+// --- Route
 export async function POST(req: Request) {
-  const origin = req.headers.get("origin");
-  const ALLOWED_BASE = new Set([
-    "https://appli.ecole-eft-france.fr",
-    "https://www.ecole-eft-france.fr",
-  ]);
-  function isAllowedOrigin(o: string | null) {
+  const origin = req.headers.get("origin") || "";
+  const allowed = new Set(["https://appli.ecole-eft-france.fr", "https://www.ecole-eft-france.fr"]);
+  function isAllowedOrigin(o: string) {
     if (!o) return false;
     const lo = o.toLowerCase();
-    if (process.env.VERCEL_ENV === "production") return ALLOWED_BASE.has(lo);
+    if (process.env.VERCEL_ENV === "production") return allowed.has(lo);
     if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
-      return lo === `https://${process.env.VERCEL_URL}` || ALLOWED_BASE.has(lo);
+      return lo === `https://${process.env.VERCEL_URL}` || allowed.has(lo);
     }
     if (lo.startsWith("http://localhost")) return true;
-    return ALLOWED_BASE.has(lo);
+    return allowed.has(lo);
   }
 
-  if (!isAllowedOrigin(origin)) {
-    return new NextResponse("Origine non autorisée (CORS).", { status: 403 });
-  }
-
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "Configuration OPENAI manquante." }, { status: 500 });
-  }
+  if (!isAllowedOrigin(origin)) return new NextResponse("Origine non autorisée (CORS).", { status: 403 });
+  if (!process.env.OPENAI_API_KEY) return NextResponse.json({ error: "Configuration OPENAI manquante." }, { status: 500 });
 
   let body: Payload = {};
   try {
@@ -242,239 +134,46 @@ export async function POST(req: Request) {
   }
 
   const history: ChatMessage[] = isChatMessageArray(body.messages) ? body.messages : [];
-  const single: string = typeof body.message === "string" ? body.message.trim() : "";
+  const single = typeof body.message === "string" ? body.message.trim() : "";
 
-  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-    { role: "system", content: EFT_SYSTEM_PROMPT },
-  ];
+  const messages = [{ role: "system", content: EFT_SYSTEM_PROMPT } as const];
+  if (history.length > 0) messages.push(...history.map(m => ({ role: m.role as Role, content: m.content })));
+  else if (single) messages.push({ role: "user", content: single });
+  else return NextResponse.json({ error: "Aucun message fourni." }, { status: 400 });
 
-  if (history.length > 0) {
-    messages.push(...history.map((m) => ({ role: m.role, content: m.content })));
-  } else if (single) {
-    messages.push({ role: "user", content: single });
-  } else {
-    return NextResponse.json({ error: "Aucun message fourni." }, { status: 400 });
+  const headers = new Headers({ "Content-Type": "application/json", "Access-Control-Allow-Origin": origin || "", Vary: "Origin" });
+
+  const lastUserMsg = history.filter(m => m.role === "user").slice(-1)[0]?.content?.trim() || single || "";
+
+  const combined = (history.map(m => m.content).join(" ") + " " + lastUserMsg).trim();
+
+  // 1) Hard regex -> blocage immédiat
+  if (CRISIS_HARD.some(rx => rx.test(combined))) {
+    return new NextResponse(JSON.stringify({ answer: crisisOrientationMessage_TU(), crisis: "hard", blocked: true }), { headers });
   }
 
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": origin || "",
-    Vary: "Origin",
-  });
-
-  const injectRappels = body.injectRappels !== false;
-  const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
-  const candidats = generateRappelsBruts(body.mots_client);
-  if (injectRappels && candidats.length > 0) {
-    messages.push({
-      role: "user",
-      content: JSON.stringify({
-        meta: "CANDIDATS_RAPPELS",
-        candidats_app: candidats,
-        voulu: rappelsVoulus,
-      }),
-    });
-  }
-
-  const userTurns = history.filter((m) => m.role === "user");
-  const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
-  const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
-
-  const askedSud = /\b(sud)\b.*(0[–-]?10|0-10|0–10|0 ?[.,] ?10)?|indique\s+(ton|un)\s+sud|donne\s+un\s+sud|indique\s+un\s+nombre/i.test(
-    lastAssistant
-  );
-
-  let prevSud: number | null = null;
-  const numericRx = /([0-9]{1,2}(?:[.,][0-9]+)?)/;
-  for (let i = history.length - 2; i >= 0; i--) {
-    const m = history[i];
-    if (m.role === "user") {
-      const mm = (m.content || "").match(numericRx);
-      if (mm) {
-        const v = parseFloat(mm[1].replace(",", "."));
-        if (!Number.isNaN(v) && v >= 0 && v <= 10) {
-          prevSud = v;
-          break;
-        }
-      }
-    }
-  }
-
-  const lastUserHasNumber = Boolean(lastUserMsg.match(numericRx) && (() => {
-    const mm = lastUserMsg.match(numericRx);
-    if (!mm) return false;
-    const v = parseFloat(mm[1].replace(",", "."));
-    return !Number.isNaN(v) && v >= 0 && v <= 10;
-  })());
-
-  const awaiting_sud = askedSud && !lastUserHasNumber;
-
-  const stateObj = {
-    meta: "STATE",
-    history_len: history.length,
-    last_user: lastUserMsg,
-    asked_sud: askedSud,
-    awaiting_sud,
-    prev_sud: prevSud,
-    assistant_asked_suicide_question: lastAssistantAskedSuicideQuestion(history),
-    recent_suicide_answer: interpretYesNoServer(lastUserMsg),
-  };
-
-  messages.push({
-    role: "user",
-    content: JSON.stringify(stateObj),
-  });
-
-  messages.push({
-    role: "user",
-    content: "NOTE: STATE fourni — laisse le SYSTEM PROMPT diriger le flux. N'implémente pas de logique serveur ici.",
-  });
-
-  // ---- SERVEUR : logique suicidaire prioritaire (PRIORITAIRE)
-  const combinedText = (history.map((m) => m.content).join(" ") + " " + lastUserMsg).trim();
-
-  // 1) Regex hard (exact) -> blocage immédiat
-  if (anyMatch(CRISIS_HARD, combinedText)) {
-    return new NextResponse(JSON.stringify({
-      answer: crisisOrientationMessage_TU(),
-      crisis: "hard",
-      blocked: true,
-      note: "server_detected_hard_crisis_regex",
-    }), { headers });
-  }
-
-  // 2) Regex soft -> poser la question (ou interpréter si déjà posée)
-  if (anyMatch(CRISIS_SOFT, combinedText)) {
+  // 2) Soft regex OR known misspelling -> flow question first
+  if (CRISIS_SOFT.some(rx => rx.test(combined)) || containsMisspelling(combined)) {
     const assistantAsked = lastAssistantAskedSuicideQuestion(history);
-    const recentAnswer = interpretYesNoServer(lastUserMsg);
+    const recent = interpretYesNo(lastUserMsg);
 
     if (assistantAsked) {
-      if (recentAnswer === "yes") {
-        return new NextResponse(JSON.stringify({
-          answer: crisisOrientationMessage_TU(),
-          crisis: "soft_confirmed",
-          blocked: true,
-          note: "user_confirmed_suicidal",
-        }), { headers });
-      } else if (recentAnswer === "no") {
-        // laisser passer : on appellera OpenAI plus bas
+      if (recent === "yes") {
+        return new NextResponse(JSON.stringify({ answer: crisisOrientationMessage_TU(), crisis: "soft_confirmed", blocked: true }), { headers });
+      } else if (recent === "no") {
+        // taux: laisser passer -> appel OpenAI plus bas
       } else {
-        return new NextResponse(JSON.stringify({
-          answer: "Je n'ai pas bien compris. " + ASK_SUICIDE_Q_TU,
-          crisis: "soft",
-          blocked: false,
-          askQuestion: true,
-          note: "clarify_yes_no",
-        }), { headers });
+        // on n'a pas compris la réponse -> reprompt
+        return new NextResponse(JSON.stringify({ answer: ASK_SUICIDE_Q_TU, crisis: "soft", blocked: false, askQuestion: true }), { headers });
       }
     } else {
+      // poser la question et attendre la réponse (front doit renvoyer l'assistant question + user answer)
       const empathic = `Je suis vraiment désolé·e que tu te sentes ainsi. Merci de me le dire — ta sécurité est ma priorité. ${ASK_SUICIDE_Q_TU}`;
-      return new NextResponse(JSON.stringify({
-        answer: empathic,
-        crisis: "soft",
-        blocked: false,
-        askQuestion: true,
-        note: "ask_yes_no_first",
-      }), { headers });
+      return new NextResponse(JSON.stringify({ answer: empathic, crisis: "soft", blocked: false, askQuestion: true }), { headers });
     }
   }
 
-  // 3) Fuzzy soft (prioritaire avant fuzzy hard) -> poser la question
-  const fuzzySoft = fuzzyDetectKeywords(combinedText, KEYWORDS_SOFT);
-  if (fuzzySoft) {
-    console.warn("server: fuzzy soft match", { matched: fuzzySoft.matched, dist: fuzzySoft.distance });
-    const assistantAsked = lastAssistantAskedSuicideQuestion(history);
-    if (!assistantAsked) {
-      const empathic = `Je suis vraiment désolé·e que tu te sentes ainsi. Merci de me le dire — ta sécurité est ma priorité. ${ASK_SUICIDE_Q_TU}`;
-      return new NextResponse(JSON.stringify({
-        answer: empathic,
-        crisis: "soft",
-        blocked: false,
-        askQuestion: true,
-        note: "ask_yes_no_first_fuzzy",
-        matched: fuzzySoft.matched,
-        distance: fuzzySoft.distance,
-      }), { headers });
-    } else {
-      const recentAnswer = interpretYesNoServer(lastUserMsg);
-      if (recentAnswer === "yes") {
-        return new NextResponse(JSON.stringify({
-          answer: crisisOrientationMessage_TU(),
-          crisis: "soft_confirmed",
-          blocked: true,
-          note: "user_confirmed_suicidal_fuzzy",
-          matched: fuzzySoft.matched,
-          distance: fuzzySoft.distance,
-        }), { headers });
-      } else if (recentAnswer === "no") {
-        // laisser passer
-      } else {
-        return new NextResponse(JSON.stringify({
-          answer: "Je n'ai pas bien compris. " + ASK_SUICIDE_Q_TU,
-          crisis: "soft",
-          blocked: false,
-          askQuestion: true,
-          note: "clarify_yes_no_fuzzy",
-        }), { headers });
-      }
-    }
-  }
-
-  // 4) Fuzzy hard (stricte) -> si exact (distance===0) hard block, si proche (distance<=1) traiter comme soft (poser question)
-  const fuzzyHard = fuzzyDetectKeywords(combinedText, KEYWORDS_HARD);
-  if (fuzzyHard) {
-    if (fuzzyHard.distance === 0) {
-      console.warn("server: fuzzy hard exact match", { matched: fuzzyHard.matched });
-      return new NextResponse(JSON.stringify({
-        answer: crisisOrientationMessage_TU(),
-        crisis: "hard",
-        blocked: true,
-        note: "server_detected_hard_crisis_fuzzy_exact",
-        matched: fuzzyHard.matched,
-      }), { headers });
-    }
-    // proche typo => route as soft (ask question) to avoid immediate block
-    if (fuzzyHard.distance <= 1) {
-      console.warn("server: fuzzy hard close -> treat as soft", { matched: fuzzyHard.matched, dist: fuzzyHard.distance });
-      const assistantAsked = lastAssistantAskedSuicideQuestion(history);
-      if (!assistantAsked) {
-        const empathic = `Je suis vraiment désolé·e que tu te sentes ainsi. Merci de me le dire — ta sécurité est ma priorité. ${ASK_SUICIDE_Q_TU}`;
-        return new NextResponse(JSON.stringify({
-          answer: empathic,
-          crisis: "soft",
-          blocked: false,
-          askQuestion: true,
-          note: "fuzzy_hard_near_treated_as_soft",
-          matched: fuzzyHard.matched,
-          distance: fuzzyHard.distance,
-        }), { headers });
-      } else {
-        const recentAnswer = interpretYesNoServer(lastUserMsg);
-        if (recentAnswer === "yes") {
-          return new NextResponse(JSON.stringify({
-            answer: crisisOrientationMessage_TU(),
-            crisis: "soft_confirmed",
-            blocked: true,
-            note: "user_confirmed_suicidal_after_fuzzy_hard",
-            matched: fuzzyHard.matched,
-            distance: fuzzyHard.distance,
-          }), { headers });
-        } else if (recentAnswer === "no") {
-          // laisser passer
-        } else {
-          return new NextResponse(JSON.stringify({
-            answer: "Je n'ai pas bien compris. " + ASK_SUICIDE_Q_TU,
-            crisis: "soft",
-            blocked: false,
-            askQuestion: true,
-            note: "clarify_yes_no_after_fuzzy_hard",
-          }), { headers });
-        }
-      }
-    }
-  }
-
-  // 5) Aucun indice suicidaire -> appel OpenAI normal
+  // 3) Pas de crise détectée -> appel normal OpenAI
   try {
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
@@ -482,10 +181,7 @@ export async function POST(req: Request) {
       messages,
     });
 
-    const text =
-      completion.choices?.[0]?.message?.content?.trim() ??
-      "Je n’ai pas compris. Peux-tu reformuler en une phrase courte ?";
-
+    const text = completion.choices?.[0]?.message?.content?.trim() ?? "Je n’ai pas compris. Peux-tu reformuler en une phrase courte ?";
     return new NextResponse(JSON.stringify({ answer: text, crisis: "none", blocked: false }), { headers });
   } catch (err) {
     console.error("openai error:", err);
@@ -493,7 +189,6 @@ export async function POST(req: Request) {
   }
 }
 
-// Preflight CORS
 export function OPTIONS(req: Request) {
   const origin = req.headers.get("origin");
   const headers: Record<string, string> = {
@@ -518,3 +213,4 @@ function isAllowedOrigin(origin: string | null) {
   if (o.startsWith("http://localhost:")) return true;
   return ALLOWED_BASE.has(o);
 }
+
