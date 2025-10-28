@@ -237,7 +237,7 @@ Rappels :
 
    ANTI-BOUCLE SUD
 - Lorsque tu viens de recevoir un SUD numérique (0–10) dans la réponse précédente, 
-  ne repose pas la question du SUD. Enchaîne directement avec le Setup adapté selon le niveau de SUD puis « OK » → Ronde → Re-SUD.
+  ne repose pas la question du SUD. Enchaîne directement avec le Setup adapté selon le niveau de SUD → Ronde → Re-SUD.
 
 
 SÉCURITÉ & CRISE
