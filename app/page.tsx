@@ -11,28 +11,7 @@ import React, {
 import Image from "next/image";
 
 /* === AJOUTER SOUS LES IMPORTS DE page.tsx === */
-const PAYPAL_URL = "https://paypal.me/efty25";
 
-/** Bouton AYNI réutilisable (cœur + lien PayPal, centré) */
-function AyniButton({ className = "" }: { className?: string }) {
-  return (
-    <div className="flex justify-center">
-      <a
-        href={PAYPAL_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={
-          "inline-flex items-center gap-2 rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99] transition " +
-          className
-        }
-        aria-label="Soutenir EFTY sur PayPal"
-      >
-        <span aria-hidden>❤️</span>
-        <span>Soutenir EFTY</span>
-      </a>
-    </div>
-  );
-}
 
 
 /** Colonne / encart promo très simple (liens École EFT France) */
