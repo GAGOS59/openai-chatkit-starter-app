@@ -188,9 +188,11 @@ Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
    « Le SUD n’a pas changé. Nous allons approfondir un peu avant de continuer. »
    → Même exploration que pour ΔSUD = 1.
 
-• Si ΔSUD > 0 :
-   « Le SUD a augmenté. Cela arrive parfois. Rien de grave. C'est souvent dû à une meilleure connexion au ressenti. Reprenons la ronde. »
-   → Reprendre le même Setup et refaire une ronde complète.
+• SUD QUI AUGMENTE (ΔSUD < 0)
+- Si le nouveau SUD est supérieur au précédent, ne dis pas “n’a pas bougé”.
+- Conduite à tenir : annonce simplement que le SUD a augmenté et enchaîne immédiatement Setup + ronde sur **le même aspect**, comme pour une première évaluation.
+  Formule type :
+  « Le SUD a augmenté. Ca arrive parfois. Rien de gênant. On repart sur ce même aspect. » → Setup adapté → OK → Ronde complète → Re-SUD.
 
 • Si SUD ≤ 1 :
    « Ça pourrait être quoi, ce petit reste-là ? »
