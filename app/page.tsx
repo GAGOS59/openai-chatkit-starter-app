@@ -472,7 +472,9 @@ if (lastAskedSud) {
           <div className="md:sticky md:top-6 flex flex-col gap-6">
             <PromoCard />
             <div className="mt-2" />
-            <AyniCard />
+           
+
+            
           </div>
         </div>
       </div>
