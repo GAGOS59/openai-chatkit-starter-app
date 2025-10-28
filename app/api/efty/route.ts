@@ -39,7 +39,6 @@ function isChatMessageArray(x: unknown): x is ChatMessage[] {
   });
 }
 
-// micro helper to generate short rappel candidates (non-invasive)
 function generateRappelsBruts(m?: MotsClient): string[] {
   if (!m) return [];
   const out = new Set<string>();
@@ -56,6 +55,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
 }
 
 /* ---------- 🔐 Sécurité suicidaire : détection & réponses (serveur) ---------- */
+/* Regex précises (rapides) */
 const CRISIS_HARD: RegExp[] = [
   /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
   /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
@@ -67,6 +67,7 @@ const CRISIS_HARD: RegExp[] = [
   /\bme\s+pendre\b/iu,
   /\bplus\s+d[’']?envie\s+de\s+vivre\b/iu,
   /\bj[’']?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,
+  /\b(me\s+foutre\s+en\s+l['’]?air|me\s+foutre\s+en\s+lair)\b/iu,
 ];
 
 const CRISIS_SOFT: RegExp[] = [
@@ -104,13 +105,10 @@ Tu n’es pas seul·e — ces services peuvent t’aider dès maintenant.`;
 const YES_PATTERNS: RegExp[] = [
   /\b(oui|ouais|yep|yes)\b/i,
   /\b(plut[oô]t\s+)?oui\b/i,
-  /\b(carr[ée]ment|clairement)\b/i,
-  /\b(je\s+c(r|’|')ains\s+que\s+oui)\b/i,
 ];
 const NO_PATTERNS: RegExp[] = [
   /\b(non|nan|nope)\b/i,
   /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
-  /\b(aucune?\s+id[ée]e\s+suicidaire)\b/i,
   /\b(je\s+n['’]?ai\s+pas\s+d['’]?id[ée]es?\s+suicidaires?)\b/i,
 ];
 
@@ -126,16 +124,100 @@ function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
     const m = history[i];
     if (m.role === "assistant") {
       const t = (m.content || "").toLowerCase();
-      return /avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires/.test(t) ||
-             /as[-\s]?tu\s+des\s+id[ée]es?\s+suicidaires/.test(t);
+      if (/avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires/.test(t) || /as[-\s]?tu\s+des\s+id[ée]es?\s+suicidaires/.test(t)) {
+        return true;
+      }
     }
     if (m.role === "user") break;
   }
   return false;
 }
 
+/* ---------- FUZZY DETECTION (tolérante aux fautes) ---------- */
+function normalizeTextForMatch(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9'\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-// --- POST handler
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const al = a.length, bl = b.length;
+  if (al === 0) return bl;
+  if (bl === 0) return al;
+  const v0 = new Array(bl + 1);
+  const v1 = new Array(bl + 1);
+  for (let j = 0; j <= bl; j++) v0[j] = j;
+  for (let i = 0; i < al; i++) {
+    v1[0] = i + 1;
+    for (let j = 0; j < bl; j++) {
+      const cost = a[i] === b[j] ? 0 : 1;
+      v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+    }
+    for (let j = 0; j <= bl; j++) v0[j] = v1[j];
+  }
+  return v1[bl];
+}
+
+const KEYWORDS_HARD_RAW = [
+  "suicide",
+  "me tuer",
+  "me pendre",
+  "me foutre en l'air",
+  "en finir",
+  "me suicider",
+  "mettre fin a mes jours",
+  "je veux mourir",
+];
+
+const KEYWORDS_SOFT_RAW = [
+  "j en ai marre",
+  "j en peux plus",
+  "marre de vivre",
+  "idees noires",
+  "je ne veux plus vivre",
+  "je supporte plus la vie",
+];
+
+const KEYWORDS_HARD = KEYWORDS_HARD_RAW.map(normalizeTextForMatch);
+const KEYWORDS_SOFT = KEYWORDS_SOFT_RAW.map(normalizeTextForMatch);
+
+function generateNgrams(tokens: string[], maxWords = 4): string[] {
+  const out: string[] = [];
+  for (let start = 0; start < tokens.length; start++) {
+    for (let len = 1; len <= maxWords && start + len <= tokens.length; len++) {
+      out.push(tokens.slice(start, start + len).join(" "));
+    }
+  }
+  return out;
+}
+
+function fuzzyDetectKeywords(text: string, keywords: string[]): { matched: string; distance: number } | null {
+  const norm = normalizeTextForMatch(text);
+  if (!norm) return null;
+  const tokens = norm.split(" ").filter(Boolean);
+  const ngrams = generateNgrams(tokens, 4);
+
+  for (const ng of ngrams) {
+    for (const kw of keywords) {
+      const maxDist = Math.max(1, Math.floor(Math.min(3, kw.length * 0.25)));
+      const dist = levenshtein(ng, kw);
+      if (dist <= maxDist) {
+        return { matched: kw, distance: dist };
+      }
+      if (ng.includes(kw) || kw.includes(ng)) {
+        return { matched: kw, distance: 0 };
+      }
+    }
+  }
+  return null;
+}
+
+/* ---------- ROUTE ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
   const ALLOWED_BASE = new Set([
@@ -172,7 +254,6 @@ export async function POST(req: Request) {
   const history: ChatMessage[] = isChatMessageArray(body.messages) ? body.messages : [];
   const single: string = typeof body.message === "string" ? body.message.trim() : "";
 
-  // Build messages: system prompt first, then history (minimal)
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: EFT_SYSTEM_PROMPT },
   ];
@@ -191,7 +272,6 @@ export async function POST(req: Request) {
     Vary: "Origin",
   });
 
-  // --- Optional: inject simple rappels JSON (non-invasive); minimal keys
   const injectRappels = body.injectRappels !== false;
   const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
   const candidats = generateRappelsBruts(body.mots_client);
@@ -206,19 +286,16 @@ export async function POST(req: Request) {
     });
   }
 
-  // ---- Minimal STATE push (ONE push only) that the prompt expects
   const userTurns = history.filter((m) => m.role === "user");
   const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
   const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
 
-  // Detect whether assistant *just asked* for a SUD — loose but practical
   const askedSud = /\b(sud)\b.*(0[–-]?10|0-10|0–10|0 ?[.,] ?10)?|indique\s+(ton|un)\s+sud|donne\s+un\s+sud|indique\s+un\s+nombre/i.test(
     lastAssistant
   );
 
-  // find previous numeric SUD in history (accept decimals with . or ,)
   let prevSud: number | null = null;
-  const numericRx = /([0-9]{1,2}(?:[.,][0-9]+)?)/; // captures 0..10 and decimals
+  const numericRx = /([0-9]{1,2}(?:[.,][0-9]+)?)/;
   for (let i = history.length - 2; i >= 0; i--) {
     const m = history[i];
     if (m.role === "user") {
@@ -233,7 +310,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Does the last user message include a numeric SUD already?
   const lastUserHasNumber = Boolean(lastUserMsg.match(numericRx) && (() => {
     const mm = lastUserMsg.match(numericRx);
     if (!mm) return false;
@@ -241,10 +317,8 @@ export async function POST(req: Request) {
     return !Number.isNaN(v) && v >= 0 && v <= 10;
   })());
 
-  // awaiting_sud is helpful for the prompt but optional — minimal boolean
   const awaiting_sud = askedSud && !lastUserHasNumber;
 
-  // Single STATE object push (minimal, prompt remains authoritative)
   const stateObj = {
     meta: "STATE",
     history_len: history.length,
@@ -261,32 +335,116 @@ export async function POST(req: Request) {
     content: JSON.stringify(stateObj),
   });
 
-  // Minimal gentle reminder (do not duplicate prompt logic)
   messages.push({
     role: "user",
     content: "NOTE: STATE fourni — laisse le SYSTEM PROMPT diriger le flux. N'implémente pas de logique serveur ici.",
   });
 
-  // ---- SERVER-SIDE crisis detection (avant appel OpenAI)
-  // combine recent user text to scan
-  const combinedText = (history.map((m) => m.content).join(" ") + " " + lastUserMsg).trim().toLowerCase();
+  // ---- SERVEUR : logique suicidaire prioritaire (PRIORITAIRE)
+  const combinedText = (history.map((m) => m.content).join(" ") + " " + lastUserMsg).trim();
 
+  // 1) Passe regex (précise)
   if (anyMatch(CRISIS_HARD, combinedText)) {
     return new NextResponse(JSON.stringify({
       answer: crisisOrientationMessage_TU(),
       crisis: "hard",
+      blocked: true,
+      note: "server_detected_hard_crisis_regex",
     }), { headers });
   }
 
-  if (anyMatch(CRISIS_SOFT, combinedText)) {
-    // propose orientation + optionally proposer la question courte pour vérification
+  // 1b) Passe fuzzy (tolérante aux fautes)
+  const fuzzyHard = fuzzyDetectKeywords(combinedText, KEYWORDS_HARD);
+  if (fuzzyHard) {
+    console.warn("server: fuzzy hard match", { matched: fuzzyHard.matched, dist: fuzzyHard.distance });
     return new NextResponse(JSON.stringify({
       answer: crisisOrientationMessage_TU(),
-      crisis: "soft",
-      askQuestion: ASK_SUICIDE_Q_TU,
+      crisis: "hard",
+      blocked: true,
+      note: "server_detected_hard_crisis_fuzzy",
+      matched: fuzzyHard.matched,
+      distance: fuzzyHard.distance,
     }), { headers });
   }
 
+  // 2) soft detection (regex)
+  if (anyMatch(CRISIS_SOFT, combinedText)) {
+    const assistantAsked = lastAssistantAskedSuicideQuestion(history);
+    const recentAnswer = interpretYesNoServer(lastUserMsg);
+
+    if (assistantAsked) {
+      if (recentAnswer === "yes") {
+        return new NextResponse(JSON.stringify({
+          answer: crisisOrientationMessage_TU(),
+          crisis: "soft_confirmed",
+          blocked: true,
+          note: "user_confirmed_suicidal",
+        }), { headers });
+      } else if (recentAnswer === "no") {
+        // laisser passer : on appellera OpenAI plus bas
+      } else {
+        return new NextResponse(JSON.stringify({
+          answer: "Je n'ai pas bien compris. " + ASK_SUICIDE_Q_TU,
+          crisis: "soft",
+          blocked: false,
+          askQuestion: true,
+          note: "clarify_yes_no",
+        }), { headers });
+      }
+    } else {
+      const empathic = `Je suis vraiment désolé·e que tu te sentes ainsi. Merci de me le dire — ta sécurité est ma priorité. ${ASK_SUICIDE_Q_TU}`;
+      return new NextResponse(JSON.stringify({
+        answer: empathic,
+        crisis: "soft",
+        blocked: false,
+        askQuestion: true,
+        note: "ask_yes_no_first",
+      }), { headers });
+    }
+  }
+
+  // 2b) soft fuzzy
+  const fuzzySoft = fuzzyDetectKeywords(combinedText, KEYWORDS_SOFT);
+  if (fuzzySoft) {
+    console.warn("server: fuzzy soft match", { matched: fuzzySoft.matched, dist: fuzzySoft.distance });
+    const assistantAsked = lastAssistantAskedSuicideQuestion(history);
+    if (!assistantAsked) {
+      const empathic = `Je suis vraiment désolé·e que tu te sentes ainsi. Merci de me le dire — ta sécurité est ma priorité. ${ASK_SUICIDE_Q_TU}`;
+      return new NextResponse(JSON.stringify({
+        answer: empathic,
+        crisis: "soft",
+        blocked: false,
+        askQuestion: true,
+        note: "ask_yes_no_first_fuzzy",
+        matched: fuzzySoft.matched,
+        distance: fuzzySoft.distance,
+      }), { headers });
+    } else {
+      const recentAnswer = interpretYesNoServer(lastUserMsg);
+      if (recentAnswer === "yes") {
+        return new NextResponse(JSON.stringify({
+          answer: crisisOrientationMessage_TU(),
+          crisis: "soft_confirmed",
+          blocked: true,
+          note: "user_confirmed_suicidal_fuzzy",
+          matched: fuzzySoft.matched,
+          distance: fuzzySoft.distance,
+        }), { headers });
+      } else if (recentAnswer === "no") {
+        // continuer
+      } else {
+        return new NextResponse(JSON.stringify({
+          answer: "Je n'ai pas bien compris. " + ASK_SUICIDE_Q_TU,
+          crisis: "soft",
+          blocked: false,
+          askQuestion: true,
+          note: "clarify_yes_no_fuzzy",
+        }), { headers });
+      }
+    }
+  }
+
+  // 3) Pas de crise ou soft écartée -> appel normal OpenAI
   try {
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
@@ -298,7 +456,7 @@ export async function POST(req: Request) {
       completion.choices?.[0]?.message?.content?.trim() ??
       "Je n’ai pas compris. Peux-tu reformuler en une phrase courte ?";
 
-    return new NextResponse(JSON.stringify({ answer: text, crisis: "none" as const }), { headers });
+    return new NextResponse(JSON.stringify({ answer: text, crisis: "none", blocked: false }), { headers });
   } catch (err) {
     console.error("openai error:", err);
     return NextResponse.json({ error: "Service temporairement indisponible." }, { status: 503 });
@@ -330,3 +488,4 @@ function isAllowedOrigin(origin: string | null) {
   if (o.startsWith("http://localhost:")) return true;
   return ALLOWED_BASE.has(o);
 }
+
