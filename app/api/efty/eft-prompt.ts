@@ -198,8 +198,7 @@ Rappels :
 - Le reste du Setup suit le modèle : « Même si j’ai [expression adaptée selon le SUD], je m’accepte profondément et complètement. »
 
 ÉTAPE 7 – RÉÉVALUATION & RÈGLE ΔSUD
-À la fin de chaque ronde, demande le nouveau SUD une seule fois.
-Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
+À la fin de chaque ronde, demande le nouveau SUD une seule fois et tu enchaînes en calculant mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
 
 • Si ΔSUD ≥ 2 :
    « Super, poursuivons le travail sur ce même ressenti. »
