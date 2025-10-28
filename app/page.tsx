@@ -1,14 +1,6 @@
 /* app/page.tsx */
 "use client";
 
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  FormEvent,
-} from "react";
-import Image from "next/image";
 
 /* === AJOUTER SOUS LES IMPORTS DE page.tsx === */
 
