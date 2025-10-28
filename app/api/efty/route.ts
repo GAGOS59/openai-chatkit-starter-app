@@ -352,53 +352,47 @@ export async function POST(req: Request) {
     });
   }
 
-  // ---- ÉTAT LÉGER POUR LE MODÈLE (liaison naturelle prompt↔app)
-  const userTurns = history.filter((m) => m.role === "user");
-  const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
-  const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
-  const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
+ // ---- ÉTAT LÉGER POUR LE MODÈLE (liaison naturelle prompt↔app)
+const userTurns = history.filter((m) => m.role === "user");
+const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
+const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
 
-
-         // SUD précédent saisi par l’utilisateur (pour info au modèle)
-  let prevSud: number | null = null;
-  for (let i = history.length - 2; i >= 0; i--) {
-    const m = history[i];
-    if (m.role === "user") {
-      const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
-      if (mm) { prevSud = parseInt(mm[1], 10); break; }
-    }
+// SUD précédent saisi par l’utilisateur (pour info au modèle)
+let prevSud: number | null = null;
+for (let i = history.length - 2; i >= 0; i--) {
+  const m = history[i];
+  if (m.role === "user") {
+    const mm = (m.content || "").match(/^(?:sud\s*[:=]?\s*)?([0-9]|10)\s*$/i);
+    if (mm) { prevSud = parseInt(mm[1], 10); break; }
   }
+}
 
-  // Paquet d'état minimal : donne au modèle le contexte pour appliquer le prompt
-  messages.push({
-    role: "user",
-    content: JSON.stringify({
-      meta: "STATE",
-      history_len: history.length,
-      last_user: lastUserMsg,
-      asked_sud: askedSud,
-      prev_sud: prevSud,
-    }),
-  });
+// --- construire stateObj complet (unique injection dans messages)
+// Remplace le tableau aspects par ta structure réelle ou restaure-la depuis l'historique si besoin.
+const stateObj = {
+  meta: "STATE",
+  history_len: history.length,
+  last_user: lastUserMsg,
+  asked_sud: askedSud,
+  prev_sud: prevSud,
+  aspects: [ /* ex: { id, label, type, localisation, prev_sud, asked_sud, status, initial } */ ],
+};
 
-  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-    { role: "system", content: EFT_SYSTEM_PROMPT },
-  ];
-  
-  // Construire stateObj comme on l'a vu (aspects[], asked_sud, prev_sud, last_user...)
+// ---- INJECTER UNE SEULE FOIS LE STATE DANS messages (supprimer l'ancien push minimal)
 messages.push({
   role: "user",
-  content: JSON.stringify(stateObj)   // <-- INSÈRE ICI ton STATE JSON
+  content: JSON.stringify(stateObj),
 });
 
-  // Rappel doux (réversible) : une seule question à la fois, respecter asked_sud
-  messages.push({
-    role: "user",
-    content:
-      "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
-      "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question. " +
-      "Sinon, pose une unique question adaptée à l’étape en réutilisant les mots exacts de l’utilisateur.",
-  });
+// Rappel doux (réversible) : une seule question à la fois, respecter asked_sud
+messages.push({
+  role: "user",
+  content:
+    "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
+    "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question. " +
+    "Sinon, pose une unique question adaptée à l’étape en réutilisant les mots exacts de l’utilisateur.",
+});
 
   // =========================
   // (Variante A) Model-driven
