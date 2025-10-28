@@ -124,7 +124,6 @@ Avant de commencer la ronde :
   • souvenir : image ou scène précise du passé.
 
 ⚠️ Neutralité sémantique :
-Ne déduis jamais une émotion, un ressenti ou une pensée que le participant n’a pas exprimée explicitement.
 N’ajoute pas de termes interprétatifs ou émotionnellement chargés comme « culpabilité », « honte », « colère », « haine », etc.,
 même s’ils pourraient sembler justes.
 Ces mots peuvent être difficiles à accueillir et risquent d’affaiblir la sécurité intérieure.
@@ -188,6 +187,10 @@ Calcule mentalement la différence (ΔSUD = ancien SUD - nouveau SUD).
 • Si ΔSUD = 0 :
    « Le SUD n’a pas changé. Nous allons approfondir un peu avant de continuer. »
    → Même exploration que pour ΔSUD = 1.
+
+• Si ΔSUD > 0 :
+   « Le SUD a augmenté. Cela arrive parfois. Rien de grave. C'est souvent dû à une meilleure connexion au ressenti. Reprenons la ronde. »
+   → Reprendre le même Setup et refaire une ronde complète.
 
 • Si SUD ≤ 1 :
    « Ça pourrait être quoi, ce petit reste-là ? »
