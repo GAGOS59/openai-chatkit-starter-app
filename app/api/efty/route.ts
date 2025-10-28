@@ -381,6 +381,10 @@ export async function POST(req: Request) {
     }),
   });
 
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    { role: "system", content: EFT_SYSTEM_PROMPT },
+  ];
+  
   // Construire stateObj comme on l'a vu (aspects[], asked_sud, prev_sud, last_user...)
 messages.push({
   role: "user",
