@@ -381,6 +381,12 @@ export async function POST(req: Request) {
     }),
   });
 
+  // Construire stateObj comme on l'a vu (aspects[], asked_sud, prev_sud, last_user...)
+messages.push({
+  role: "user",
+  content: JSON.stringify(stateObj)   // <-- INSÈRE ICI ton STATE JSON
+});
+
   // Rappel doux (réversible) : une seule question à la fois, respecter asked_sud
   messages.push({
     role: "user",
