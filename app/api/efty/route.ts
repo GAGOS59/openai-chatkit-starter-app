@@ -58,6 +58,86 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out).slice(0, 6);
 }
 
+/* ---------- 🔐 Sécurité suicidaire : détection & réponses (serveur) ---------- */
+const CRISIS_HARD: RegExp[] = [
+  /\bsuicid(e|er|aire|al|ale|aux|erai|erais|erait|eront)?\b/iu,
+  /\bje\s+(veux|vais|voudrais)\s+mour(ir|ire)\b/iu,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/iu,
+  /\bje\s+(veux|vais|voudrais)\s+en\s+finir\b/iu,
+  /\bmettre\s+fin\s+à\s+(ma|mes)\s+jours?\b/iu,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|suicide)\b/i,
+  /\bme\s+tu(er|é|erai|erais|erait|eront)?\b/iu,
+  /\bme\s+pendre\b/iu,
+  /\bplus\s+d[’']?envie\s+de\s+vivre\b/iu,
+  /\bj[’']?\s*en\s+peux?\s+plus\s+de\s+vivre\b/iu,
+];
+
+const CRISIS_SOFT: RegExp[] = [
+  /\bj[’']?\s*en\s+peux?\s+plus\b/iu,
+  /\bj[’']?\s*en\s+ai\s+marre\b/iu,
+  /\bmarre\s+de\s+vivre\b/iu,
+  /\bras[-\s]?le[-\s]?bol\b/iu,
+  /\bla\s+vie\s+en\s+g[ée]n[ée]ral\b/iu,
+  /\bje\s+supporte\s+plus\s+(la\s+)?vie\b/iu,
+  /\bla\s+vie\s+(me|m’)\s+(d[ée]go[uû]te|fatigue|saoule)\b/iu,
+  /\bid[ée]es?\s+noires?\b/iu,
+  /\bje\s+suis\s+(de\s+)?trop\b/iu,
+];
+
+function anyMatch(xs: RegExp[], s: string) {
+  return xs.some((rx) => rx.test(s));
+}
+
+const ASK_SUICIDE_Q_TU =
+  "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
+
+function crisisOrientationMessage_TU(): string {
+  return `Message important
+Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta sécurité est prioritaire.
+
+📞 En France :
+• 3114 — Prévention du suicide (gratuit, 24/7)
+• 15 — SAMU
+• 112 — Urgences (si danger immédiat)
+
+Tu n’es pas seul·e — ces services peuvent t’aider dès maintenant.`;
+}
+
+const YES_PATTERNS: RegExp[] = [
+  /\b(oui|ouais|yep|yes)\b/i,
+  /\b(plut[oô]t\s+)?oui\b/i,
+  /\b(carr[ée]ment|clairement)\b/i,
+  /\b(je\s+c(r|’|')ains\s+que\s+oui)\b/i,
+];
+const NO_PATTERNS: RegExp[] = [
+  /\b(non|nan|nope)\b/i,
+  /\b(pas\s+du\s+tout|absolument\s+pas|vraiment\s+pas)\b/i,
+  /\b(aucune?\s+id[ée]e\s+suicidaire)\b/i,
+  /\b(je\s+n['’]?ai\s+pas\s+d['’]?id[ée]es?\s+suicidaires?)\b/i,
+];
+
+function interpretYesNoServer(text: string): "yes" | "no" | "unknown" {
+  const t = (text || "").toLowerCase();
+  if (YES_PATTERNS.some((rx) => rx.test(t))) return "yes";
+  if (NO_PATTERNS.some((rx) => rx.test(t))) return "no";
+  return "unknown";
+}
+
+function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const m = history[i];
+    if (m.role === "assistant") {
+      const t = (m.content || "").toLowerCase();
+      return /avez[-\s]?vous\s+des\s+id[ée]es?\s+suicidaires/.test(t) ||
+             /as[-\s]?tu\s+des\s+id[ée]es?\s+suicidaires/.test(t);
+    }
+    if (m.role === "user") break;
+  }
+  return false;
+}
+
+
 // --- POST handler
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
