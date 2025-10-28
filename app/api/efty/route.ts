@@ -13,34 +13,44 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // --- Types (minimal)
 type Role = "user" | "assistant";
 interface ChatMessage { role: Role; content: string; }
-interface MotsClient { emotion?: string; sensation?: string; localisation?: string; pensee?: string; souvenir?: string; }
-type Payload = { messages?: ChatMessage[]; message?: string; mots_client?: MotsClient; injectRappels?: boolean; rappelsVoulus?: number; };
+interface MotsClient {
+  emotion?: string;
+  sensation?: string;
+  localisation?: string;
+  pensee?: string;
+  souvenir?: string;
+}
+type Payload = {
+  messages?: ChatMessage[];
+  message?: string;
+  mots_client?: MotsClient;
+  injectRappels?: boolean;
+  rappelsVoulus?: number;
+};
 
 // --- Utils minimal
-function clean(s?: string) { return (s ?? "").replace(/\s+/g, " ").trim(); }
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
-  return Array.isArray(x) && x.every((m) => typeof m === "object" && m !== null && "role" in m && "content" in m);
-}
-function isAllowedOrigin(origin: string | null) {
-  if (!origin) return false;
-  const o = origin.toLowerCase();
-  const ALLOWED = new Set([
-    "https://appli.ecole-eft-france.fr",
-    "https://www.ecole-eft-france.fr",
-  ]);
-  if (process.env.VERCEL_ENV === "production") return ALLOWED.has(o);
-  if (o.startsWith("http://localhost")) return true;
-  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
-    return o === `https://${process.env.VERCEL_URL}` || ALLOWED.has(o);
-  }
-  return ALLOWED.has(o);
+  if (!Array.isArray(x)) return false;
+  return x.every(
+    (m) =>
+      typeof m === "object" &&
+      m !== null &&
+      "role" in m &&
+      "content" in m &&
+      (m as any).role &&
+      typeof (m as any).content === "string"
+  );
 }
 
-// --- Micro-grammaire rappels (very small, non-invasive)
+// micro helper to generate short rappel candidates (non-invasive)
 function generateRappelsBruts(m?: MotsClient): string[] {
   if (!m) return [];
   const out = new Set<string>();
-  const push = (s?: string) => { if (!s) return; const t = s.trim().replace(/\s+/g," "); if (t && t.length <= 40) out.add(t); };
+  const push = (s?: string) => {
+    if (!s) return;
+    const t = s.trim().replace(/\s+/g, " ");
+    if (t && t.length <= 40) out.add(t);
+  };
   if (m.emotion) push(`cette ${m.emotion}`);
   if (m.sensation && m.localisation) push(`cette ${m.sensation} dans ${m.localisation}`);
   if (m.sensation && !m.localisation) push(`cette ${m.sensation}`);
@@ -48,14 +58,30 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out).slice(0, 6);
 }
 
-/* ---------- Handlers ---------- */
+// --- POST handler
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
+  const ALLOWED_BASE = new Set([
+    "https://appli.ecole-eft-france.fr",
+    "https://www.ecole-eft-france.fr",
+  ]);
+  function isAllowedOrigin(o: string | null) {
+    if (!o) return false;
+    const lo = o.toLowerCase();
+    if (process.env.VERCEL_ENV === "production") return ALLOWED_BASE.has(lo);
+    if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+      return lo === `https://${process.env.VERCEL_URL}` || ALLOWED_BASE.has(lo);
+    }
+    if (lo.startsWith("http://localhost")) return true;
+    return ALLOWED_BASE.has(lo);
+  }
+
   if (!isAllowedOrigin(origin)) {
     return new NextResponse("Origine non autorisée (CORS).", { status: 403 });
   }
+
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "Configuration manquante." }, { status: 500 });
+    return NextResponse.json({ error: "Configuration OPENAI manquante." }, { status: 500 });
   }
 
   let body: Payload = {};
@@ -85,10 +111,10 @@ export async function POST(req: Request) {
   const headers = new Headers({
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": origin || "",
-    "Vary": "Origin",
+    Vary: "Origin",
   });
 
-  // --- Optional: inject simple rappels JSON (non-invasive)
+  // --- Optional: inject simple rappels JSON (non-invasive); minimal keys
   const injectRappels = body.injectRappels !== false;
   const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
   const candidats = generateRappelsBruts(body.mots_client);
@@ -107,34 +133,59 @@ export async function POST(req: Request) {
   const userTurns = history.filter((m) => m.role === "user");
   const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
   const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
-  const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
-  // find previous numeric SUD in history (last user numeric)
+
+  // Detect whether assistant *just asked* for a SUD — loose but practical
+  const askedSud = /\b(sud)\b.*(0[–-]?10|0-10|0–10|0 ?[.,] ?10)?|indique\s+(ton|un)\s+sud|donne\s+un\s+sud|indique\s+un\s+nombre/i.test(
+    lastAssistant
+  );
+
+  // find previous numeric SUD in history (accept decimals with . or ,)
   let prevSud: number | null = null;
+  const numericRx = /([0-9]{1,2}(?:[.,][0-9]+)?)/; // captures 0..10 and decimals
   for (let i = history.length - 2; i >= 0; i--) {
     const m = history[i];
     if (m.role === "user") {
-      const mm = (m.content || "").match(/\b([0-9]|10)\b/);
-      if (mm) { prevSud = parseInt(mm[1], 10); break; }
+      const mm = (m.content || "").match(numericRx);
+      if (mm) {
+        const v = parseFloat(mm[1].replace(",", "."));
+        if (!Number.isNaN(v) && v >= 0 && v <= 10) {
+          prevSud = v;
+          break;
+        }
+      }
     }
   }
 
+  // Does the last user message include a numeric SUD already?
+  const lastUserHasNumber = Boolean(lastUserMsg.match(numericRx) && (() => {
+    const mm = lastUserMsg.match(numericRx);
+    if (!mm) return false;
+    const v = parseFloat(mm[1].replace(",", "."));
+    return !Number.isNaN(v) && v >= 0 && v <= 10;
+  })());
+
+  // awaiting_sud is helpful for the prompt but optional — minimal boolean
+  const awaiting_sud = askedSud && !lastUserHasNumber;
+
+  // Single STATE object push (minimal, prompt remains authoritative)
+  const stateObj = {
+    meta: "STATE",
+    history_len: history.length,
+    last_user: lastUserMsg,
+    asked_sud: askedSud,
+    awaiting_sud,
+    prev_sud: prevSud,
+  };
+
   messages.push({
     role: "user",
-    content: JSON.stringify({
-      meta: "STATE",
-      history_len: history.length,
-      last_user: lastUserMsg,
-      asked_sud: askedSud,
-      prev_sud: prevSud,
-    }),
+    content: JSON.stringify(stateObj),
   });
 
-  // gentle reminder (keeps prompt in charge)
+  // Minimal gentle reminder (do not duplicate prompt logic)
   messages.push({
     role: "user",
-    content:
-      "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
-      "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question.",
+    content: "NOTE: STATE fourni — laisse le SYSTEM PROMPT diriger le flux. N'implémente pas de logique serveur ici.",
   });
 
   try {
@@ -154,6 +205,7 @@ export async function POST(req: Request) {
   }
 }
 
+// Preflight CORS
 export function OPTIONS(req: Request) {
   const origin = req.headers.get("origin");
   const headers: Record<string, string> = {
@@ -162,4 +214,19 @@ export function OPTIONS(req: Request) {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
   return new NextResponse(null, { status: 204, headers });
+}
+
+function isAllowedOrigin(origin: string | null) {
+  if (!origin) return false;
+  const o = origin.toLowerCase();
+  const ALLOWED_BASE = new Set([
+    "https://appli.ecole-eft-france.fr",
+    "https://www.ecole-eft-france.fr",
+  ]);
+  if (process.env.VERCEL_ENV === "production") return ALLOWED_BASE.has(o);
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return o === `https://${process.env.VERCEL_URL}` || ALLOWED_BASE.has(o);
+  }
+  if (o.startsWith("http://localhost:")) return true;
+  return ALLOWED_BASE.has(o);
 }
