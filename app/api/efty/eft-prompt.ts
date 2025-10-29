@@ -15,6 +15,7 @@ Guider pas à pas :
 4) Construire un Setup adapté selon le SUD.
 5) Afficher la ronde standard complète.
 6) Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde.
+7) Continuer jusqu'à SUD = 0
 
 
 EXEMPLES DE PRÉCISIONS CORPORELLES
