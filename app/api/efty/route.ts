@@ -1,4 +1,4 @@
-// app/api/efty/route.ts
+// app/api/efty/route.ts  — version nettoyée (plus de prevSud/currentSud)
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
@@ -13,11 +13,25 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // --- Types (minimal)
 type Role = "user" | "assistant";
 interface ChatMessage { role: Role; content: string; }
-interface MotsClient { emotion?: string; sensation?: string; localisation?: string; pensee?: string; souvenir?: string; }
-type Payload = { messages?: ChatMessage[]; message?: string; mots_client?: MotsClient; injectRappels?: boolean; rappelsVoulus?: number; };
+interface MotsClient {
+  emotion?: string;
+  sensation?: string;
+  localisation?: string;
+  pensee?: string;
+  souvenir?: string;
+}
+type Payload = {
+  messages?: ChatMessage[];
+  message?: string;
+  mots_client?: MotsClient;
+  injectRappels?: boolean;
+  rappelsVoulus?: number;
+};
 
 // --- Utils minimal
-function clean(s?: string) { return (s ?? "").replace(/\s+/g, " ").trim(); }
+function clean(s?: string) {
+  return (s ?? "").replace(/\s+/g, " ").trim();
+}
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   return Array.isArray(x) && x.every((m) => typeof m === "object" && m !== null && "role" in m && "content" in m);
 }
@@ -40,7 +54,11 @@ function isAllowedOrigin(origin: string | null) {
 function generateRappelsBruts(m?: MotsClient): string[] {
   if (!m) return [];
   const out = new Set<string>();
-  const push = (s?: string) => { if (!s) return; const t = s.trim().replace(/\s+/g," "); if (t && t.length <= 40) out.add(t); };
+  const push = (s?: string) => {
+    if (!s) return;
+    const t = s.trim().replace(/\s+/g, " ");
+    if (t && t.length <= 40) out.add(t);
+  };
   if (m.emotion) push(`cette ${m.emotion}`);
   if (m.sensation && m.localisation) push(`cette ${m.sensation} dans ${m.localisation}`);
   if (m.sensation && !m.localisation) push(`cette ${m.sensation}`);
@@ -85,7 +103,7 @@ export async function POST(req: Request) {
   const headers = new Headers({
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": origin || "",
-    "Vary": "Origin",
+    Vary: "Origin",
   });
 
   // --- Optional: inject simple rappels JSON (non-invasive)
@@ -103,38 +121,23 @@ export async function POST(req: Request) {
     });
   }
 
-  // ---- Minimal STATE push (ONE push only) that the prompt expects
-  const userTurns = history.filter((m) => m.role === "user");
-  const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
-  const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
-  const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
-  // find previous numeric SUD in history (last user numeric)
-  let prevSud: number | null = null;
-  for (let i = history.length - 2; i >= 0; i--) {
-    const m = history[i];
-    if (m.role === "user") {
-      const mm = (m.content || "").match(/\b([0-9]|10)\b/);
-      if (mm) { prevSud = parseInt(mm[1], 10); break; }
-    }
-  }
-
+  // ---- Minimal STATE push (intentionnellement minimal) ----
+  const lastUser = history.filter((m) => m.role === "user").slice(-1)[0]?.content?.trim() || single || "";
   messages.push({
     role: "user",
     content: JSON.stringify({
       meta: "STATE",
       history_len: history.length,
-      last_user: lastUserMsg,
-      asked_sud: askedSud,
-      prev_sud: prevSud,
+      last_user: lastUser,
     }),
   });
 
-  // gentle reminder (keeps prompt in charge)
+  // gentle reminder (keeps prompt in charge) — keep the prompt authoritative about flow
   messages.push({
     role: "user",
     content:
-      "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
-      "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question.",
+      "NOTE: Respecte strictement le rythme décrit dans le SYSTEM PROMPT: une seule question à la fois. " +
+      "Toute logique ΔSUD (comparaison prev/current) est gérée par le prompt ou par le front ; ne pas supposer d'état SUD côté serveur.",
   });
 
   try {
@@ -150,6 +153,7 @@ export async function POST(req: Request) {
 
     return new NextResponse(JSON.stringify({ answer: text, crisis: "none" as const }), { headers });
   } catch (err) {
+    console.error("openai error:", err);
     return NextResponse.json({ error: "Service temporairement indisponible." }, { status: 503 });
   }
 }
@@ -163,3 +167,4 @@ export function OPTIONS(req: Request) {
   };
   return new NextResponse(null, { status: 204, headers });
 }
+
