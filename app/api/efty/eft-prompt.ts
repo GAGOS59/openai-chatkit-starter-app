@@ -121,8 +121,7 @@ DÉCISION ΔSUD (interne) — ancien_sud = prev_sud_value, nouveau_sud = last_su
 
 - Δ = 0  (pas de changement) :
   Annonce courte : « Le SUD n’a pas changé. On approfondit un peu avant de continuer. »
-  → Option A (par défaut) : Setup adapté → OK → Ronde → Re-SUD.
-  → Option B (si l’utilisateur préfère) : 1 question d’exploration (depuis quand / qu’est-ce que ça évoque ?), puis Setup → Ronde.
+  → 1 question d’exploration (depuis quand / qu’est-ce que ça évoque pour toi ?), puis Setup → Ronde → Re-SUD.
 
 - Δ = 1  (baisse faible) :
   « Ton SUD n’a baissé que d’un point. Explorons ce qui le maintient. »
@@ -150,18 +149,17 @@ DÉCISION ΔSUD (interne) — ancien_sud = prev_sud_value, nouveau_sud = last_su
 
 2. Avant de poser une nouvelle question de SUD :
    - Vérifie que asked_sud=false ET qu’aucune ronde n’est en cours.
-   - Vérifie que le SUD précédent a été utilisé pour un Setup ou une Ronde.
+   - Vérifie que le SUD précédent a été utilisé pour un Setup puis une Ronde.
    - Si les conditions ne sont pas remplies → ne repose pas la question SUD.
 
 3. Si un nouveau SUD est identique à l’ancien :
-   - Considère ΔSUD=0 et applique la branche correspondante (exploration légère ou nouvelle ronde sur même aspect).
+   - Considère ΔSUD=0 et applique la branche correspondante (exploration légère).
    - Ne redemande pas le SUD.
 
 4. Si aucun prev_sud n’existe (premier SUD de la séance) :
    - L’utiliser comme référence de départ (prev_sud = valeur reçue).
    - Ne pas calculer ΔSUD pour ce tour.
 
-   Si le SUD donné est identique à celui de la ronde précédente, considère que ΔSUD=0 et passe immédiatement à l’étape correspondante sans redemander le SUD.
 
    GESTION OPÉRATIONNELLE DU SUD (ANTI-BOUCLE)
 
@@ -178,7 +176,7 @@ RÈGLES :
    Après le OK → phase = "ronde".
    Après la ronde → phase = "attente_re_sud" (tu demandes alors une seule re-évaluation SUD).
 4) Si le nouvel SUD est identique au précédent et qu’aucune ronde n’a eu lieu entre-temps :
-   - Considère que tu l’as déjà reçu (anti-bégaiement) et n’insiste pas. Passe à la branche ΔSUD = 0.
+   - Considère que tu l’as déjà reçu (anti-bégaiement) et n’insiste pas. Passe au Setup → OK → Ronde.
 5) Si prev_sud_value est absent (premier SUD de la séance) :
    - Ne calcule pas ΔSUD ; utilise ce SUD comme référence et déroule Setup → OK → Ronde.
 
