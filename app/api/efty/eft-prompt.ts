@@ -106,7 +106,7 @@ Après chaque ronde :
 #### Décision ΔSUD (interne)
 Δ = ancien_sud - nouveau_sud  
 
-- Δ < 0 → “Le SUD a augmenté. On repart sur le même aspect.”  
+- Δ < 0 → “Le SUD a augmenté. On repart sur le même aspect.” → Ronde.
 - Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.”  
 - Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”  
 - Δ ≥ 2 → “Super, poursuivons sur ce même aspect.”  
