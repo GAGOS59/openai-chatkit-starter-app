@@ -106,8 +106,8 @@ Après chaque ronde :
 #### Décision ΔSUD (interne)
 Δ = ancien_sud - nouveau_sud  
 
-- Δ < 0 → “Le SUD a augmenté. On repart sur le même aspect.” → Setup → Ronde.
-- Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → Question → Setup → Ronde.  
+- Δ < 0 → “Le SUD a augmenté. Ca arrive parfois. Ca n'est pas gênant. On repart sur le même aspect.” → Setup → Ronde.
+- Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → Question → Setup → Ronde → Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde.  
 - Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”→ Question → Setup → Ronde.
 - Δ ≥ 2 → “Super, poursuivons sur ce même aspect.” → Setup → Ronde. 
 - SUD ≤ 1 → “Ce petit reste-là, ce serait quoi ?”  → Nouvel Aspect → SUD → Setup → Ronde.
