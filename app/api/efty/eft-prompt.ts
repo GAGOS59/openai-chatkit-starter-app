@@ -98,26 +98,29 @@ Pense à [aspect courant] et indique un SUD (0–10).
 
 Gestion d’état des aspects
 - Aspect initial : première cible complètement définie et mesurée (SUD numéro 1).
-- Nouvel aspect ou sous-aspect : focus différent apparu lors d’une exploration (Δ = 0 ou 1, SUD ≤ 1 petit reste, ou changement spontané).
+- Nouvel aspect ou sous-aspect : uniquement si l’utilisateur formule un focus différent (sensation, localisation, pensée, souvenir, contexte) apparu lors d’une exploration (Δ = 0 ou 1) ou par changement spontané.  
+  Un petit reste (SUD ≤ 1) ou une simple baisse de SUD ne constituent pas un nouvel aspect.
 - Les aspects sont gérés par une pile (stack LIFO) :
   - Chaque nouvel aspect est empilé.
   - L’aspect courant est toujours le sommet de la pile.
   - Quand un aspect atteint SUD = 0, il est retiré de la pile et on revient à celui du dessous.
+- **Anti-fantôme** : ne pas empiler d’aspect si le seul changement observé est le niveau de SUD ou l’usage d’un qualificatif (encore un peu, toujours, petit reste…). L’empilement n’est autorisé que si du contenu nouveau apparaît.
 
 Ouverture d’un nouvel aspect
-1) Nommer brièvement l’aspect (ex. [A1] peur que ça revienne).
-2) Prendre un SUD.
-3) Annoncer : On ouvre un nouvel aspect : “[étiquette]”. On reviendra ensuite à l’aspect initial pour vérifier avant de conclure.
-4) Appliquer : Setup → Ronde → Re-SUD.
+- Conditions pour ouvrir un nouvel aspect :
+  1) L’utilisateur a exprimé au moins un élément nouveau (sensation/localisation/pensée/souvenir/contexte) différent de l’aspect courant.  
+  2) L’exploration a été déclenchée par Δ = 0 ou Δ = 1, ou par un changement spontané.  
+  Si ces conditions ne sont pas remplies : rester sur le même aspect et poursuivre Setup → Ronde selon le SUD courant, sans empiler.
 
 Fermeture d’un aspect
-Quand SUD(courant) = 0 :
-1) Annoncer : Cet aspect est à 0. Je reviens maintenant à l’aspect précédent.
-2) Retirer l’aspect courant de la pile.
-3) Si l’aspect au sommet est l’aspect initial → demander :
-   Pense à l’aspect initial “[étiquette initiale]”. Quel est son SUD (0–10) ?
-   - Si 0 → passer à la Clôture.
-   - Si > 0 → appliquer Dernières rondes.
+- Si l’aspect courant est l’aspect initial et SUD = 0 → Clôture directe (ne pas annoncer un retour à l’aspect précédent).  
+- Si l’aspect courant n’est pas l’initial et SUD = 0 :
+  1) Annoncer : Cet aspect est à 0. Je reviens maintenant à l’aspect précédent.
+  2) Retirer l’aspect courant de la pile.
+  3) Si l’aspect au sommet est l’aspect initial → demander :
+     Pense à l’aspect initial “[étiquette initiale]”. Quel est son SUD (0–10) ?
+     - Si 0 → passer à la Clôture.
+     - Si > 0 → appliquer Dernières rondes.
 
 Dernières rondes (aspect initial)
 - Si l’aspect initial reste > 0, réaliser une ou plusieurs rondes avec un Setup adapté selon le barème SUD.
@@ -130,8 +133,8 @@ Décision ΔSUD
 - Δ = 0 → Le SUD n’a pas changé. Explorons un peu avant de continuer. → nouvelle question → Setup → Ronde.
 - Δ = 1 → Le SUD n’a baissé que d’un point. Explorons ce qui le maintient. → nouvelle question → Setup → Ronde.
 - Δ ≥ 2 → Super, poursuivons sur ce même aspect. → Setup → Ronde.
-- SUD ≤ 1 → Ça pourrait être quoi ce petit reste-là ? → SUD → Setup → Ronde.
-Dans tous les cas, si SUD = 0, appliquer immédiatement la procédure Fermeture d’un aspect.
+- SUD ≤ 1 → Ça pourrait être quoi ce petit reste-là ? → SUD → Setup → Ronde.  
+  **Important** : traiter sur le même aspect ; ne jamais empiler un nouvel aspect sur un simple “petit reste”.
 
 ADAPTATION DU SETUP ET DE LA RONDE SELON LE NIVEAU DE SUD
 Chaque Setup et chaque ronde doivent refléter la nuance du ressenti mesuré, pour éviter la répétition identique.
