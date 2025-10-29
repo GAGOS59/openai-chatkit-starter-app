@@ -100,6 +100,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Aucun message fourni." }, { status: 400 });
   }
 
+  function sudQualifier(sud: number): string {
+  if (sud <= 2) return "ce petit reste de";
+  if (sud === 3) return "encore un peu de";
+  if (sud === 4) return "toujours un peu de";
+  if (sud === 5) return "encore";
+  if (sud === 6) return "toujours";
+  if (sud === 7) return "bien présent·e";
+  if (sud === 8) return "fort·e";
+  if (sud === 9) return "très fort·e";
+  return "insupportable";
+}
+
+
   const headers = new Headers({
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": origin || "",
