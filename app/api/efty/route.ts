@@ -163,20 +163,25 @@ export async function POST(req: Request) {
     }),
   });
 
-  // --- Nouveau : détection SUD dans le dernier message et hint de nuance
-  const sud = parseSudFromText(lastUser);
-  if (typeof sud === "number") {
-    const qualifier = sudQualifier(sud);
-    messages.push({
-      role: "user",
-      content: JSON.stringify({
-        meta: "SUD_HINT",
-        sud_detecte: sud,
-        qualifier,
-        instruction: "Utilise ce qualificateur dans le prochain Setup et dans au moins 3 points de la ronde, conformément au prompt système.",
-      }),
-    });
-  }
+  // --- Nouveau : détection SUD dans le dernier message et hint de nuance (non contraignant)
+const sud = parseSudFromText(lastUser);
+if (typeof sud === "number") {
+  const qualifier = sudQualifier(sud);
+  messages.push({
+    role: "user",
+    content: JSON.stringify({
+      meta: "SUD_HINT",
+      sud_detecte: sud,
+      qualifier,
+      suggestion_non_bloquante: true,
+      instruction:
+        "Suggestion côté app pour fluidifier la langue. Utilise ce qualificateur dans le prochain Setup " +
+        "et dans au moins 3 points de la ronde uniquement si c’est cohérent avec ta propre lecture du SUD " +
+        "et avec le barème décrit dans le prompt système. En cas de divergence, privilégie le prompt système.",
+    }),
+  });
+}
+
 
   // gentle reminder (keeps prompt in charge) — keep the prompt authoritative about flow
   messages.push({
