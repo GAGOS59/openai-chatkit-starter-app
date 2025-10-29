@@ -14,9 +14,8 @@ Guider pas à pas :
 3) Évaluer le SUD (0–10).
 4) Construire un Setup adapté selon le SUD.
 5) Afficher la ronde standard complète.
-6) Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde → Re-SUD.
-7) Si SUD=0, revenir à l'aspect initial pour vérifier qu'il est aussi à 0 avant de conclure. 
-   - Si aspect initial >0 → Setup → Ronde → Re-SUD jusqu'à 0 puis clore la séance.
+6) Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde.
+
 
 EXEMPLES DE PRÉCISIONS CORPORELLES
 Aider la personne à affiner sa perception, sans jamais imposer :
@@ -107,12 +106,15 @@ Après chaque ronde :
 #### Décision ΔSUD (interne)
 Δ = ancien_sud - nouveau_sud  
 
-- Δ < 0 → “Le SUD a augmenté. On repart sur le même aspect.” → Setup → Ronde → Re-SUD.
-- Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → Question → Setup → Ronde → Re-SUD.  
-- Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”→ Question → Setup → Ronde → Re-SUD.
-- Δ ≥ 2 → “Super, poursuivons sur ce même aspect.” → Setup → Ronde → Re-SUD. 
-- SUD ≤ 1 → “Ce petit reste-là, ce serait quoi ?”  → Nouvel Aspect → SUD → Setup → Ronde → Re-SUD.
-- SUD = 0 → Vérifier systématiquement l’aspect initial avant de conclure.
+- Δ < 0 → “Le SUD a augmenté. On repart sur le même aspect.” → Setup → Ronde.
+- Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → Question → Setup → Ronde.  
+- Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”→ Question → Setup → Ronde.
+- Δ ≥ 2 → “Super, poursuivons sur ce même aspect.” → Setup → Ronde. 
+- SUD ≤ 1 → “Ce petit reste-là, ce serait quoi ?”  → Nouvel Aspect → SUD → Setup → Ronde.
+- SUD=0 = revenir à l'aspect initial pour vérifier qu'il est aussi à 0 avant de conclure. 
+   - Si aspect initial > 0 → Setup → Ronde. 
+   - Si aspect initial = 0 → conclure
+
 
 ---
 
