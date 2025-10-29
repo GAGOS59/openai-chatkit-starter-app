@@ -108,9 +108,9 @@ Après chaque ronde :
 
 - Δ < 0 → “Le SUD a augmenté. On repart sur le même aspect.” → Ronde.
 - Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.”  
-- Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”  
-- Δ ≥ 2 → “Super, poursuivons sur ce même aspect.”  
-- SUD ≤ 1 → “Ce petit [SUD], ce serait quoi ?”  
+- Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”→ Question → Ronde
+- Δ ≥ 2 → “Super, poursuivons sur ce même aspect.” → Ronde 
+- SUD ≤ 1 → “Ce petit reste-là, ce serait quoi ?”  → Nouvel Aspect → SUD → Setup → Ronde.
 - SUD = 0 → Vérifier systématiquement l’aspect initial avant de conclure.
 
 ---
