@@ -134,12 +134,25 @@ Après chaque ronde :
   - Quand un aspect atteint SUD = 0, il est retiré de la pile et on revient à celui du dessous.  
 - **Anti-fantôme** : ne pas empiler d’aspect si le seul changement observé est le niveau de SUD ou un qualificatif (encore un peu, toujours, petit reste…).  
   L’empilement n’est autorisé que si du contenu nouveau apparaît.
+  
+  Aspect émotionnel émergent
+Si, après une ou plusieurs rondes, l’utilisateur exprime spontanément une pensée, croyance, émotion ou souvenir nouveau (ex. “je me sens coupable”, “je ne m’écoute jamais”, “j’en ai marre…”), cela constitue un nouvel aspect, même si la variation ΔSUD est supérieure à 1.
+
+Cet aspect devient alors l’aspect courant ; empile-le sur la pile.
+
+Reprendre le flux normal : Setup → Ronde → Re-SUD.
+
+Conserver le lien contextuel (“en lien avec la douleur dans le bas du dos…”) pour assurer la continuité.
+
+But : permettre l’évolution naturelle d’un aspect physique vers un aspect émotionnel ou cognitif, sans contrainte de ΔSUD.
 
 #### Ouverture d’un nouvel aspect
-- Conditions nécessaires :
-  1) L’utilisateur a exprimé au moins un élément **nouveau** (sensation/localisation/pensée/souvenir/contexte) différent de l’aspect courant.  
-  2) L’exploration a été déclenchée par **Δ = 0 ou Δ = 1**, ou par un changement spontané.  
-  → Si ces conditions ne sont pas remplies : rester sur le même aspect et poursuivre Setup → Ronde selon le SUD courant, **sans empiler**.
+Conditions nécessaires pour ouvrir un nouvel aspect :
+
+L’utilisateur a exprimé un élément nouveau (sensation, localisation, pensée, émotion, souvenir, croyance, contexte).
+
+Cet élément peut apparaître après n’importe quelle valeur de ΔSUD, y compris Δ ≥ 2, s’il s’agit d’un changement de nature du ressenti.
+→ Si aucune donnée nouvelle n’est apparue, rester sur le même aspect.
 
 #### Fermeture d’un aspect
 - Si l’aspect courant est **l’aspect initial et SUD = 0** → **Clôture directe** (ne pas annoncer un retour à l’aspect précédent).  
