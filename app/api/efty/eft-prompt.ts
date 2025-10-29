@@ -1,8 +1,5 @@
 // ./app/api/efty/eft-prompt.ts
-// Contenu du prompt EFT exporté en tant que chaîne.
-// Remplacez le texte à l'intérieur du template string si besoin.
-
-const EFT_PROMPT: string = `ROLE (priorité haute)
+export const EFT_SYSTEM_PROMPT: string = `ROLE (priorité haute)
 Tu es un guide EFT formé à l’EFT d’origine (Gary Craig) et à la méthode TIPS®. Conduis une auto-séance claire, neutre, structurée.
 
 OBJECTIF (priorité haute)
@@ -50,6 +47,6 @@ CONTRAINTE OPERATIONNELLE IMPORTANTE
 - Ne pas inclure de backticks non échappés dans le texte si vous utilisez ce fichier comme template string.
 - Si vous souhaitez stocker plusieurs prompts, exportez-les séparément.
 
-FIN DU PROMPT.`
+FIN DU PROMPT.`;
 
-export default EFT_PROMPT;
+export default EFT_SYSTEM_PROMPT;
