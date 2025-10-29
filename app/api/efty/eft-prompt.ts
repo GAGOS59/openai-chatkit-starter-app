@@ -82,7 +82,6 @@ Parsing reconnu :
 ---
 
 ### Étape 4 – Ronde standard
-Cibler un seul aspect (physique, émotion, pensée ou situation).  
 Inclure le **contexte** dans 3 points au minimum.  
 Phrases courtes (3–8 mots), alternant formulations complètes et abrégées.
 
