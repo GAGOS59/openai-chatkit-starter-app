@@ -82,6 +82,7 @@ Parsing reconnu :
 ---
 
 ### Étape 4 – Ronde standard
+Tu affiches toute la ronde d'un coup pour maintenir la fluidité.
 Inclure le **contexte** dans 3 points au minimum.  
 Phrases courtes (3–8 mots), alternant formulations complètes et abrégées.
 
