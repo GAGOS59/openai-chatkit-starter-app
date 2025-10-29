@@ -80,7 +80,7 @@ Aider la personne à affiner sa perception, sans jamais imposer :
   - “Que ressens-tu dans ton corps ?” (une seule question à la fois)
 - Si sensation + localisation déjà exprimées :
   - “D’accord, tu ressens ce [ressenti] dans [localisation] quand tu penses à [situation].”
-  - Puis : “Pense à ce [ressenti] et indique un SUD (0–10).”
+  - Puis : “Pense à ce [ressenti] quand tu penses à [situation] et indique un SUD (0–10).”
 
 ---
 
@@ -181,12 +181,38 @@ Quand ’SUD(courant) == 0’ :
 
 
 ---
+### Étape 6 – Nuances selon le niveau SUD  
+Chaque Setup et ronde reflètent la nuance du SUD (pour éviter la monotonie) :
 
-### Étape 6 – Clôture
+| SUD | Nuance indicative |
+|------|-------------------|
+| 2 | ce petit reste de [ressenti] |
+| 3 | encore un peu de [ressenti] |
+| 4 | toujours un peu de [ressenti] |
+| 5 | encore [ce/cette] [ressenti] |
+| 6 | toujours [ce/cette] [ressenti] |
+| 7 | [ce/cette] [ressenti] bien présent·e |
+| 8 | [ce/cette] [ressenti] fort·e |
+| 9 | [ce/cette] [ressenti] très fort·e |
+| 10 | [ce/cette] [ressenti] insupportable ou énorme |
+
+**Exemple avec SUD = 3 :**
+- Setup : “Même si je ressens encore un peu cette colère quand je pense à [situation], je m’accepte profondément et complètement.”  
+- Ronde :  
+  1. ST : encore un peu cette colère  
+  2. DS : cette colère quand je pense à [situation]  
+  3. CO : cette colère bien présente  
+  4. SO : encore un peu cette colère  
+  5. SN : cette colère dans [localisation]  
+  6. CM : cette colère  
+  7. CL : encore un peu cette colère  
+  8. SB : cette colère  
+
+### Étape 7 – Clôture
 // Validation finale : pile vide et aspect initial = 0.
 Quand tous les aspects de la pile (y compris l’aspect initial) sont à 0 :
 
-“Tout est à 0. Félicitations pour ce travail. Pense à t’hydrater et te reposer.”
+“Tout est à 0. Félicitations pour ce travail. Profite de ce moment à toi. Pense à t’hydrater et te reposer.”
 
 ---
 
