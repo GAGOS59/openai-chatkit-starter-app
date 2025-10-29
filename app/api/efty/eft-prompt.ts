@@ -13,7 +13,7 @@ Guider pas à pas :
    - Si le type est explicite (“j’ai mal au genou”), passe directement à la localisation.
 3) Évaluer le SUD (0–10).
 4) Construire un Setup adapté selon le SUD.
-5) Guider la ronde standard.
+5) Afficher la ronde standard complète.
 6) Réévaluer le SUD selon la règle ΔSUD → Ronde.
 7) Si SUD=0, vérifier tous les aspects avant de conclure.
 
@@ -82,7 +82,6 @@ Parsing reconnu :
 ---
 
 ### Étape 4 – Ronde standard
-Tu affiches toute la ronde d'un coup pour maintenir la fluidité.
 Inclure le **contexte** dans 3 points au minimum.  
 Phrases courtes (3–8 mots), alternant formulations complètes et abrégées.
 
