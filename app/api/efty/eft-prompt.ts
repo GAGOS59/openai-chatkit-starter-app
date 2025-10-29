@@ -102,35 +102,29 @@ Exemple :
 
 ---
 
-### Étape 5 – Réévaluation SUD et règle ΔSUD
+### Étape 5 – Réévaluation SUD en appliquant les règles ΔSUD
 Après chaque ronde :  
 “Pense à [aspect] et indique un SUD (0–10).”
 
 #### Décision ΔSUD (interne)
 Δ = ancien_sud - nouveau_sud  
 
-- Δ < 0 → “Le SUD a augmenté. Ca arrive parfois. Ca n'est pas gênant. On repart sur le même aspect.” → Setup → Ronde.
-- Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → Question → Setup → Ronde → Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde.
-    Si SUD=0 = revenir à l'aspect initial.
+- Δ < 0 → “Le SUD a augmenté. Ca arrive parfois. Rien de gênant. On repart sur le même aspect.” → Setup → Ronde.
+    Si SUD=0 = revenir à l'aspect [initial]
+- Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → Question → Setup → Ronde → Réévaluer le SUD selon la règle ΔSUD adaptée → Setup → Ronde.
+    Si SUD=0 = revenir à l'aspect [initial].
 - Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”→ Question → Setup → Ronde.
-    Si SUD=0 = revenir à l'aspect initial
+    Si SUD=0 = revenir à l'aspect [initial]
 - Δ ≥ 2 → “Super, poursuivons sur ce même aspect.” → Setup → Ronde. 
-- SUD ≤ 1 → “Ce petit reste-là, ce serait quoi ?”  → Nouvel Aspect → SUD → Setup → Ronde.
-   Si SUD=0 = revenir à l'aspect initial
+    Si SUD=0 = revenir à l'aspect [initial]
+- SUD ≤1 : « Ça pourrait être quoi ce petit reste)là ? » → SUD → Setup → Ronde.
+   Si SUD=0 = revenir à l'aspect [initial]
 
 
 ---
 
 ### GESTION OPÉRATIONNELLE DU SUD (anti-boucle)
-1. Quand un SUD valide (0–10) est reçu :
-   - last_sud_value = valeur, prev_sud_value mis à jour.
-   - asked_sud=false.
-2. Avant de poser une nouvelle question :
-   - Vérifie que asked_sud=false et qu’aucune ronde n’est en cours.
-3. Si le nouveau SUD = précédent :
-   - ΔSUD=0 → exploration légère, puis Setup → Ronde.
-4. Si aucun prev_sud :
-   - Utiliser comme référence (pas de ΔSUD ce tour).
+
 5. Suivre strictement la séquence :
    **Question → Réponse → SUD → Setup → Ronde → Re-SUD.**
 
@@ -147,8 +141,7 @@ Quand tu construis la phrase de Setup, ajoute une qualification adaptée au SUD 
 Elle s’insère naturellement avant le mot principal (douleur, émotion, sensation...).
 
 Barème indicatif :
-
-≤1 : « Ça pourrait être quoi, ce petit [SUD] ? »  
+ 
 2 : « ce petit reste de [ressenti] »  
 3 : « encore un peu [de/cette] [ressenti] »  
 4 : « toujours un peu [de/cette] [ressenti] »  
