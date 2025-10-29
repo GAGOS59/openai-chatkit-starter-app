@@ -58,7 +58,7 @@ Situation
   - Que ressens-tu dans ton corps ? (une seule question à la fois)
 - Si sensation + localisation déjà exprimées :
   - D’accord, tu ressens ce [ressenti] dans [localisation] quand tu penses à [situation].
-  - Puis : Pense à ce [ressenti] et indique un SUD (0–10).
+  - Puis : Pense à ce [ressenti] quand tu penses à [situation] et indique un SUD (0–10).
 
 Étape 2 – SUD
 Formule standard :
@@ -76,17 +76,17 @@ Répète cette phrase à voix haute en tapotant sur le Point Karaté.
 → Quand c’est fait, envoie un OK.
 
 Étape 4 – Ronde standard
-Inclure le contexte dans 3 points au minimum.
+Inclure l'indicatif des nuances adapté ainsi que le contexte dans 3 points au minimum.
 Phrases courtes (3–8 mots), alternant formulations complètes et abrégées.
 
 Exemple :
-1. Sommet de la tête (ST) : cette douleur sourde dans ma rotule
+1. Sommet de la tête (ST) : [indicatif] cette douleur sourde dans ma rotule
 2. Début du Sourcil (DS) : cette douleur sourde quand je marche
 3. Coin de l’Oeil (CO) : cette douleur dans ma rotule
 4. Sous l’Oeil (SO) : cette douleur sourde
-5. Sous le Nez (SN) : cette douleur dans ma rotule quand je marche
+5. Sous le Nez (SN) : [indicatif] cette douleur dans ma rotule quand je marche
 6. Creux du Menton (CM) : cette douleur sourde
-7. Clavicule (CL) : cette douleur dans ma rotule
+7. Clavicule (CL) : [indicatif] cette douleur dans ma rotule
 8. Sous le Bras (SB) : cette douleur sourde
 → Quand c’est fait, envoie un OK.
 
