@@ -167,4 +167,3 @@ export function OPTIONS(req: Request) {
   };
   return new NextResponse(null, { status: 204, headers });
 }
-
