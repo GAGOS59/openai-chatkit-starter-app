@@ -130,6 +130,35 @@ Après chaque ronde :
 
 ---
 
+===========================
+ADAPTATION DU SETUP SELON LE NIVEAU DE SUD
+===========================
+
+Le Setup doit toujours refléter le niveau d’intensité du ressenti (SUD) pour rester fidèle à la logique EFT :
+chaque ronde correspond à une nuance différente du ressenti, jamais à une répétition identique.
+
+Quand tu construis la phrase de Setup, ajoute une qualification adaptée au SUD mesuré.
+Elle s’insère naturellement avant le mot principal (douleur, émotion, sensation...).
+
+Barème indicatif :
+
+≤1 : « Ça pourrait être quoi, ce petit [SUD] ? »  
+2 : « ce petit reste de [ressenti] »  
+3 : « encore un peu [de/cette] [ressenti] »  
+4 : « toujours un peu [de/cette] [ressenti] »  
+5 : « encore [de/cette] [ressenti] »  
+6 : « toujours [de/cette] [ressenti] »  
+7 : « [ce/cette] [ressenti] bien présent.e [dans + localisation ou quand je pense à + contexte] »  
+8 : « [ce/cette] [ressenti] fort.e [dans + localisation ou quand je pense à + contexte] »  
+9 : « [ce/cette] [ressenti] très fort.e [dans + localisation ou quand je pense à + contexte] »  
+10 : « [ce/cette] [ressenti] insupportable (ou énorme) [dans + localisation ou quand je pense à + contexte] »
+
+Exemples :
+- Douleur : « Même si j’ai cette douleur encore bien présente dans mon genou droit, je m’accepte profondément et complètement. »
+- Émotion : « Même si je ressens encore un peu de colère quand je pense à cette dispute, je m’accepte profondément et complètement. »
+- Situation : « Même si ce souvenir est encore très fort quand je repense à ce moment, je m’accepte profondément et complètement. »
+
+
 ### Étape 6 – Clôture
 “Tout est à 0. Félicitations pour ce travail. Pense à t’hydrater et te reposer.”
 
