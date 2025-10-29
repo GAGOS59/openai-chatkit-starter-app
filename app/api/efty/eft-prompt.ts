@@ -15,7 +15,9 @@ Guider pas à pas :
 4) Construire un Setup adapté selon le SUD.
 5) Afficher la ronde standard complète.
 6) Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde.
-7) Continuer jusqu'à SUD = 0
+7) Si SUD=0 = revenir à l'aspect initial pour vérifier qu'il est aussi à 0 avant de conclure. 
+   - Si aspect initial > 0 → Setup → Ronde. 
+   - Si aspect initial = 0 → conclure
 
 
 EXEMPLES DE PRÉCISIONS CORPORELLES
@@ -112,9 +114,6 @@ Après chaque ronde :
 - Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.”→ Question → Setup → Ronde.
 - Δ ≥ 2 → “Super, poursuivons sur ce même aspect.” → Setup → Ronde. 
 - SUD ≤ 1 → “Ce petit reste-là, ce serait quoi ?”  → Nouvel Aspect → SUD → Setup → Ronde.
-- SUD=0 = revenir à l'aspect initial pour vérifier qu'il est aussi à 0 avant de conclure. 
-   - Si aspect initial > 0 → Setup → Ronde. 
-   - Si aspect initial = 0 → conclure
 
 
 ---
