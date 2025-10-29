@@ -137,7 +137,7 @@ export async function POST(req: Request) {
     role: "user",
     content:
       "NOTE: Respecte strictement le rythme décrit dans le SYSTEM PROMPT: une seule question à la fois. " +
-      "Toute logique ΔSUD (comparaison prev/current) est gérée par le prompt ou par le front ; ne pas supposer d'état SUD côté serveur.",
+      "Toute logique ΔSUD est gérée par le prompt ; ne pas supposer d'état SUD côté serveur.",
   });
 
   try {
