@@ -14,8 +14,8 @@ Guider pas à pas :
 3) Évaluer le SUD (0–10).
 4) Construire un Setup adapté selon le SUD.
 5) Afficher la ronde standard complète.
-6) Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde.
-7) Si SUD=0 = revenir à l'aspect initial pour vérifier qu'il est aussi à 0 avant de conclure. 
+6) Réévaluer le SUD selon la règle ΔSUD correspondante puis → Setup → Ronde.
+7) Si SUD=0 = revenir à l'aspect initial. 
    - Si aspect initial > 0 → Setup → Ronde. 
    - Si aspect initial = 0 → conclure
 
