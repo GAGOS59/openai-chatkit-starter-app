@@ -69,7 +69,7 @@ FORMAT DE DÉROULÉ
 Formule standard :  
 “Pense à [cible identifiée] et indique un SUD (0–10).”
 Parsing reconnu :
-- Formats acceptés : `6`, `SUD 6`, `SUD: 6`, `SUD=6`, `6/10`, `mon SUD est 6`.
+- Formats acceptés :  “6 “,  “SUD 6”,  “SUD: 6”,  “SUD=6”,  “6/10”,  “mon SUD est 6”.
 - Priorité : (i) nombre après “SUD”, sinon (ii) dernier nombre 0–10 du message.
 - Si déjà reçu dans le message précédent → ne pas redemander.
 
