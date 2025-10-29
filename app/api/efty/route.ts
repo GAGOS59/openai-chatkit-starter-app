@@ -1,5 +1,5 @@
-// app/api/efty/route.ts
-import { NextResponse } from "next/server";
+// app/api/efty/route.ts (correctif anti-boucle SUD)
+import { NextResponse, NextRequest } from "next/server";
 import OpenAI from "openai";
 import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
 import "server-only";
@@ -16,10 +16,21 @@ interface ChatMessage { role: Role; content: string; }
 interface MotsClient { emotion?: string; sensation?: string; localisation?: string; pensee?: string; souvenir?: string; }
 type Payload = { messages?: ChatMessage[]; message?: string; mots_client?: MotsClient; injectRappels?: boolean; rappelsVoulus?: number; };
 
-// --- Utils minimal
+// --- Utils
+const SUD_REGEX = /(?:\bSUD\s*[:=]?\s*)?(10|[0-9])(?:\s*\/\s*10)?\b/i; // 6, SUD 6, 6/10
+const ASK_SUD_REGEX = /(indique|donne|évalue)\s+(ton|un|le)\s*SUD|SUD\s*\(0\s*[–-]\s*10\)/i;
+const OK_REGEX = /\b(ok|ok\.|ok!|pr[eé]t(?:e)?|termin[ée]|done)\b/i;
+
 function clean(s?: string) { return (s ?? "").replace(/\s+/g, " ").trim(); }
 function isChatMessageArray(x: unknown): x is ChatMessage[] {
   return Array.isArray(x) && x.every((m) => typeof m === "object" && m !== null && "role" in m && "content" in m);
+}
+function extractSud(msg: string): number | null {
+  const m = msg.match(SUD_REGEX);
+  if (!m) return null;
+  const n = parseInt(m[1], 10);
+  if (Number.isNaN(n) || n < 0 || n > 10) return null;
+  return n;
 }
 function isAllowedOrigin(origin: string | null) {
   if (!origin) return false;
@@ -36,7 +47,7 @@ function isAllowedOrigin(origin: string | null) {
   return ALLOWED.has(o);
 }
 
-// --- Micro-grammaire rappels (very small, non-invasive)
+// --- Micro-grammaire rappels (inchangé)
 function generateRappelsBruts(m?: MotsClient): string[] {
   if (!m) return [];
   const out = new Set<string>();
@@ -49,7 +60,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
 }
 
 /* ---------- Handlers ---------- */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
   if (!isAllowedOrigin(origin)) {
     return new NextResponse("Origine non autorisée (CORS).", { status: 403 });
@@ -69,7 +80,7 @@ export async function POST(req: Request) {
   const history: ChatMessage[] = isChatMessageArray(body.messages) ? body.messages : [];
   const single: string = typeof body.message === "string" ? body.message.trim() : "";
 
-  // Build messages: system prompt first, then history (minimal)
+  // Build messages
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: EFT_SYSTEM_PROMPT },
   ];
@@ -85,56 +96,68 @@ export async function POST(req: Request) {
   const headers = new Headers({
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": origin || "",
-    "Vary": "Origin",
+    Vary: "Origin",
   });
 
-  // --- Optional: inject simple rappels JSON (non-invasive)
+  // --- Contrôleur léger d’état (anti-boucle SUD)
+  const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
+  const lastUser = [...history].reverse().find((m) => m.role === "user")?.content || "";
+
+  const assistantAskedSud = ASK_SUD_REGEX.test(lastAssistant);
+  const userGaveSud = extractSud(lastUser);
+
+  // Chercher un prevSud (dernier SUD utilisateur AVANT le dernier assistant)
+  let prevSud: number | null = null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const m = history[i];
+    if (m.role !== "user") continue;
+    const sud = extractSud(m.content || "");
+    if (sud != null) { prevSud = sud; break; }
+  }
+
+  // ——— STATE push (lisible par le prompt) ———
+  messages.push({
+    role: "user",
+    content: JSON.stringify({
+      meta: "STATE",
+      history_len: history.length,
+      last_user: lastUser,
+      assistant_asked_sud: assistantAskedSud,
+      user_gave_sud: userGaveSud,
+      prev_sud: prevSud,
+    })
+  });
+
+  // ——— CONTROLLER push (directive explicite pour casser la boucle) ———
+  if (assistantAskedSud && userGaveSud != null) {
+    messages.push({
+      role: "user",
+      content: JSON.stringify({
+        meta: "CONTROLLER",
+        sud_received: true,
+        sud_value: userGaveSud,
+        instruction:
+          "Tu viens de recevoir un SUD valide. Ne redemande pas le SUD. Construis immédiatement le Setup adapté, demande un OK, déroule la ronde standard, puis redemande un SUD.",
+      }),
+    });
+  }
+
+  // --- Optional: inject simples rappels
   const injectRappels = body.injectRappels !== false;
   const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
   const candidats = generateRappelsBruts(body.mots_client);
   if (injectRappels && candidats.length > 0) {
     messages.push({
       role: "user",
-      content: JSON.stringify({
-        meta: "CANDIDATS_RAPPELS",
-        candidats_app: candidats,
-        voulu: rappelsVoulus,
-      }),
+      content: JSON.stringify({ meta: "CANDIDATS_RAPPELS", candidats_app: candidats, voulu: rappelsVoulus }),
     });
   }
 
-  // ---- Minimal STATE push (ONE push only) that the prompt expects
-  const userTurns = history.filter((m) => m.role === "user");
-  const lastUserMsg = userTurns[userTurns.length - 1]?.content?.trim() || "";
-  const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || "";
-  const askedSud = /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/i.test(lastAssistant);
-  // find previous numeric SUD in history (last user numeric)
-  let prevSud: number | null = null;
-  for (let i = history.length - 2; i >= 0; i--) {
-    const m = history[i];
-    if (m.role === "user") {
-      const mm = (m.content || "").match(/\b([0-9]|10)\b/);
-      if (mm) { prevSud = parseInt(mm[1], 10); break; }
-    }
-  }
-
-  messages.push({
-    role: "user",
-    content: JSON.stringify({
-      meta: "STATE",
-      history_len: history.length,
-      last_user: lastUserMsg,
-      asked_sud: askedSud,
-      prev_sud: prevSud,
-    }),
-  });
-
-  // gentle reminder (keeps prompt in charge)
+  // ——— Rappel doux (respect une question à la fois) ———
   messages.push({
     role: "user",
     content:
-      "NOTE: Respecte strictement le rythme décrit dans le prompt: une seule question à la fois. " +
-      "Si asked_sud=true, attends un nombre (0–10) sans poser d’autre question.",
+      "NOTE: Respecte strictement le rythme décrit : une seule question à la fois. Si tu viens de recevoir un nombre 0–10, considère que c’est un SUD et enchaîne Setup → OK → Ronde sans reposer la question du SUD.",
   });
 
   try {
@@ -154,7 +177,7 @@ export async function POST(req: Request) {
   }
 }
 
-export function OPTIONS(req: Request) {
+export function OPTIONS(req: NextRequest) {
   const origin = req.headers.get("origin");
   const headers: Record<string, string> = {
     "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin! : "",
