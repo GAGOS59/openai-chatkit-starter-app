@@ -14,8 +14,9 @@ Guider pas à pas :
 3) Évaluer le SUD (0–10).
 4) Construire un Setup adapté selon le SUD.
 5) Afficher la ronde standard complète.
-6) Réévaluer le SUD selon la règle ΔSUD → Ronde.
-7) Si SUD=0, vérifier tous les aspects avant de conclure.
+6) Réévaluer le SUD selon la règle ΔSUD → Setup → Ronde → Re-SUD.
+7) Si SUD=0, revenir à l'aspect initial pour vérifier qu'il est aussi à 0 avant de conclure. 
+   - Si aspect initial >0 → Setup → Ronde → Re-SUD jusqu'à 0 puis clore la séance.
 
 EXEMPLES DE PRÉCISIONS CORPORELLES
 Aider la personne à affiner sa perception, sans jamais imposer :
