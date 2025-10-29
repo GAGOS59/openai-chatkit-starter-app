@@ -1,4 +1,4 @@
-// app/api/efty/route.ts — version avec détection SUD + hint de nuance
+// app/api/efty/route.ts — version allégée (sans détection/nuance SUD)
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
@@ -66,37 +66,6 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out).slice(0, 6);
 }
 
-// --- Détection SUD (conforme à ton parsing prompt)
-function parseSudFromText(text: string): number | null {
-  if (!text) return null;
-  const s = text.toLowerCase();
-
-  // priorité au nombre après "sud"
-  const m1 = s.match(/sud\s*=?\s*(\d{1,2})\b/);
-  if (m1) {
-    const n = Number(m1[1]);
-    if (Number.isFinite(n) && n >= 0 && n <= 10) return n;
-  }
-
-  // sinon, dernier nombre 0–10 du message
-  const nums = Array.from(s.matchAll(/\b(\d{1,2})\b/g)).map((m) => Number(m[1]));
-  const last = nums.reverse().find((n) => Number.isFinite(n) && n >= 0 && n <= 10);
-  return typeof last === "number" ? last : null;
-}
-
-// --- Qualificateur SUD (nuance texte)
-function sudQualifier(sud: number): string {
-  if (sud <= 2) return "ce petit reste de";
-  if (sud === 3) return "encore un peu de";
-  if (sud === 4) return "toujours un peu de";
-  if (sud === 5) return "encore";
-  if (sud === 6) return "toujours";
-  if (sud === 7) return "bien présent·e";
-  if (sud === 8) return "fort·e";
-  if (sud === 9) return "très fort·e";
-  return "insupportable";
-}
-
 /* ---------- Handlers ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
@@ -152,7 +121,7 @@ export async function POST(req: Request) {
     });
   }
 
-  // ---- STATE hint minimal (stateless-friendly)
+  // ---- Minimal STATE push (stateless-friendly, non prescriptif)
   const lastUser = history.filter((m) => m.role === "user").slice(-1)[0]?.content?.trim() || single || "";
   messages.push({
     role: "user",
@@ -163,33 +132,13 @@ export async function POST(req: Request) {
     }),
   });
 
-  // --- Nouveau : détection SUD dans le dernier message et hint de nuance (non contraignant)
-const sud = parseSudFromText(lastUser);
-if (typeof sud === "number") {
-  const qualifier = sudQualifier(sud);
-  messages.push({
-    role: "user",
-    content: JSON.stringify({
-      meta: "SUD_HINT",
-      sud_detecte: sud,
-      qualifier,
-      suggestion_non_bloquante: true,
-      instruction:
-        "Suggestion côté app pour fluidifier la langue. Utilise ce qualificateur dans le prochain Setup " +
-        "et dans au moins 3 points de la ronde uniquement si c’est cohérent avec ta propre lecture du SUD " +
-        "et avec le barème décrit dans le prompt système. En cas de divergence, privilégie le prompt système.",
-    }),
-  });
-}
-
-
-  // gentle reminder (keeps prompt in charge) — keep the prompt authoritative about flow
+  // Gentle reminder : le prompt reste souverain (ΔSUD, pile d’aspects, nuances SUD…)
   messages.push({
     role: "user",
     content:
-      "NOTE: Respecte strictement le rythme décrit dans le SYSTEM PROMPT: une seule question à la fois. " +
-      "La logique ΔSUD et la pile d’aspects sont gérées par le prompt. " +
-      "Si un SUD a été détecté côté app, un hint de nuance a pu être fourni (meta=SUD_HINT).",
+      "NOTE: Respecte strictement le rythme et le barème décrits dans le SYSTEM PROMPT. " +
+      "La pile d’aspects et la logique ΔSUD sont entièrement pilotées par le prompt système. " +
+      "N’ajoute aucune logique serveur, applique simplement le flux décrit.",
   });
 
   try {
