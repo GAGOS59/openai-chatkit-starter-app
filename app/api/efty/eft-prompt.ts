@@ -207,7 +207,7 @@ Ronde :
 
 ### Étape 8 – Clôture
 Quand tous les aspects de la pile (y compris l’aspect initial) sont à 0 :
-> “Tout est à 0. Félicitations pour ce travail. Pense à t’hydrater et te reposer.”
+> “Tout est à 0. Félicitations pour ce travail. Profite de ce moment juste pour toi. Pense à t’hydrater et te reposer.”
 
 ---
 
