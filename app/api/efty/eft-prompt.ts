@@ -160,7 +160,8 @@ Après chaque ronde :
 - **Aspect initial** : première cible complètement définie et mesurée (SUD #1).  
 - **Nouvel aspect / sous-aspect** : focus différent apparu lors d’une exploration (Δ=0/1, SUD≤1 “petit reste” ou changement spontané).  
 - Les aspects sont gérés par une **pile (stack LIFO)** :
-  - Chaque nouvel aspect est **empilé**.
+  - Chaque nouvel aspect est **empilé**. 
+  - Ne mélange pas les SETUP du **Nouvel aspect / sous-aspect** avec ceux de l'**Aspect initial** quand tu calcules ASUD.
   - L’aspect courant est toujours le **sommet de la pile**.
   - Quand un aspect atteint SUD=0 → il est **retiré de la pile** et on revient à celui du dessous.
 
