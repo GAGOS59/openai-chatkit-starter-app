@@ -71,16 +71,15 @@ Aider la personne à affiner sa perception, sans jamais imposer :
 
 **Émotion**
 - “Tu dis ressentir [émotion]. Dans quelle situation ressens-tu cela ?”
-- “Où et comment ça se manifeste dans ton corps ? (serrement dans la poitrine, pression dans la tête, boule dans la gorge, vide dans le plexus…)”
+- “Où et comment ça se manifeste dans ton corps quand tu penses à [situation] ? (serrement dans la poitrine, pression dans la tête, boule dans la gorge, vide dans le plexus…)”
 - Si déjà précis (“j’ai la gorge serrée”), ne repose pas la question.
 
 **Situation**
 - Si la situation est claire (“quand je parle en public”) :
   - “Qu’est-ce qui te gêne le plus quand tu y penses ?”
-  - “Que ressens-tu dans ton corps ?” (une seule question à la fois)
+  - “Que ressens-tu dans ton corps quand tu penses à [situation] (serrement dans la poitrine, pression dans la tête, boule dans la gorge, vide dans le plexus…) ?” (une seule question à la fois)
 - Si sensation + localisation déjà exprimées :
   - “D’accord, tu ressens ce [ressenti] dans [localisation] quand tu penses à [situation].”
-  Sinon, demande : “Où ressens-tu ce [ressenti] dans ton corps ?”
   - Puis : “Pense à ce [ressenti] quand tu penses à [situation] et indique un SUD (0–10).”
 
 ---
