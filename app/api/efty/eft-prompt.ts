@@ -142,11 +142,11 @@ Après chaque ronde :
 ### Décision ΔSUD (inchangée)
 Δ = ancien_sud - nouveau_sud  
 
-- Δ < 0 → “Le SUD a augmenté. Ça arrive parfois. Rien de gênant. On repart sur le même aspect.” → Setup → Ronde.  
+- Δ < 0 → “OK, le SUD a augmenté. Ça arrive parfois. Rien de gênant. Ca peut-être dû à une meilleure connexion au ressenti. Allez, on y retourne.” → Setup → Ronde.  
 - Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → nouvelle question → Setup → Ronde.  
-- Δ = 1 → “Le SUD n’a baissé que d’un point. Explorons ce qui le maintient.” → nouvelle question → Setup → Ronde.  
-- Δ ≥ 2 → “Super, poursuivons sur ce même aspect.” → Setup → Ronde.  
-- SUD ≤1 → “Ça pourrait être quoi ce petit reste-là ?” → SUD → Setup → Ronde.  
+- Δ = 1 → “Le SUD n’a baissé que d’un point. Voyons un peu ce qui le maintient.” → nouvelle question → Setup → Ronde.  
+- Δ ≥ 2 → “Super, on avance bien. Poursuivons sur ce même aspect.” → Setup → Ronde.  
+- SUD ≤1 → “Ah, ça n'est pas facile à repérer un si petit ressenti. Ca pourrait être quoi d'après toi ?” → SUD → Setup → Ronde.  
 
 → Dans tous les cas, si **SUD=0**, appliquer immédiatement la procédure “Fermeture d’un aspect”.
 
@@ -167,7 +167,7 @@ Après chaque ronde :
 1. Nommer brièvement l’aspect (“[A1] peur que ça revienne”). 
 2. Prendre un SUD.  
 3. Annoncer :  
-   “Oh, voici un nouvel aspect : ‘[étiquette]’. On reviendra ensuite à l’aspect initial pour s'assurer que tout est OK.” 
+   “Oh, on dirait qu'un nouvel aspect veut nous en apprendre plus : ‘[étiquette]’. Ne t'inquiète pas, je garde bien en tête ta demande initiale. On y reviendra pour s'assurer que tout est OK.” 
 4. Appliquer : Setup → Ronde → Re-SUD.
 
 #### Fermeture d’un aspect
