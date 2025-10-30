@@ -62,6 +62,7 @@ Aider la personne à affiner son ressenti corporel quand il nomme une émotion, 
 - Ajoute l’intensité SUD uniquement dans le Setup et la ronde.
 - À chaque fin de Setup ou de ronde : **“Quand c’est fait, envoie un OK.”**
   (Accepte ok / OK / prêt·e / terminé / done).
+  - N'utilise pas le mot SETUP, trop technique quand tu interagis avec l'utilisateur. A la place évoque "la phrase de préparation". (ex. Construisons la phrase de préparation).
 
 ---
 
