@@ -9,6 +9,29 @@ import React, {
 } from "react";
 import Image from "next/image";
 
+const PAYPAL_URL = "https://paypal.me/efty25";
+
+/** Bouton AYNI réutilisable (cœur + lien PayPal, centré) */
+function AyniButton({ className = "" }: { className?: string }) {
+  return (
+    <div className={"flex justify-center " + className}>
+      <a
+        href={PAYPAL_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={
+          "inline-flex items-center gap-3 rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99] transition"
+        }
+        aria-label="Soutenir EFTY sur PayPal"
+      >
+        <span aria-hidden className="text-2xl leading-none">❤️</span>
+        <span className="font-medium">Soutenir EFTY</span>
+      </a>
+    </div>
+  );
+}
+
+
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
@@ -85,7 +108,7 @@ function PromoCard() {
               href="https://ecole-eft-france.fr/pages/formations-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
+              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
             >
               Formations EFT
             </a>
@@ -94,7 +117,7 @@ function PromoCard() {
               href="https://ecole-eft-france.fr/pages/tips.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition md:mt-2"
+              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#f6f9ff] transition md:mt-2"
             >
               Méthode TIPS®
             </a>
@@ -105,28 +128,27 @@ function PromoCard() {
           </p>
 
           <p className="text-xs mt-2 md:hidden opacity-80">
-            Soutiens EFTY — bouton ci-dessous.
+            Je veux soutenir EFTY — bouton ci-dessous.
           </p>
+            
         </div>
 
-        <div className="flex md:flex-col items-center gap-2 ml-3 md:ml-0">
-          <a
-            href="/soutenir"
-            className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-2 text-sm hover:bg-[#164b84] transition"
-            aria-label="Soutenir EFTY"
-          >
-            Je soutiens EFTY
-          </a>
+/* à l'endroit des controls dans PromoCard */
+<div className="flex md:flex-col items-center gap-2 ml-3 md:ml-0">
+  {/* Bouton PayPal avec cœur (nouveau) */}
+  <AyniButton />
 
-          <button
-            onClick={closePromo}
-            aria-label="Fermer la promotion"
-            title="Fermer"
-            className="ml-2 md:ml-0 bg-transparent border border-transparent text-[#0f3d69] hover:text-[#164b69] text-xl leading-none px-2 py-1 rounded"
-          >
-            ×
-          </button>
-        </div>
+  {/* Bouton fermer */}
+  <button
+    onClick={closePromo}
+    aria-label="Fermer la promotion"
+    title="Fermer"
+    className="ml-2 md:ml-0 bg-transparent border border-transparent text-[#0f3d69] hover:text-[#164b69] text-xl leading-none px-2 py-1 rounded"
+  >
+    ×
+  </button>
+</div>
+      
       </div>
     </aside>
   );
