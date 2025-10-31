@@ -9,57 +9,12 @@ import React, {
 } from "react";
 import Image from "next/image";
 
-
-/* === AJOUTER SOUS LES IMPORTS DE page.tsx === */
-
-
-
-/** Colonne / encart promo très simple (liens École EFT France) */
-function PromoBlock() {
-  return (
-    <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
-      <h2 className="text-base font-semibold mb-2">Pour aller plus loin</h2>
-      <p className="text-sm mb-3">
-        Formations fidèles à l’EFT d’origine & méthode TIPS®.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <a
-          href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
-        >
-          Réaligner sa pratique EFT
-        </a>
-        <a
-          href="https://ecole-eft-france.fr/pages/formations-eft.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
-        >
-          Formations EFT
-        </a>
-        <a
-          href="https://ecole-eft-france.fr/pages/tips.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
-        >
-          Méthode TIPS®
-        </a>
-      </div>
-    </div>
-  );
-}
-
-
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
-/* ---------- Cartes sidebar ---------- */
 /* ---------- Cartes sidebar ---------- */
 function PromoCard() {
   const [visible, setVisible] = useState(true);
@@ -107,13 +62,13 @@ function PromoCard() {
         <div className="flex-1">
           <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
           <p className="text-sm mb-3 leading-relaxed hidden md:block">
-            Vous pratiquez déjà l’EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
-            <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité du geste EFT d’origine,
+            Vous pratiquez déjà l&rsquo;EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
+            <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité du geste EFT d&apos;origine,
             tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>.
           </p>
 
           <p className="text-sm mb-2 leading-relaxed md:hidden">
-            Réaligner votre pratique • Formations fidèles à l’EFT d’origine
+            Réaligner votre pratique • Formations fidèles à l&rsquo;EFT d&apos;origine
           </p>
 
           <div className="flex flex-col md:flex-col gap-2">
@@ -146,7 +101,7 @@ function PromoCard() {
           </div>
 
           <p className="text-xs mt-3 opacity-80 hidden md:block">
-            Pas d'inscription obligatoire — un petit geste libre pour soutenir l'application.
+            Pas d&apos;inscription obligatoire — un petit geste libre pour soutenir l'application.
           </p>
 
           <p className="text-xs mt-2 md:hidden opacity-80">
@@ -177,14 +132,13 @@ function PromoCard() {
   );
 }
 
-
 /* ---------- Page ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t’accompagner pas à pas dans ton auto-séance d’EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd’hui ?",
+        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t’accompagner pas à pas dans ton auto-séance d’EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd’hui ?",
     },
   ]);
 
@@ -197,7 +151,6 @@ export default function Page() {
 
   // ⤵️ AJOUT : états SUD + utilitaire d'extraction
   const [lastAskedSud, setLastAskedSud] = useState(false);
-  const [prevSud, setPrevSud] = useState<number | null>(null);
 
   function extractSud(v: string): number | null {
     const m = v.trim().match(/\b([0-9]|10)\b/);
@@ -280,20 +233,16 @@ export default function Page() {
     }
 
     // ——— interception SUD si on vient de le demander ———
-if (lastAskedSud) {
-  const sud = extractSud(value);
-  if (sud !== null) {
-    // On mémorise le SUD puis on "désarme" le crochet.
-    setPrevSud(sud);
-    setLastAskedSud(false);
+    if (lastAskedSud) {
+      const sud = extractSud(value);
+      if (sud !== null) {
+        // on "désarme" le crochet.
+        setLastAskedSud(false);
 
-    // Important : on NE génère plus de texte côté client.
-    // On laisse l’API appliquer Setup/Ronde selon le prompt (anti-boucle SUD).
-  }
-}
-
-
-       
+        // Important : on NE génère plus de texte côté client.
+        // On laisse l’API appliquer Setup/Ronde selon le prompt (anti-boucle SUD).
+      }
+    }
 
     const userMsg: Message = { role: "user", content: value };
 
@@ -446,7 +395,7 @@ if (lastAskedSud) {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
-                placeholder="Écris ici… (ex. « J’ai mal au genou », « Je me sens anxieuse », …)"
+                placeholder="Écris ici… (ex. « J&apos;ai mal au genou », « Je me sens anxieuse », …)"
                 aria-label="Saisis ton message"
                 disabled={loading || crisisMode === "lock"}
               />
@@ -541,9 +490,6 @@ if (lastAskedSud) {
           <div className="md:sticky md:top-6 flex flex-col gap-6">
             <PromoCard />
             <div className="mt-2" />
-           
-
-            
           </div>
         </div>
       </div>
