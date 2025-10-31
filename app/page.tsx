@@ -92,7 +92,7 @@ function PromoCard() {
           </p>
 
           <p className="text-sm mb-2 leading-relaxed md:hidden">
-            Réaligner votre pratique • Formations fidèles à l&apos;EFT d&apos;origine
+            Des formations fidèles à l&apos;EFT d&apos;origine
           </p>
 
           <div className="flex flex-col gap-2">
