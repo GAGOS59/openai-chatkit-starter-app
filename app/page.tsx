@@ -38,12 +38,10 @@ type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
-/* ---------- Promo card (sidebar / mobile banner) ---------- */
 function PromoCard() {
   const [visible, setVisible] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
-  // détecte la largeur (client-side)
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
     check();
@@ -51,11 +49,10 @@ function PromoCard() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // appliquer padding-bottom sur body quand promo visible en mobile
   useEffect(() => {
     const prev = document.body.style.paddingBottom || "";
     if (visible && isMobile) {
-      document.body.style.paddingBottom = "88px";
+      document.body.style.paddingBottom = "110px"; // plus d'espace si boutons prennent la largeur
     } else {
       document.body.style.paddingBottom = prev;
     }
@@ -64,11 +61,7 @@ function PromoCard() {
     };
   }, [visible, isMobile]);
 
-  const closePromo = () => {
-    // ferme la promo pour cette vue uniquement (non persisté)
-    setVisible(false);
-  };
-
+  const closePromo = () => setVisible(false);
   if (!visible) return null;
 
   return (
@@ -81,63 +74,59 @@ function PromoCard() {
       role="complementary"
       aria-label="Promotion EFTY"
     >
-      <div className="max-w-[380px] md:max-w-none md:ml-0 mx-auto md:mx-0 flex items-center md:block gap-3">
-        <div className="flex-1">
-          <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l&apos;EFT</h2>
-
-          <p className="text-sm mb-3 leading-relaxed hidden md:block">
-            Vous pratiquez déjà l&apos;EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
-            <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité du geste EFT d&apos;origine,
-            tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>.
-          </p>
-
-          <p className="text-sm mb-2 leading-relaxed md:hidden">
-            Des formations fidèles à l&apos;EFT d&apos;origine
-          </p>
-
-          <div className="flex flex-col gap-2">
-            <a
-              href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#164b84] transition"
-            >
-              Réaligner sa pratique EFT
-            </a>
-
-            <a
-              href="https://ecole-eft-france.fr/pages/formations-eft.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
-            >
-              Formations EFT
-            </a>
-
-            <a
-              href="https://ecole-eft-france.fr/pages/tips.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition md:mt-2"
-            >
-              Méthode TIPS®
-            </a>
-          </div>
-
-          <p className="text-xs mt-3 opacity-80 hidden md:block">
-            EFTY te soutient. Voudrais-tu soutenir EFTY ?
-          </p>
-
-          <p className="text-xs mt-2 md:hidden opacity-80">
-            Soutiens EFTY — bouton ci-dessous.
+      {/* Container principal : full width mobile, constrained desktop */}
+      <div className="w-full max-w-[980px] mx-auto flex flex-col md:flex-col gap-4 items-center md:items-stretch">
+        {/* Header / intro */}
+        <div className="w-full md:w-full">
+          <h2 className="text-xl font-semibold mb-1 text-center md:text-left">
+            Pour aller plus loin avec l&apos;EFT
+          </h2>
+          <p className="text-sm mb-3 leading-relaxed text-center md:text-left">
+            Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
           </p>
         </div>
 
-        <div className="flex md:flex-col items-center gap-2 ml-3 md:ml-0">
-          {/* Bouton PayPal avec cœur */}
-          <AyniButton className="w-full md:w-auto" />
+        {/* Boutons : empilés sur mobile, alignés sur desktop */}
+        <div className="w-full flex flex-col md:flex-col gap-3 items-center">
+          <a
+            href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+          >
+            Réaligner sa pratique EFT
+          </a>
 
-          {/* Bouton fermer (ferme pour la session actuelle) */}
+          <a
+            href="https://ecole-eft-france.fr/pages/formations-eft.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
+          >
+            Formations EFT
+          </a>
+
+          <a
+            href="https://ecole-eft-france.fr/pages/tips.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full md:w-auto text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+          >
+            Méthode TIPS®
+          </a>
+
+          {/* Bouton de soutien (Ayni) - plein width sur mobile */}
+          <div className="w-full flex justify-center">
+            <AyniButton className="w-full md:w-auto" />
+          </div>
+        </div>
+
+        {/* Petit texte / close */}
+        <div className="w-full flex items-center justify-between gap-2">
+          <p className="text-xs opacity-80 text-center md:text-left">
+            EFTY te soutient. Voudrais-tu soutenir EFTY ?
+          </p>
+
           <button
             onClick={closePromo}
             aria-label="Fermer la promotion"
