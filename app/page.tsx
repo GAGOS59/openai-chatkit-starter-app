@@ -60,15 +60,15 @@ function PromoCard() {
     >
       <div className="max-w-[380px] md:max-w-none md:ml-0 mx-auto md:mx-0 flex items-center md:block gap-3">
         <div className="flex-1">
-          <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
+          <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l&apos;EFT</h2>
           <p className="text-sm mb-3 leading-relaxed hidden md:block">
-            Vous pratiquez déjà l&rsquo;EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
+            Vous pratiquez déjà l&apos;EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
             <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité du geste EFT d&apos;origine,
             tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>.
           </p>
 
           <p className="text-sm mb-2 leading-relaxed md:hidden">
-            Réaligner votre pratique • Formations fidèles à l&rsquo;EFT d&apos;origine
+            Réaligner votre pratique • Formations fidèles à l&apos;EFT d&apos;origine
           </p>
 
           <div className="flex flex-col md:flex-col gap-2">
@@ -101,7 +101,7 @@ function PromoCard() {
           </div>
 
           <p className="text-xs mt-3 opacity-80 hidden md:block">
-            Pas d&apos;inscription obligatoire — un petit geste libre pour soutenir l'application.
+            Pas d&apos;inscription obligatoire — un petit geste libre pour soutenir l&apos;application.
           </p>
 
           <p className="text-xs mt-2 md:hidden opacity-80">
@@ -138,7 +138,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd&apos;hui ?",
+        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t’accompagner pas à pas dans ton auto-séance d’EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
     },
   ]);
 
@@ -304,7 +304,7 @@ export default function Page() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      {/* 🌟 Bandeau – Édition spéciale 30 ans d’EFT */}
+      {/* 🌟 Bandeau – Édition spéciale 30 ans d'EFT */}
       <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-6">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -467,7 +467,7 @@ export default function Page() {
                 href="tel:3114"
                 className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
               >
-                📞 3114 — Prévention du suicide (24/7)
+                📞 3114 — Prévention du suicide (gratuit, 24/7)
               </a>
               <a
                 href="tel:112"
