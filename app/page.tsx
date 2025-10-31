@@ -15,42 +15,123 @@ import Image from "next/image";
 
 
 /** Colonne / encart promo très simple (liens École EFT France) */
-function PromoBlock() {
+/* Remplacer la fonction PromoCard existante par ce bloc */
+function PromoCard() {
+  const [visible, setVisible] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // détecte la largeur (client-side)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // appliquer padding-bottom sur body quand promo visible en mobile
+  useEffect(() => {
+    const prev = document.body.style.paddingBottom || "";
+    if (visible && isMobile) {
+      document.body.style.paddingBottom = "88px"; // ajuste si nécessaire
+    } else {
+      document.body.style.paddingBottom = prev;
+    }
+    return () => {
+      document.body.style.paddingBottom = prev;
+    };
+  }, [visible, isMobile]);
+
+  const closePromo = () => {
+    // ferme la promo pour cette vue uniquement (non persisté)
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
   return (
-    <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
-      <h2 className="text-base font-semibold mb-2">Pour aller plus loin</h2>
-      <p className="text-sm mb-3">
-        Formations fidèles à l’EFT d’origine & méthode TIPS®.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <a
-          href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
-        >
-          Réaligner sa pratique EFT
-        </a>
-        <a
-          href="https://ecole-eft-france.fr/pages/formations-eft.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
-        >
-          Formations EFT
-        </a>
-        <a
-          href="https://ecole-eft-france.fr/pages/tips.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-1.5 text-sm hover:bg-[#164b84] transition"
-        >
-          Méthode TIPS®
-        </a>
+    <aside
+      className={
+        "rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm " +
+        "md:sticky md:top-6 " +
+        "fixed left-0 right-0 bottom-0 md:relative md:w-auto z-50"
+      }
+      role="complementary"
+      aria-label="Promotion EFTY"
+    >
+      <div className="max-w-[380px] md:max-w-none md:ml-0 mx-auto md:mx-0 flex items-center md:block gap-3">
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l’EFT</h2>
+          <p className="text-sm mb-3 leading-relaxed hidden md:block">
+            Vous pratiquez déjà l’EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
+            <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité du geste EFT d’origine,
+            tout en ouvrant la voie vers la méthode <strong>TIPS®</strong>.
+          </p>
+
+          <p className="text-sm mb-2 leading-relaxed md:hidden">
+            Réaligner votre pratique • Formations fidèles à l’EFT d’origine
+          </p>
+
+          <div className="flex flex-col md:flex-col gap-2">
+            <a
+              href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+            >
+              Réaligner sa pratique EFT
+            </a>
+
+            <a
+              href="https://ecole-eft-france.fr/pages/formations-eft.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
+            >
+              Formations EFT
+            </a>
+
+            <a
+              href="https://ecole-eft-france.fr/pages/tips.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition md:mt-2"
+            >
+              Méthode TIPS®
+            </a>
+          </div>
+
+          <p className="text-xs mt-3 opacity-80 hidden md:block">
+            Pas d'inscription obligatoire — un petit geste libre pour soutenir l'application.
+          </p>
+
+          <p className="text-xs mt-2 md:hidden opacity-80">
+            Soutiens EFTY — bouton ci-dessous.
+          </p>
+        </div>
+
+        <div className="flex md:flex-col items-center gap-2 ml-3 md:ml-0">
+          <a
+            href="/soutenir"
+            className="inline-block rounded-lg bg-[#0f3d69] text-white px-3 py-2 text-sm hover:bg-[#164b84] transition"
+            aria-label="Soutenir EFTY"
+          >
+            Je soutiens EFTY
+          </a>
+
+          <button
+            onClick={closePromo}
+            aria-label="Fermer la promotion"
+            title="Fermer"
+            className="ml-2 md:ml-0 bg-transparent border border-transparent text-[#0f3d69] hover:text-[#164b69] text-xl leading-none px-2 py-1 rounded"
+          >
+            ×
+          </button>
+        </div>
       </div>
-    </div>
+    </aside>
   );
 }
+
 
 
 /* ---------- Types ---------- */
