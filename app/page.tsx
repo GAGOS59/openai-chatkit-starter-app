@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import Image from "next/image";
 
+/* ---------- Constants & small components ---------- */
 const PAYPAL_URL = "https://paypal.me/efty25";
 
 /** Bouton AYNI réutilisable (cœur + lien PayPal, centré) */
@@ -31,14 +32,13 @@ function AyniButton({ className = "" }: { className?: string }) {
   );
 }
 
-
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
-/* ---------- Cartes sidebar ---------- */
+/* ---------- Promo card (sidebar / mobile banner) ---------- */
 function PromoCard() {
   const [visible, setVisible] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -55,7 +55,7 @@ function PromoCard() {
   useEffect(() => {
     const prev = document.body.style.paddingBottom || "";
     if (visible && isMobile) {
-      document.body.style.paddingBottom = "88px"; // ajuste si nécessaire
+      document.body.style.paddingBottom = "88px";
     } else {
       document.body.style.paddingBottom = prev;
     }
@@ -84,6 +84,7 @@ function PromoCard() {
       <div className="max-w-[380px] md:max-w-none md:ml-0 mx-auto md:mx-0 flex items-center md:block gap-3">
         <div className="flex-1">
           <h2 className="text-lg font-semibold mb-2">Pour aller plus loin avec l&apos;EFT</h2>
+
           <p className="text-sm mb-3 leading-relaxed hidden md:block">
             Vous pratiquez déjà l&apos;EFT ou vous souhaitez affiner votre approche ? Le programme{" "}
             <strong>« Réaligner sa pratique EFT »</strong> vous aide à retrouver la fluidité du geste EFT d&apos;origine,
@@ -94,7 +95,7 @@ function PromoCard() {
             Réaligner votre pratique • Formations fidèles à l&apos;EFT d&apos;origine
           </p>
 
-          <div className="flex flex-col md:flex-col gap-2">
+          <div className="flex flex-col gap-2">
             <a
               href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
               target="_blank"
@@ -108,7 +109,7 @@ function PromoCard() {
               href="https://ecole-eft-france.fr/pages/formations-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
+              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
             >
               Formations EFT
             </a>
@@ -117,7 +118,7 @@ function PromoCard() {
               href="https://ecole-eft-france.fr/pages/tips.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#f6f9ff] transition md:mt-2"
+              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition md:mt-2"
             >
               Méthode TIPS®
             </a>
@@ -128,39 +129,36 @@ function PromoCard() {
           </p>
 
           <p className="text-xs mt-2 md:hidden opacity-80">
-            Je veux soutenir EFTY — bouton ci-dessous.
+            Soutiens EFTY — bouton ci-dessous.
           </p>
-            
         </div>
 
-/* à l'endroit des controls dans PromoCard */
-<div className="flex md:flex-col items-center gap-2 ml-3 md:ml-0">
-  {/* Bouton PayPal avec cœur (nouveau) */}
-  <AyniButton />
+        <div className="flex md:flex-col items-center gap-2 ml-3 md:ml-0">
+          {/* Bouton PayPal avec cœur */}
+          <AyniButton className="w-full md:w-auto" />
 
-  {/* Bouton fermer */}
-  <button
-    onClick={closePromo}
-    aria-label="Fermer la promotion"
-    title="Fermer"
-    className="ml-2 md:ml-0 bg-transparent border border-transparent text-[#0f3d69] hover:text-[#164b69] text-xl leading-none px-2 py-1 rounded"
-  >
-    ×
-  </button>
-</div>
-      
+          {/* Bouton fermer (ferme pour la session actuelle) */}
+          <button
+            onClick={closePromo}
+            aria-label="Fermer la promotion"
+            title="Fermer"
+            className="ml-2 md:ml-0 bg-transparent border border-transparent text-[#0f3d69] hover:text-[#164b69] text-xl leading-none px-2 py-1 rounded"
+          >
+            ×
+          </button>
+        </div>
       </div>
     </aside>
   );
 }
 
-/* ---------- Page ---------- */
+/* ---------- Page component ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t’accompagner pas à pas dans ton auto-séance d’EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
+        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd&apos;hui ?",
     },
   ]);
 
@@ -171,7 +169,7 @@ export default function Page() {
 
   const [toast, setToast] = useState<ToastState>(null);
 
-  // ⤵️ AJOUT : états SUD + utilitaire d'extraction
+  // états SUD + utilitaire d'extraction
   const [lastAskedSud, setLastAskedSud] = useState(false);
 
   function extractSud(v: string): number | null {
@@ -184,13 +182,13 @@ export default function Page() {
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null); // focus auto
 
-  // 🔔 petit message visuel temporaire (toast)
+  // petit message visuel temporaire (toast)
   const showToast = useCallback((message: string) => {
     setToast({ msg: message, key: Date.now() });
     setTimeout(() => setToast(null), 4000);
   }, []);
 
-  /* Auto-scroll en bas à chaque nouveau message */
+  // Auto-scroll en bas à chaque nouveau message
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
@@ -206,14 +204,14 @@ export default function Page() {
     }
   }, [crisisMode, showToast]);
 
-  /* Focus automatique sur le champ après chaque réponse (hors crisis lock) */
+  // Focus automatique sur le champ après chaque réponse (hors crisis lock)
   useEffect(() => {
     if (!loading && crisisMode !== "lock") {
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [messages, loading, crisisMode]);
 
-  // ⤵️ AJOUT : arme le crochet quand l'assistant demande un SUD
+  // Arme le crochet quand l'assistant demande un SUD
   useEffect(() => {
     const last = messages[messages.length - 1];
     if (last?.role === "assistant") {
@@ -223,7 +221,7 @@ export default function Page() {
     }
   }, [messages]);
 
-  // --- Heuristiques de crise côté client ---
+  // Heuristiques de crise côté client
   function inferAskFromReply(text: string) {
     const t = text.toLowerCase();
     return (
@@ -238,7 +236,6 @@ export default function Page() {
 
   function isAffirmativeYes(text: string) {
     const t = text.trim().toLowerCase();
-    // gère "oui", "oui.", "oui !", "yes" (au cas où), etc.
     return /^oui\b|^yes\b/.test(t);
   }
 
@@ -249,12 +246,12 @@ export default function Page() {
 
     setError(null);
 
-    // 🔒 Si on demande oui/non et que l’utilisateur répond "oui" → lock immédiat
+    // Si on demande oui/non et que l’utilisateur répond "oui" → lock immédiat
     if (crisisMode === "ask" && isAffirmativeYes(value)) {
       setCrisisMode("lock");
     }
 
-    // ——— interception SUD si on vient de le demander ———
+    // interception SUD si on vient de le demander
     if (lastAskedSud) {
       const sud = extractSud(value);
       if (sud !== null) {
@@ -326,7 +323,7 @@ export default function Page() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      {/* 🌟 Bandeau – Édition spéciale 30 ans d'EFT */}
+      {/* Bandeau – Édition spéciale 30 ans d'EFT */}
       <div className="rounded-2xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-6">
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -351,7 +348,7 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Colonne gauche : chat */}
         <div className="md:col-span-2 space-y-6">
-          {/* ⛑️ Message important en cas de crise */}
+          {/* Message important en cas de crise */}
           {crisisMode !== "none" && (
             <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
               <strong className="block">Message important</strong>
@@ -432,15 +429,15 @@ export default function Page() {
 
             {crisisMode === "ask" && (
               <p className="text-sm text-[#0f3d69] opacity-80">
-                Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s’il te plaît.
+                Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s&apos;il te plaît.
               </p>
             )}
           </form>
 
-          {/* Message d’erreur (optionnel) */}
+          {/* Message d’erreur */}
           {error && <div className="text-red-600">{error}</div>}
 
-          {/* ⚠️ Note de prudence */}
+          {/* Note de prudence */}
           <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-2">
             <strong className="block mb-1">Note de prudence</strong>
             <p className="text-sm leading-relaxed">
@@ -459,7 +456,7 @@ export default function Page() {
             </p>
           </div>
 
-          {/* 🔔 Toast visuel (notif) */}
+          {/* Toast visuel (notif) */}
           <div
             aria-live="assertive"
             className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50"
@@ -479,7 +476,7 @@ export default function Page() {
             </div>
           </div>
 
-          {/* 📞 Boutons d’urgence flottants */}
+          {/* Boutons d’urgence flottants */}
           {crisisMode !== "none" && (
             <div
               aria-label="Accès rapide urgence"
@@ -507,7 +504,7 @@ export default function Page() {
           )}
         </div>
 
-        {/* Colonne droite : promo + AYNI (sticky) */}
+        {/* Colonne droite : promo */}
         <div className="md:col-span-1">
           <div className="md:sticky md:top-6 flex flex-col gap-6">
             <PromoCard />
