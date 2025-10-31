@@ -100,7 +100,7 @@ function PromoCard() {
               href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#164b84] transition"
+              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#164b84] transition"
             >
               Réaligner sa pratique EFT
             </a>
@@ -109,7 +109,7 @@ function PromoCard() {
               href="https://ecole-eft-france.fr/pages/formations-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block text-center rounded-lg bg-white text-[#0f3d69] border border-[#0f3d69] px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
+              className="inline-block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-2 text-sm hover:bg-[#f6f9ff] transition"
             >
               Formations EFT
             </a>
@@ -125,7 +125,7 @@ function PromoCard() {
           </div>
 
           <p className="text-xs mt-3 opacity-80 hidden md:block">
-            Pas d&apos;inscription obligatoire — un petit geste libre pour soutenir l&apos;application.
+            EFTY te soutient. Voudrais-tu soutenir EFTY ?
           </p>
 
           <p className="text-xs mt-2 md:hidden opacity-80">
@@ -158,7 +158,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd&apos;hui ?",
+        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
     },
   ]);
 
