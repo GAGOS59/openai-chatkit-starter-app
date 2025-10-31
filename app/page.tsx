@@ -138,7 +138,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t’accompagner pas à pas dans ton auto-séance d’EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd’hui ?",
+        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd&apos;hui ?",
     },
   ]);
 
@@ -335,7 +335,7 @@ export default function Page() {
               <strong className="block">Message important</strong>
               <p className="text-sm">
                 Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
-                Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta sécurité est prioritaire.
+                Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
               </p>
               <p className="text-sm">
                 <span className="font-semibold">📞 En France :</span><br />
@@ -350,7 +350,7 @@ export default function Page() {
               )}
               {crisisMode === "lock" && (
                 <p className="text-sm">
-                  Ta sécurité est prioritaire. Je ne poursuivrai pas l’EFT dans cette situation.
+                  Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
                 </p>
               )}
             </div>
