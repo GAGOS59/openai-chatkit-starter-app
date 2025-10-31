@@ -117,7 +117,7 @@ function PromoCard() {
 
           {/* Bouton de soutien (Ayni) - plein width sur mobile */}
           <div className="w-full flex items-center justify-between gap-2">
-          <p className="text-xs opacity-80 text-center md:text-left">
+          <p className="text-xs opacity-80 text-center md:text-center">
             EFTY te soutient. Voudrais-tu soutenir EFTY ?
           </p>
               </div>
