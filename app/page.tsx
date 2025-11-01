@@ -7,6 +7,7 @@ import React, {
   useCallback,
   FormEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 
 /* ---------- Constants & small components ---------- */
@@ -370,7 +371,40 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Formulaire d’envoi */}
+         
+       {/* Grille : chat + sidebar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Colonne gauche : chat */}
+        <div className="md:col-span-2 space-y-6">
+          {/* Message important en cas de crise */}
+          {crisisMode !== "none" && (
+      <CrisisFloating mode={crisisMode} />
+            <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
+              <strong className="block">Message important</strong>
+              <p className="text-sm">
+                Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+                Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
+              </p>
+              <p className="text-sm">
+                <span className="font-semibold">📞 En France :</span><br />
+                • 3114 — Prévention du suicide (gratuit, 24/7)<br />
+                • 15 — SAMU<br />
+                • 112 — Urgences (si danger immédiat)
+              </p>
+              {crisisMode === "ask" && (
+                <p className="text-sm">
+                  Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+                </p>
+              )}
+              {crisisMode === "lock" && (
+                <p className="text-sm">
+                  Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
+                </p>
+              )}
+            </div>
+          )}
+
+ {/* Formulaire d’envoi */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
             <div className="flex gap-2">
               <input
@@ -397,38 +431,8 @@ export default function Page() {
               </p>
             )}
           </form>
-       {/* Grille : chat + sidebar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Colonne gauche : chat */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Message important en cas de crise */}
-          {crisisMode !== "none" && (
-            <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
-              <strong className="block">Message important</strong>
-              <p className="text-sm">
-                Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
-                Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
-              </p>
-              <p className="text-sm">
-                <span className="font-semibold">📞 En France :</span><br />
-                • 3114 — Prévention du suicide (gratuit, 24/7)<br />
-                • 15 — SAMU<br />
-                • 112 — Urgences (si danger immédiat)
-              </p>
-              {crisisMode === "ask" && (
-                <p className="text-sm">
-                  Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
-                </p>
-              )}
-              {crisisMode === "lock" && (
-                <p className="text-sm">
-                  Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
-                </p>
-              )}
-            </div>
-          )}
 
-
+      
           {/* Message d’erreur */}
           {error && <div className="text-red-600">{error}</div>}
 
@@ -507,6 +511,102 @@ export default function Page() {
           </div>
         </div>
       </div>
+          function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
+  const [mounted, setMounted] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  // Styles responsive :
+  // - Mobile : bas de l’écran, dégagé de ~80px pour ne pas chevaucher la promo
+  // - Desktop : en haut à droite, largeur fixe confortable
+  const wrapper = (
+    <div
+      role="region"
+      aria-live="assertive"
+      aria-atomic="true"
+      className={[
+        "fixed z-50",
+        // Mobile
+        "left-4 right-4 bottom-24",     // ← ajuste à 20/24/28 selon la hauteur réelle de la promo
+        // Desktop
+        "md:left-auto md:right-6 md:top-6 md:bottom-auto md:w-[420px]",
+      ].join(" ")}
+    >
+      {/* Carte */}
+      <div className="rounded-xl border border-rose-300 bg-rose-50 text-rose-900 shadow-xl">
+        {/* Barre d’entête compacte */}
+        <div className="flex items-start gap-3 px-3 py-2">
+          <div className="flex-1">
+            <div className="text-sm font-semibold">Message important</div>
+            {!collapsed && (
+              <p className="mt-0.5 text-sm opacity-80">
+                Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences.
+              </p>
+            )}
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCollapsed((v) => !v)}
+              className="rounded-md border border-rose-300 bg-white px-2 py-1 text-sm"
+              aria-label={collapsed ? "Développer le message" : "Réduire le message"}
+              title={collapsed ? "Développer" : "Réduire"}
+            >
+              {collapsed ? "▾" : "▴"}
+            </button>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="rounded-md border border-rose-300 bg-white px-2 py-1 text-sm"
+              aria-label="Réduire"
+              title="Réduire"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* Corps détaillé */}
+        {!collapsed && (
+          <div className="px-3 pb-3">
+            <p className="text-sm">
+              Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+              Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta sécurité est prioritaire.
+            </p>
+
+            <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
+              <div className="text-xs font-semibold">📞 En France</div>
+              <ul className="mt-1 text-sm leading-6">
+                <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
+                <li><strong>15</strong> — SAMU</li>
+                <li><strong>112</strong> — Urgences (si danger immédiat)</li>
+              </ul>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
+                <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
+                <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
+              </div>
+            </div>
+
+            {mode === "ask" && (
+              <p className="mt-2 text-sm">
+                Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+              </p>
+            )}
+            {mode === "lock" && (
+              <p className="mt-2 text-sm">
+                Ta sécurité est prioritaire. Je ne poursuivrai pas l’EFT dans cette situation.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return createPortal(wrapper, document.body);
+}
+
     </main>
   );
 }
