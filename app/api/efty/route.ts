@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // ————————————————————————————————
+// Types
+type Role = "user" | "assistant" | "system";
+
+interface ChatMessage {
+  role: Role;
+  content: string;
+}
+
+interface RequestBody {
+  history?: ChatMessage[];
+  single?: string;
+}
+
+// ————————————————————————————————
 // Sécurité CORS (adapte si besoin)
 const ALLOWED_ORIGINS = [
   "https://ecole-eft-france.fr",
@@ -22,7 +36,7 @@ function corsHeaders(origin: string | null) {
 }
 
 // ————————————————————————————————
-// Détection de crise (simples patterns clés)
+// Détection de crise (patterns simples)
 const CRISIS_PATTERNS = [
   "suicide",
   "me suicider",
@@ -34,7 +48,7 @@ const CRISIS_PATTERNS = [
 ];
 
 function isCrisis(text: string): boolean {
-  const t = (text || "").toLowerCase();
+  const t = text.toLowerCase();
   return CRISIS_PATTERNS.some((k) => t.includes(k));
 }
 
@@ -44,16 +58,18 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
   const headers = corsHeaders(origin);
 
-  const { history = [], single = "" } = await req.json();
+  const body = (await req.json()) as RequestBody;
+  const history: ChatMessage[] = Array.isArray(body.history) ? body.history : [];
+  const single = body.single ?? "";
 
-  // >>> Détection de crise depuis le dernier message utilisateur
+  // Dernier message utilisateur (tipé)
   const lastUser =
     [...history]
       .reverse()
-      .find((m: any) => (m?.role ?? "") === "user")
+      .find((m) => m.role === "user")
       ?.content?.trim() || String(single || "");
 
-  // Ici tu appelles ton LLM / pipeline. Pour l’exemple, on retourne une réponse fixe.
+  // Appel LLM/pipeline ici (exemple statique pour la démo)
   const text =
     "Merci pour ton message. Peux-tu me préciser ton objectif EFT pour cette mini-séance ?";
 
