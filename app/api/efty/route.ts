@@ -154,13 +154,10 @@ Tu comptes, ta présence est importante. ❤️
 Je reste avec toi en pensée.`;
 
 
-const CLOSING_MEDICAL = `Je comprends ta situation et je suis inquiet·ète pour ta santé. Je ne peux pas poursuivre une séance d’EFT en cas d’urgence médicale.
-Merci d’appeler les secours : 112 (urgences) ou le 15 (SAMU). Si tu es avec quelqu’un, demande-lui de t’aider à appeler.`;
-
 const CLOSING_MEDICAL = `Je comprends que tu vis une situation intense et cela m’inquiète pour ta sécurité.  
 Je ne peux pas poursuivre une séance d’EFT dans une situation qui peut relever d’une urgence médicale.
 
-👉 Je t’invite à appeler sans attendre :
+Je t’invite à appeler sans attendre :
 • **112** — Urgences (gratuit, accessible partout dans l’UE)  
 • **15** — SAMU (France)
 
