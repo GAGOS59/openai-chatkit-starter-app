@@ -116,22 +116,15 @@ function PromoCard() {
             Méthode TIPS®
           </a>
 
-          {/* Bouton de soutien (Ayni) - plein width sur mobile */}
-        
-              
-
           <div className="w-full flex flex-col items-center gap-3">
-  <p className="text-sm opacity-80 text-center md:text-left">
-    EFTY te soutient. Voudrais-tu soutenir EFTY ?
-  </p>
-            
-          <div className="w-full flex justify-center">
-            <AyniButton className="w-full md:w-auto" />
-          </div>
-</div>
+            <p className="text-sm opacity-80 text-center md:text-left">
+              EFTY te soutient. Voudrais-tu soutenir EFTY ?
+            </p>
 
-        {/* Petit texte / close */}
-        
+            <div className="w-full flex justify-center">
+              <AyniButton className="w-full md:w-auto" />
+            </div>
+          </div>
 
           <button
             onClick={closePromo}
@@ -250,11 +243,7 @@ export default function Page() {
     if (lastAskedSud) {
       const sud = extractSud(value);
       if (sud !== null) {
-        // on "désarme" le crochet.
         setLastAskedSud(false);
-
-        // Important : on NE génère plus de texte côté client.
-        // On laisse l’API appliquer Setup/Ronde selon le prompt (anti-boucle SUD).
       }
     }
 
@@ -339,72 +328,45 @@ export default function Page() {
         </div>
       </div>
 
-     
-          {/* Zone de chat */}
-          <div
-            ref={chatRef}
-            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
-          >
-            <div className="space-y-3">
-              {messages.map((m, i) => (
-                <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
-                  <div
-                    className={
-                      (m.role === "assistant"
-                        ? "bg-gray-50 text-gray-900 border-gray-200"
-                        : "bg-blue-50 text-blue-900 border-blue-200") +
-                      " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
-                    }
-                  >
-                    {m.content}
-                  </div>
-                </div>
-              ))}
-
-              {loading && (
-                <div className="flex">
-                  <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
-                    … je réfléchis
-                  </div>
-                </div>
-              )}
+      {/* Zone de chat */}
+      <div
+        ref={chatRef}
+        className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+      >
+        <div className="space-y-3">
+          {messages.map((m, i) => (
+            <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
+              <div
+                className={
+                  (m.role === "assistant"
+                    ? "bg-gray-50 text-gray-900 border-gray-200"
+                    : "bg-blue-50 text-blue-900 border-blue-200") +
+                  " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
+                }
+              >
+                {m.content}
+              </div>
             </div>
-          </div>
+          ))}
 
-         
-       {/* Grille : chat + sidebar */}
+          {loading && (
+            <div className="flex">
+              <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
+                … je réfléchis
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Grille : chat + sidebar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Colonne gauche : chat */}
         <div className="md:col-span-2 space-y-6">
-          {/* Message important en cas de crise */}
-          {crisisMode !== "none" && (
-      <CrisisFloating mode={crisisMode} />
-            <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
-              <strong className="block">Message important</strong>
-              <p className="text-sm">
-                Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
-                Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
-              </p>
-              <p className="text-sm">
-                <span className="font-semibold">📞 En France :</span><br />
-                • 3114 — Prévention du suicide (gratuit, 24/7)<br />
-                • 15 — SAMU<br />
-                • 112 — Urgences (si danger immédiat)
-              </p>
-              {crisisMode === "ask" && (
-                <p className="text-sm">
-                  Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
-                </p>
-              )}
-              {crisisMode === "lock" && (
-                <p className="text-sm">
-                  Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
-                </p>
-              )}
-            </div>
-          )}
+          {/* ✅ Alerte flottante (un seul élément sous le &&) */}
+          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
 
- {/* Formulaire d’envoi */}
+          {/* Formulaire d’envoi */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
             <div className="flex gap-2">
               <input
@@ -432,7 +394,6 @@ export default function Page() {
             )}
           </form>
 
-      
           {/* Message d’erreur */}
           {error && <div className="text-red-600">{error}</div>}
 
@@ -511,16 +472,18 @@ export default function Page() {
           </div>
         </div>
       </div>
-          function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
+    </main>
+  );
+}
+
+/* ---------- Composant d’alerte flottante (hors JSX) ---------- */
+function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
-  // Styles responsive :
-  // - Mobile : bas de l’écran, dégagé de ~80px pour ne pas chevaucher la promo
-  // - Desktop : en haut à droite, largeur fixe confortable
   const wrapper = (
     <div
       role="region"
@@ -529,14 +492,12 @@ export default function Page() {
       className={[
         "fixed z-50",
         // Mobile
-        "left-4 right-4 bottom-24",     // ← ajuste à 20/24/28 selon la hauteur réelle de la promo
+        "left-4 right-4 bottom-24", // ajuste selon la hauteur réelle de la promo
         // Desktop
         "md:left-auto md:right-6 md:top-6 md:bottom-auto md:w-[420px]",
       ].join(" ")}
     >
-      {/* Carte */}
       <div className="rounded-xl border border-rose-300 bg-rose-50 text-rose-900 shadow-xl">
-        {/* Barre d’entête compacte */}
         <div className="flex items-start gap-3 px-3 py-2">
           <div className="flex-1">
             <div className="text-sm font-semibold">Message important</div>
@@ -566,7 +527,6 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Corps détaillé */}
         {!collapsed && (
           <div className="px-3 pb-3">
             <p className="text-sm">
@@ -605,8 +565,4 @@ export default function Page() {
   );
 
   return createPortal(wrapper, document.body);
-}
-
-    </main>
-  );
 }
