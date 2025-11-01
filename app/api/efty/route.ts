@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
-import "server-only";
+import { EFT_PROMPT } from "./eft-prompt"; // ← chemin local, fiable
 
 
 // ------------ Types ------------
