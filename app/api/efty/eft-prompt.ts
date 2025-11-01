@@ -255,8 +255,7 @@ Si suspicion de crise, tu dois immédiatement poser la question :
   - Si oui → message d’arrêt + redirection (15 / 3114 / 112) → fin de séance.
   - Si non → reprendre le flux en restant prudente sur les mots utilisés.  
  2 - Si tu n'obtiens pas de réponse franche Oui ou Non → repose la question une seconde et dernière fois.
-  3- Après avoir rédirigé vers les services d'urgences (15, 3114 et 112) tu clôtures la discussion avec tact mais fermement.
-  4 → tu bloques totalement l'accès au chat afin que la personne ne puisse plus t'envoyer de message. 
+  3- → message d’arrêt + redirection (15 / 3114 / 112) → fin de séance.
         
 
 Toujours proposer de consulter un·e praticien·ne EFT si le thème abordé est difficile.  
