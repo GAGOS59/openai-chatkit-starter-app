@@ -1,90 +1,178 @@
-/* app/components/promo.module.css */
-.promo {
-  position: sticky;
-  top: 20px;
-  align-self: start;
-  background: #F3EEE6;
-  border: 1px solid #E6E0D8;
-  border-radius: 10px;
-  padding: 16px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
-  width: 100%;
-  box-sizing: border-box;
+/* Couleurs & bases */
+:root {
+  --bg: #f5efe6;
+  --text: #0b2b4a; /* bleu profond */
+  --text-soft: #2c4a68;
+  --border: #c9c2b6;
+  --primary: #0b2b4a;
+  --primary-contrast: #ffffff;
 }
 
-.inner {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* -----------------  Desktop card (sidebar) ----------------- */
+
+.desktopCard {
+  position: relative;
+  border-radius: 16px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 20px;
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 
-.content { }
-
-.title {
+.desktopTitle {
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 800;
   margin: 0 0 6px 0;
-  font-size: 1.05rem;
-  color: #0f3d69;
 }
 
-.text {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #333;
+.desktopSubtitle {
+  margin: 0 0 14px 0;
+  color: var(--text-soft);
 }
 
-.controls {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 6px;
+.btnGroup {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
-.btn {
+.btnPrimary,
+.btnSecondary,
+.btnGhost {
   display: inline-block;
-  padding: 8px 12px;
-  border-radius: 8px;
+  text-align: center;
   text-decoration: none;
-  border: 1px solid #0f3d69;
-  color: #0f3d69;
-  background: transparent;
-  font-weight: 600;
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--text);
+  transition: transform 0.06s ease;
 }
 
-.close {
+.btnPrimary {
+  background: var(--primary);
+  color: var(--primary-contrast);
+}
+
+.btnSecondary {
   background: transparent;
-  border: 0;
+  color: var(--text);
+}
+
+.btnGhost {
+  background: #fff;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btnPrimary:active,
+.btnSecondary:active,
+.btnGhost:active {
+  transform: translateY(1px);
+}
+
+.supportText {
+  margin: 6px 0 10px 0;
+  color: var(--text-soft);
+}
+
+.closeDesktop {
+  appearance: none;
+  background: transparent;
+  border: none;
   font-size: 20px;
   line-height: 1;
+  padding: 4px 8px;
+  color: var(--text);
   cursor: pointer;
-  padding: 2px 6px;
 }
 
-/* Mobile: transformer en bandeau fixé en bas */
-@media (max-width: 768px) {
-  .promo {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    margin: 0;
-    border-radius: 0;
-    padding: 12px 16px;
-    z-index: 9999;
-  }
+/* -----------------  Mobile bottom bar ----------------- */
 
-  .inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
+.mobileBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
 
-  .text {
-    display: none; /* on simplifie le texte sur mobile ; supprime si tu veux garder */
-  }
+  background: var(--bg);
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  z-index: 50; /* inférieur aux toasts si tu utilises z-50 pour eux */
+}
 
-  .controls {
-    margin-top: 0;
+/* État compact : ~56px de haut, pour ne pas masquer le haut de la page */
+.compact {
+  padding: 10px 12px;
+}
+
+.compactInner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.expandBtn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 15px;
+  text-align: left;
+  flex: 1;
+}
+
+.closeIcon {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 9999px;
+  width: 28px;
+  height: 28px;
+  line-height: 26px;
+  text-align: center;
+  font-size: 18px;
+  color: var(--text);
+}
+
+/* État développé : toujours raisonnable sur mobile */
+.expanded {
+  padding: 14px 14px 10px 14px;
+}
+
+.expandedInner .title {
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.expandedInner .subtitle {
+  color: var(--text-soft);
+}
+
+.actionsRow {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.collapse,
+.close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  color: var(--text);
+}
+
+@media (min-width: 768px) {
+  /* La barre mobile est invisible en desktop (tu utilises la carte Sidebar) */
+  .mobileBar {
+    display: none;
   }
 }
