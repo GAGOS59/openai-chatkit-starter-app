@@ -1,7 +1,8 @@
+// app/api/efty/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { EFT_SYSTEM_PROMPT } from "./eft-prompt"; // garde ton fichier où il est
+import { EFT_SYSTEM_PROMPT } from "./eft-prompt"; // garde ton fichier au même endroit
 
 // ---------- Types ----------
 type Role = "user" | "assistant";
@@ -42,10 +43,10 @@ const SUICIDE_TRIGGERS = [
 ];
 
 const MEDICAL_TRIGGERS = [
-  // douleur thoracique/dyspnée
+  // douleur thoracique / dyspnée
   "douleur violente à la poitrine","douleur forte à la poitrine","oppression thoracique",
   "difficulté à respirer","je n'arrive plus à respirer","essoufflement important",
-  // signes neuro/AVC
+  // signes neuro
   "faiblesse d'un côté","paralysie d'un côté","bouche de travers",
   "troubles de la parole soudains","parler devient difficile",
   // trauma/saignement
@@ -60,7 +61,7 @@ function containsAny(hay: string, list: string[]) {
   return list.some(k => t.includes(k));
 }
 
-// Question standard qu’on veut poser 2 fois max
+// ——— Suicide : question standard posée par l’assistant
 function isCrisisQuestion(s: string) {
   const t = (s || "").toLowerCase();
   return (
@@ -68,14 +69,24 @@ function isCrisisQuestion(s: string) {
     t.includes("as tu des idees suicidaires")
   );
 }
-
-function isExplicitYes(s: string) { return /^(oui|yes)\b/i.test((s || "").trim()); }
-function isExplicitNo(s: string)  { return /^(non|no)\b/i.test((s || "").trim()); }
-
-// Si l’assistant suggère une alerte forte
+function isExplicitYes(s: string)  { return /^(oui|yes)\b/i.test((s || "").trim()); }
+function isExplicitNo(s: string)   { return /^(non|no)\b/i.test((s || "").trim()); }
 function assistantSuggestsAlert(s: string) {
   const t = (s || "").toLowerCase();
   return t.includes("danger immédiat") || t.includes("urgence") || t.includes("appelle le");
+}
+
+// ——— Médical : question de triage (spontané vs choc)
+function isMedicalClarifierQuestion(s: string) {
+  const t = (s || "").toLowerCase();
+  return t.includes("spontané") && (t.includes("choc") || t.includes("effort"));
+}
+function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
+  const t = (s || "").trim().toLowerCase();
+  if (!t) return "unknown";
+  if (/\bspontan(e|é)\b/.test(t) || t.includes("au repos") || t.includes("sans choc")) return "spontane";
+  if (/\bchoc\b/.test(t) || t.includes("coup") || t.includes("trauma") || t.includes("après une chute") || t.includes("effort")) return "choc";
+  return "unknown";
 }
 
 // ---------- OpenAI ----------
@@ -100,14 +111,15 @@ Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur tho
     max_tokens: 2,
     messages: [
       { role: "system", content: detectorPrompt },
-      { role: "user", content: userText.slice(0, 2000) }, // borne de prudence
+      { role: "user", content: userText.slice(0, 2000) },
     ],
   });
+
   const label = String(completion.choices[0]?.message?.content || "").trim().toLowerCase();
   return label === "hit" ? "hit" : "safe";
 }
 
-// Empathic closings
+// Fermetures empathiques
 const CLOSING_SUICIDE = `Je te prends au sérieux. Je ne peux pas poursuivre une séance d’EFT en situation d’urgence.
 Ta sécurité est prioritaire : appelle le 3114 (24/7, gratuit), le 112 (urgences) ou le 15 (SAMU) dès maintenant.
 Je reste avec toi en pensée — prends soin de toi.`;
@@ -115,23 +127,40 @@ Je reste avec toi en pensée — prends soin de toi.`;
 const CLOSING_MEDICAL = `Je comprends ta situation et je suis inquiet·ète pour ta santé. Je ne peux pas poursuivre une séance d’EFT en cas d’urgence médicale.
 Merci d’appeler les secours : 112 (urgences) ou le 15 (SAMU). Si tu es avec quelqu’un, demande-lui de t’aider à appeler.`;
 
-// Politique : 2 questions → lock si pas de NON, oui explicite → lock, non explicite → none.
-// suicide/medical “hit” → lock (sans poser de diagnostic pour le médical).
+// Politique : suicide = 2 questions max → lock si pas de NON ; médical = triage d’abord
 function computeCrisis(
   history: ChatMessage[],
   modelAnswer: string,
   suicideLLM: "hit" | "safe",
   medicalLLM: "hit" | "safe"
 ): { crisis: Crisis; reason: "none" | "suicide" | "medical" } {
-  const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
-  const lastAssistant = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
 
-  // 1) Urgences médicales → lock direct
-  if (containsAny(lastUser, MEDICAL_TRIGGERS) || medicalLLM === "hit") {
-    return { crisis: "lock", reason: "medical" };
+  const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
+
+  // ===== 1) URGENCE MÉDICALE : poser d'abord 1 question de triage
+  const medicalSuspicion = containsAny(lastUser, MEDICAL_TRIGGERS) || medicalLLM === "hit";
+
+  if (medicalSuspicion) {
+    // a) si l’assistant a déjà posé la question de triage, on regarde la réponse utilisateur
+    const askIdxs: number[] = [];
+    history.forEach((m, i) => { if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) askIdxs.push(i); });
+    const lastMedAskIdx = askIdxs.length ? askIdxs[askIdxs.length - 1] : -1;
+
+    if (lastMedAskIdx >= 0) {
+      const userAfter = history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null;
+      const cls = classifyMedicalReply(userAfter);
+
+      if (cls === "spontane") return { crisis: "lock", reason: "medical" };
+      if (cls === "choc")     return { crisis: "none", reason: "none" };
+      // réponse floue/absente → on reste en ASK et on (re)pose la question
+      return { crisis: "ask", reason: "medical" };
+    }
+
+    // b) suspicion médicale détectée mais question pas encore posée → ASK (pas de lock)
+    return { crisis: "ask", reason: "medical" };
   }
 
-  // 2) Suicidaire : règle stricte
+  // ===== 2) SUICIDE : règle 2 questions → lock
   // indices des questions posées
   const asks: number[] = [];
   history.forEach((m, i) => { if (m.role === "assistant" && isCrisisQuestion(m.content)) asks.push(i); });
@@ -140,17 +169,14 @@ function computeCrisis(
   // réponse utilisateur après la dernière question
   let userAfterLastAsk: string | null = null;
   if (lastAskIdx >= 0) {
-    const nextUser = history.slice(lastAskIdx + 1).find(m => m.role === "user");
-    userAfterLastAsk = nextUser?.content ?? null;
+    userAfterLastAsk = history.slice(lastAskIdx + 1).find(m => m.role === "user")?.content ?? null;
   }
 
   if (userAfterLastAsk && isExplicitYes(userAfterLastAsk)) return { crisis: "lock", reason: "suicide" };
   if (userAfterLastAsk && isExplicitNo(userAfterLastAsk))  return { crisis: "none", reason: "none" };
+  if (asks.length >= 2)                                    return { crisis: "lock", reason: "suicide" };
 
-  // 2 questions déjà posées → lock si pas de NON explicite
-  if (asks.length >= 2) return { crisis: "lock", reason: "suicide" };
-
-  // 3) Sinon, passage en ASK si signaux (sans lock)
+  // signaux souples -> ASK (jamais lock sans oui / 2 questions)
   if (containsAny(lastUser, SUICIDE_TRIGGERS) || suicideLLM === "hit" || assistantSuggestsAlert(modelAnswer)) {
     return { crisis: "ask", reason: "suicide" };
   }
@@ -180,7 +206,7 @@ export async function POST(req: NextRequest) {
   });
   let answer = String(completion.choices[0]?.message?.content ?? "").trim();
 
-  // Analyse mixte du dernier message user (si inexistant, on envoie "safe")
+  // Analyse mixte du dernier message user
   const lastUserMsg = [...history].reverse().find(m => m.role === "user")?.content ?? "";
   const [suicideLLM, medicalLLM] = await Promise.all([
     lastUserMsg ? llmFlag("suicide", lastUserMsg) : Promise.resolve<"hit" | "safe">("safe"),
