@@ -140,12 +140,35 @@ const MEDICAL_TRIAGE_QUESTION =
   "Cette douleur est-elle apparue **spontanément** (au repos / après un effort) ou **suite à un **choc** récent ? Réponds par **spontané** ou **choc**.";
 
 // Fermetures empathiques
-const CLOSING_SUICIDE = `Je te prends au sérieux. Je ne peux pas poursuivre une séance d’EFT en situation d’urgence.
-Ta sécurité est prioritaire : appelle le 3114 (24/7, gratuit), le 112 (urgences) ou le 15 (SAMU) dès maintenant.
-Je reste avec toi en pensée — prends soin de toi.`;
+const CLOSING_SUICIDE = `Je te prends profondément au sérieux. 🌱  
+Tu vis un moment très difficile et tu n’as pas à le traverser seul·e.  
+Je ne peux pas poursuivre la séance d’EFT car une situation d’urgence demande un soutien humain direct.
+
+Appelle dès maintenant :
+• **3114** — Prévention du suicide (gratuit, 24h/24 et 7j/7)  
+• **112** — Urgences  
+• **15** — SAMU (si tu es en danger immédiat)
+
+Si quelqu’un est près de toi, parle-lui ou demande-lui de t’aider à appeler.  
+Tu comptes, ta présence est importante. ❤️  
+Je reste avec toi en pensée.`;
+
 
 const CLOSING_MEDICAL = `Je comprends ta situation et je suis inquiet·ète pour ta santé. Je ne peux pas poursuivre une séance d’EFT en cas d’urgence médicale.
 Merci d’appeler les secours : 112 (urgences) ou le 15 (SAMU). Si tu es avec quelqu’un, demande-lui de t’aider à appeler.`;
+
+const CLOSING_MEDICAL = `Je comprends que tu vis une situation intense et cela m’inquiète pour ta sécurité.  
+Je ne peux pas poursuivre une séance d’EFT dans une situation qui peut relever d’une urgence médicale.
+
+👉 Je t’invite à appeler sans attendre :
+• **112** — Urgences (gratuit, accessible partout dans l’UE)  
+• **15** — SAMU (France)
+
+Si quelqu’un est près de toi, demande-lui de t’aider à passer l’appel.  
+Prends soin de toi avant tout, c’est la priorité absolue. ❤️ `;
+
+
+
 
 // Politique : suicide = 2 questions max → lock si pas de NON ; médical = triage d’abord
 function computeCrisis(
