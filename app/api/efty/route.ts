@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { EFT_PROMPT } from "app/api/efty/eft-prompt.ts"; // ← on importe ton prompt ici
+import { EFT_PROMPT } from "./eft-prompt"; // ← on importe ton prompt ici
 
 // ------------ Types ------------
 type Role = "user" | "assistant" | "system";
