@@ -363,8 +363,16 @@ export default function Page() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Colonne gauche : chat */}
         <div className="md:col-span-2 space-y-6">
+          … le contenu du chat …
           {/* ✅ Alerte flottante (un seul élément sous le &&) */}
           {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
+  </div>
+
+  {/* Colonne droite : promo */}
+  <div className="space-y-4">
+    … le bloc "Pour aller plus loin avec l’EFT" …
+  </div>
+</div>
 
           {/* Formulaire d’envoi */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
