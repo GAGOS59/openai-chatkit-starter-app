@@ -338,37 +338,7 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Grille : chat + sidebar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Colonne gauche : chat */}
-        <div className="md:col-span-2 space-y-6">
-          {/* Message important en cas de crise */}
-          {crisisMode !== "none" && (
-            <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
-              <strong className="block">Message important</strong>
-              <p className="text-sm">
-                Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
-                Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
-              </p>
-              <p className="text-sm">
-                <span className="font-semibold">📞 En France :</span><br />
-                • 3114 — Prévention du suicide (gratuit, 24/7)<br />
-                • 15 — SAMU<br />
-                • 112 — Urgences (si danger immédiat)
-              </p>
-              {crisisMode === "ask" && (
-                <p className="text-sm">
-                  Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
-                </p>
-              )}
-              {crisisMode === "lock" && (
-                <p className="text-sm">
-                  Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
-                </p>
-              )}
-            </div>
-          )}
-
+     
           {/* Zone de chat */}
           <div
             ref={chatRef}
@@ -427,6 +397,37 @@ export default function Page() {
               </p>
             )}
           </form>
+       {/* Grille : chat + sidebar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Colonne gauche : chat */}
+        <div className="md:col-span-2 space-y-6">
+          {/* Message important en cas de crise */}
+          {crisisMode !== "none" && (
+            <div className="rounded-xl border bg-[#fff5f5] text-[#7a1f1f] p-4 shadow-sm space-y-2">
+              <strong className="block">Message important</strong>
+              <p className="text-sm">
+                Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+                Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
+              </p>
+              <p className="text-sm">
+                <span className="font-semibold">📞 En France :</span><br />
+                • 3114 — Prévention du suicide (gratuit, 24/7)<br />
+                • 15 — SAMU<br />
+                • 112 — Urgences (si danger immédiat)
+              </p>
+              {crisisMode === "ask" && (
+                <p className="text-sm">
+                  Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+                </p>
+              )}
+              {crisisMode === "lock" && (
+                <p className="text-sm">
+                  Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
+                </p>
+              )}
+            </div>
+          )}
+
 
           {/* Message d’erreur */}
           {error && <div className="text-red-600">{error}</div>}
