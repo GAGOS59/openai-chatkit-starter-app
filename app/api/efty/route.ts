@@ -66,6 +66,35 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out).slice(0, 6);
 }
 
+const CRISIS_PATTERNS: RegExp[] = [
+  /\bsuicide\b/i,
+  /\b(me\s+tuer|me\s+suicider)\b/i,
+  /\bje\s+veux\s+mourir\b/i,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
+  /\bj[’']en\s+ai\s+marre\s+de\s+la\s+vie\b/i,
+  /\bme\s+foutre\s+en\s+l[’']air\b/i,
+  /\bj[’']en\s+peux\s+plus\s+de\s+vivre\b/i,
+  /\bje\s+veux\s+dispara[iî]tre\b/i
+];
+function isCrisis(text: string): boolean {
+  const t = text.toLowerCase();
+  return CRISIS_PATTERNS.some(rx => rx.test(t));
+}
+function crisisMessage(): string {
+  return (
+`⚠️ **Message important :**
+Il semble que vous traversiez un moment très difficile.
+Je ne suis pas un service d’urgence et votre sécurité est prioritaire.
+
+👉 **Appelez immédiatement le 15** (urgences médicales en France),
+ou contactez le **3114**, le **numéro national de prévention du suicide**,
+gratuit, anonyme et disponible 24h/24, 7j/7.
+
+Si vous êtes à l’étranger, composez le numéro d’urgence local.
+Vous n’êtes pas seul·e — il existe des personnes prêtes à vous aider. ❤️`
+  );
+}
+
 /* ---------- Handlers ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
