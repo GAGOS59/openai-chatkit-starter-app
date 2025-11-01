@@ -77,15 +77,28 @@ function assistantSuggestsAlert(s: string) {
 }
 
 // ——— Médical : question de triage (spontané vs choc)
+// (on ne considère PLUS “effort” comme rassurant)
 function isMedicalClarifierQuestion(s: string) {
   const t = (s || "").toLowerCase();
-  return t.includes("spontané") && (t.includes("choc") || t.includes("effort"));
+  return t.includes("spontané") && t.includes("choc");
 }
+// Toute douleur “spontané / au repos / après effort” = urgence
+// Seul un “choc / coup / trauma / après une chute” est considéré non-urgent
 function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
   const t = (s || "").trim().toLowerCase();
   if (!t) return "unknown";
-  if (/\bspontan(e|é)\b/.test(t) || t.includes("au repos") || t.includes("sans choc")) return "spontane";
-  if (/\bchoc\b/.test(t) || t.includes("coup") || t.includes("trauma") || t.includes("après une chute") || t.includes("effort")) return "choc";
+  if (
+    /\bspontan(e|é)\b/.test(t) ||
+    t.includes("au repos") ||
+    t.includes("effort") ||
+    t.includes("sans choc")
+  ) return "spontane";
+  if (
+    /\bchoc\b/.test(t) ||
+    t.includes("coup") ||
+    t.includes("trauma") ||
+    t.includes("après une chute")
+  ) return "choc";
   return "unknown";
 }
 
@@ -118,6 +131,13 @@ Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur tho
   const label = String(completion.choices[0]?.message?.content || "").trim().toLowerCase();
   return label === "hit" ? "hit" : "safe";
 }
+
+// ---------- Questions fixes (utilisées quand crisis === "ask") ----------
+const SUICIDE_QUESTION_TEXT =
+  "As-tu des idées suicidaires en ce moment ? Réponds par **oui** ou **non**, s’il te plaît.";
+
+const MEDICAL_TRIAGE_QUESTION =
+  "Cette douleur est-elle apparue **spontanément** (au repos / après un effort) ou **suite à un **choc** récent ? Réponds par **spontané** ou **choc**.";
 
 // Fermetures empathiques
 const CLOSING_SUICIDE = `Je te prends au sérieux. Je ne peux pas poursuivre une séance d’EFT en situation d’urgence.
@@ -215,9 +235,14 @@ export async function POST(req: NextRequest) {
 
   const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
 
-  // Fermeture empathique si lock (suicide ou médical)
+  // ——— Forcer le message renvoyé selon l’état d’urgence
   if (crisis === "lock") {
+    // Fermeture empathique (déjà OK)
     answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
+  } else if (crisis === "ask") {
+    // ✅ On remplace la réponse libre du modèle par LA question obligatoire
+    answer = reason === "medical" ? MEDICAL_TRIAGE_QUESTION : SUICIDE_QUESTION_TEXT;
+    // (pas de lock ici : on attend la réponse utilisateur)
   }
 
   return new NextResponse(JSON.stringify({ answer, crisis }), {
