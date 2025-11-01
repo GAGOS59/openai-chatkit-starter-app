@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
+import { EFT_PROMPT } from "@/app/eft-prompt"; // ← on importe ton prompt ici
 
-// ————————————————————————————————
-// Types
+// ------------ Types ------------
 type Role = "user" | "assistant" | "system";
+interface ChatMessage { role: Role; content: string; }
+interface RequestBody { history?: ChatMessage[]; single?: string; }
 
-interface ChatMessage {
-  role: Role;
-  content: string;
-}
-
-interface RequestBody {
-  history?: ChatMessage[];
-  single?: string;
-}
-
-// ————————————————————————————————
-// Sécurité CORS (adapte si besoin)
+// ------------ CORS ------------
 const ALLOWED_ORIGINS = [
   "https://ecole-eft-france.fr",
   "https://www.ecole-eft-france.fr",
@@ -35,16 +27,11 @@ function corsHeaders(origin: string | null) {
   return h;
 }
 
-// ————————————————————————————————
-// Détection de crise (patterns simples)
+// ------------ Crise ------------
 const CRISIS_PATTERNS = [
-  "suicide",
-  "me suicider",
-  "envie d'en finir",
-  "mettre fin à mes jours",
-  "plus envie de vivre",
-  "détresse",
-  "danger immédiat",
+  "suicide", "me suicider", "idées suicidaires", "envie d'en finir",
+  "mettre fin à mes jours", "plus envie de vivre", "détresse",
+  "danger immédiat", "me faire du mal", "me blesser",
 ];
 
 function isCrisis(text: string): boolean {
@@ -52,7 +39,18 @@ function isCrisis(text: string): boolean {
   return CRISIS_PATTERNS.some((k) => t.includes(k));
 }
 
-// ————————————————————————————————
+function assistantSuggestsCrisisCheck(answer: string): boolean {
+  const t = answer.toLowerCase();
+  return (
+    t.includes("idées suicidaires") ||
+    t.includes("danger immédiat") ||
+    t.includes("appelle le") ||
+    t.includes("urgence")
+  );
+}
+
+// ------------ LLM ------------
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin");
@@ -62,20 +60,36 @@ export async function POST(req: NextRequest) {
   const history: ChatMessage[] = Array.isArray(body.history) ? body.history : [];
   const single = body.single ?? "";
 
-  // Dernier message utilisateur (tipé)
   const lastUser =
-    [...history]
-      .reverse()
-      .find((m) => m.role === "user")
-      ?.content?.trim() || String(single || "");
+    [...history].reverse().find((m) => m.role === "user")?.content?.trim() ||
+    String(single || "");
 
-  // Appel LLM/pipeline ici (exemple statique pour la démo)
-  const text =
-    "Merci pour ton message. Peux-tu me préciser ton objectif EFT pour cette mini-séance ?";
+  const crisisFromUser = isCrisis(lastUser);
 
-  const crisis = isCrisis(lastUser) ? "lock" : "none";
+  // ✅ On utilise ton fichier `eft-prompt.ts` pour le message système
+  const messagesForLLM = [
+    { role: "system", content: EFT_PROMPT },
+    ...history.map((m) => ({ role: m.role, content: m.content })),
+    ...(single ? [{ role: "user" as const, content: single }] : []),
+  ];
 
-  return new NextResponse(JSON.stringify({ answer: text, crisis }), {
+  const completion = await openai.chat.completions.create({
+    model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    temperature: 0.7,
+    messages: messagesForLLM,
+  });
+
+  const answer = String(completion.choices[0]?.message?.content ?? "").trim();
+
+  const crisisFromAssistant = assistantSuggestsCrisisCheck(answer);
+
+  const crisis: "none" | "ask" | "lock" = crisisFromUser
+    ? "lock"
+    : crisisFromAssistant
+    ? "ask"
+    : "none";
+
+  return new NextResponse(JSON.stringify({ answer, crisis }), {
     headers,
     status: 200,
   });
