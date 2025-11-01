@@ -140,7 +140,7 @@ const MEDICAL_TRIAGE_QUESTION =
   "Cette douleur est-elle apparue **spontanément** (au repos / après un effort) ou **suite à un **choc** récent ? Réponds par **spontané** ou **choc**.";
 
 // Fermetures empathiques
-const CLOSING_SUICIDE = `Je te prends profondément au sérieux. 🌱  
+const CLOSING_SUICIDE = `Je te prends profondément au sérieux. 
 Tu vis un moment très difficile et tu n’as pas à le traverser seul·e.  
 Je ne peux pas poursuivre la séance d’EFT car une situation d’urgence demande un soutien humain direct.
 
