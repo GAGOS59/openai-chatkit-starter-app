@@ -273,13 +273,7 @@ function MobilePromoModal() {
               Se former à l&apos;EFT pour un usage personnel
             </a>
 
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <button
-                onClick={() => { close(true); }}
-                className="rounded-lg border px-3 py-2 bg-white text-[#0f3d69]"
-              >
-                Fermer (ne plus montrer aujourd&apos;hui)
-              </button>
+            
 
               <div className="flex-shrink-0">
                 <AyniButton />
