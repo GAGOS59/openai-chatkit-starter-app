@@ -171,7 +171,7 @@ Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur tho
 const SUICIDE_QUESTION_TEXT =
   "As-tu des idées suicidaires en ce moment ? Réponds par **oui** ou **non**, s’il te plaît.";
 
-const MEDICAL_TRIAGE_QUESTION =
+
 const MEDICAL_TRIAGE_QUESTION =
   "Cette douleur est-elle apparue **spontanément** (au repos / après un effort — ex. « effort », « en courant ») ou **suite à un choc** récent ? Réponds par **spontané** ou **choc**.";
 
