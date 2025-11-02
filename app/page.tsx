@@ -93,8 +93,14 @@ function PromoCard() {
   );
 }
 
-/* ---------- Mobile Promo Modal (robuste) ---------- */
+/* ---------- Mobile Promo Modal (robuste, sans any) ---------- */
 function MobilePromoModal() {
+  // Legacy-friendly MediaQueryList type (no 'any')
+  type MqlWithLegacy = MediaQueryList & {
+    addListener?: (listener: (e: MediaQueryListEvent) => void) => void;
+    removeListener?: (listener: (e: MediaQueryListEvent) => void) => void;
+  };
+
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -102,7 +108,7 @@ function MobilePromoModal() {
     setMounted(true);
     if (typeof window === "undefined") return;
 
-    const canOpen = () => {
+    const canOpen = (): boolean => {
       try {
         const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
         if (dismissed && Date.now() - dismissed < DISMISS_TTL) return false;
@@ -112,36 +118,48 @@ function MobilePromoModal() {
       return true;
     };
 
-    const mql = window.matchMedia("(max-width: 767px)");
+    const mql = window.matchMedia("(max-width: 767px)") as MqlWithLegacy;
 
+    // ouvrir uniquement si mobile et pas récemment fermé
     if (mql.matches && canOpen()) {
       setVisible(true);
     } else {
       setVisible(false);
     }
 
+    // handler typé
     const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      if (e.matches) {
+      const matches = "matches" in e ? e.matches : false;
+      if (matches) {
         if (canOpen()) setVisible(true);
       } else {
         setVisible(false);
       }
     };
 
+    // brancher la meilleure API disponible (modern / legacy)
     if (typeof mql.addEventListener === "function") {
-      mql.addEventListener("change", onChange as EventListener);
-    } else if (typeof (mql as any).addListener === "function") {
-      (mql as any).addListener(onChange);
+      // addEventListener expects an EventListener, but our handler is compatible
+      // Using a wrapper keeps types clean
+      const wrapped = (ev: Event) => {
+        // Try to coerce to MediaQueryListEvent - modern browsers call with it
+        const mqEvent = ev as MediaQueryListEvent;
+        onChange(mqEvent);
+      };
+      mql.addEventListener("change", wrapped);
+      return () => {
+        mql.removeEventListener?.("change", wrapped);
+      };
+    } else if (typeof mql.addListener === "function") {
+      mql.addListener(onChange as (e: MediaQueryListEvent) => void);
+      return () => {
+        mql.removeListener?.(onChange as (e: MediaQueryListEvent) => void);
+      };
     }
 
-    return () => {
-      if (typeof mql.removeEventListener === "function") {
-        mql.removeEventListener("change", onChange as EventListener);
-      } else if (typeof (mql as any).removeListener === "function") {
-        (mql as any).removeListener(onChange);
-      }
-    };
-  }, []); // DISMISS_TTL globaled -> no dependency
+    // fallback - no listeners available
+    return;
+  }, []); // DISMISS_TTL and DISMISS_KEY are module constants -> ok to leave deps empty
 
   if (!mounted || !visible) return null;
 
