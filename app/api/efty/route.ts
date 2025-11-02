@@ -325,6 +325,23 @@ export async function POST(req: NextRequest) {
 
   const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
 
+    // --- Safety override : si l'assistant venait d'interroger sur le risque suicidaire
+  // et que l'utilisateur répond explicitement "oui", forcer la fermeture empathique IMMÉDIATEMENT.
+  const lastAssistantAskForSuicide = [...history].reverse().find(
+    (m) => m.role === "assistant" && isCrisisQuestion(m.content)
+  );
+  const lastUserMsg = [...history].reverse().find((m) => m.role === "user")?.content ?? "";
+
+  if (lastAssistantAskForSuicide && isExplicitYes(lastUserMsg)) {
+    // forcer la fermeture empathique, renvoyer tout de suite la réponse correcte (lock suicide)
+    const forcedAnswer = CLOSING_SUICIDE;
+    return new NextResponse(JSON.stringify({ answer: forcedAnswer, crisis: "lock", reason: "suicide" }), {
+      headers,
+      status: 200,
+    });
+  }
+
+
   // ——— Forcer le message renvoyé selon l’état d’urgence
   if (crisis === "lock") {
     // Fermeture empathique (comme avant)
