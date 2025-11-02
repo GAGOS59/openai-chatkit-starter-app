@@ -320,36 +320,7 @@ export default function Page() {
         {/* ===== Colonne gauche : tout le flux de séance ===== */}
         <div className="space-y-6">
 
-          {/* Zone de chat */}
-          <div
-            ref={chatRef}
-            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
-          >
-            <div className="space-y-3">
-              {messages.map((m, i) => (
-                <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
-                  <div
-                    className={
-                      (m.role === "assistant"
-                        ? "bg-gray-50 text-gray-900 border-gray-200"
-                        : "bg-blue-50 text-blue-900 border-blue-200") +
-                      " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
-                    }
-                  >
-                    {m.content}
-                  </div>
-                </div>
-              ))}
-
-              {loading && (
-                <div className="flex">
-                  <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
-                    … je réfléchis
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          
 
           {/* Alerte flottante (superposée) */}
           {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
