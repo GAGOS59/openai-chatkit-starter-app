@@ -98,30 +98,42 @@ function isMedicalClarifierQuestion(s: string) {
   return mentionDouleur && (mentionsSpontane || mentionsChoc);
 }
 
-// classifyMedicalReply : mappe une réponse utilisateur courte vers "spontane" | "choc" | "unknown"
+
+/**
+ * Mappe la réponse utilisateur à "spontane" | "choc" | "unknown".
+ * Très tolérante : accepte "effort", "en courant", "je courais", "après avoir couru", "marche", etc.
+ */
 function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
   const t = normalizeText(s);
   if (!t) return "unknown";
 
-  // regexs / mots-clés pour effort / activité → interpréter comme "spontane" (selon ta logique)
-  const effortRegex = /\b(spontan|au repos|apres(?: un| une)? effort|apres effort|effort|en courant|en march|cour(?:ir|u|ais|ant)|course|jogging|marche|marcheur|sport|exercice|entrainement|soulev|soul?ev|porter|monter esc|monter)\b/;
-  // mots-clés pour choc / traumatisme → "choc"
-  const chocRegex = /\b(choc|coup|traum|chute|heurter|collision|frapper|tomber|heurt|fracture)\b/;
+  // tokens indicateurs pour choc/trauma
+  const chocTokens = [
+    "choc", "coup", "traum", "chute", "heurter", "collision", "tomber", "frapper", "fracture"
+  ];
+  // tokens indicateurs pour effort / activité → on traite comme "spontane"
+  const effortTokens = [
+    "spontan", "spontane", "spontanement", "au repos",
+    "apres effort", "apres un effort", "apres une effort", "apres avoir", "effort",
+    "en courant", "courir", "courais", "couru", "course", "jogging",
+    "marche", "marcheur", "sport", "exercice", "entrainement", "porter", "soulever"
+  ];
 
-  if (chocRegex.test(t)) return "choc";
-  if (effortRegex.test(t) || t.includes("au repos") || t.includes("sans choc") || t.includes("apres un effort") || t.includes("apres avoir")) return "spontane";
+  // d'abord les signes de choc (priorité pour éviter faux positifs)
+  if (chocTokens.some(tok => t.includes(tok))) return "choc";
 
-  // si réponse contient "spontané", "spontanément" explicitement
+  // ensuite les signes d'effort/spontané
+  if (effortTokens.some(tok => t.includes(tok))) return "spontane";
+
+  // couverture explicite pour "spontané"/"spontanement"
   if (/\bspontan(?:e|ement)?\b/.test(t)) return "spontane";
 
-  // si la réponse est très courte et contient l'un des mots 'effort'/'course'/'courais' -> spontané
-  if (["effort", "course", "courais", "courir", "en courant", "je courais", "en courant"].some(w => t.includes(w))) return "spontane";
-
-  // si la réponse est "spontané" ou "spontane" (sans accent)
-  if (t === "spontane" || t === "spontane" || t === "spontane") return "spontane";
+  // si l'utilisateur répond par un mot court comme "effort"
+  if (t === "effort" || t === "en courant" || t === "courir" || t === "cours" || t === "course") return "spontane";
 
   return "unknown";
 }
+
 
 
 
@@ -160,7 +172,8 @@ const SUICIDE_QUESTION_TEXT =
   "As-tu des idées suicidaires en ce moment ? Réponds par **oui** ou **non**, s’il te plaît.";
 
 const MEDICAL_TRIAGE_QUESTION =
-  "Cette douleur est-elle apparue **spontanément** (au repos / après un effort) ou **suite à un **choc** récent ? Réponds par **spontané** ou **choc**.";
+const MEDICAL_TRIAGE_QUESTION =
+  "Cette douleur est-elle apparue **spontanément** (au repos / après un effort — ex. « effort », « en courant ») ou **suite à un choc** récent ? Réponds par **spontané** ou **choc**.";
 
 // **Question de clarification** lorsque le message contient à la fois des signaux médicaux et suicidaires
 const CLARIFY_PHYSICAL_OR_SUICIDE =
