@@ -183,12 +183,12 @@ function MobilePromoModal() {
 
         <div className="mt-2 flex flex-col gap-2">
           <a
-            href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+            href="https://technique-eft.com/livres-eft.html"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
           >
-            1 — Aller plus loin avec l&apos;EFT
+            1 — Les livres de Geneviève Gagos
           </a>
 
           <a
@@ -197,7 +197,7 @@ function MobilePromoModal() {
             rel="noopener noreferrer"
             className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
           >
-            2 — EFTY vous aide
+            2 — Aller plus loin avec l'EFT
           </a>
 
           <div className="mt-3 flex items-center justify-between gap-3">
