@@ -33,10 +33,8 @@ function corsHeaders(origin: string | null) {
 
 // ---------- Détection locale : suicide & médical ----------
 const SUICIDE_TRIGGERS = [
-  // directs
   "suicide","me suicider","idées suicidaires","envie d'en finir",
   "mettre fin à mes jours","je veux mourir","je vais me tuer",
-  // implicites fréquents
   "plus envie de vivre","je veux tout arrêter","je veux que tout s'arrête",
   "je veux disparaître","je ne vois plus de sens","tout le monde serait mieux sans moi",
   "je veux dormir pour toujours","je veux me faire du mal","me blesser","me couper",
@@ -44,16 +42,12 @@ const SUICIDE_TRIGGERS = [
 ];
 
 const MEDICAL_TRIGGERS = [
-  // douleur thoracique / dyspnée
   "douleur violente à la poitrine","douleur forte à la poitrine","oppression thoracique",
   "difficulté à respirer","je n'arrive plus à respirer","essoufflement important",
-  // signes neuro
   "faiblesse d'un côté","paralysie d'un côté","bouche de travers",
   "troubles de la parole soudains","parler devient difficile",
-  // trauma/saignement
   "saignement abondant","hémorragie","traumatisme crânien",
   "perte de connaissance","je me suis évanoui","perdu connaissance",
-  // douleur aiguë inhabituelle
   "douleur intense soudaine","douleur insupportable",
 ];
 
@@ -62,13 +56,10 @@ function containsAny(hay: string, list: string[]) {
   return list.some(k => t.includes(k));
 }
 
-// ——— Suicide : question standard posée par l’assistant
+// ——— Suicide helpers
 function isCrisisQuestion(s: string) {
   const t = (s || "").toLowerCase();
-  return (
-    t.includes("as-tu des idées suicidaires") ||
-    t.includes("as tu des idees suicidaires")
-  );
+  return t.includes("as-tu des idées suicidaires") || t.includes("as tu des idees suicidaires");
 }
 function isExplicitYes(s: string)  { return /^(oui|yes)\b/i.test((s || "").trim()); }
 function isExplicitNo(s: string)   { return /^(non|no)\b/i.test((s || "").trim()); }
@@ -77,71 +68,53 @@ function assistantSuggestsAlert(s: string) {
   return t.includes("danger immédiat") || t.includes("urgence") || t.includes("appelle le");
 }
 
-// ——— Médical : question de triage (spontané vs choc)
-// normalisation simple : minuscules, retire accents, supprime ponctuation excessive
+// ---------- Normalisation & classification médicales (tolérantes) ----------
 function normalizeText(s: string | null): string {
   if (!s) return "";
-  // supprime accents (NFD) et les marques diacritiques
-  const noAccents = s.normalize("NFD").replace(/\p{M}/gu, "");
-  // garde lettres/chiffres/espaces, remplace le reste par espace, compacte espaces
-  return noAccents.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  // retire accents, met en minuscule, supprime ponctuation non alphanumérique
+  try {
+    const noAccents = s.normalize("NFD").replace(/\p{M}/gu, "");
+    return noAccents.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  } catch {
+    return (s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+  }
 }
 
-// ——— Médical : question de triage (spontané vs choc)
-// plus tolérante : reconnaît "spontané", "spontanément", "au repos", "après un effort", "effort", "en courant", ...
+// question de triage : plus tolérante sur la forme
 function isMedicalClarifierQuestion(s: string) {
   const t = normalizeText(s);
-  // On identifie la question de triage si elle parle explicitement de "douleur" ET évoque les deux axes possibles
   const mentionDouleur = t.includes("douleur") || t.includes("douleurs") || t.includes("douleur poitrine") || t.includes("douleur thoracique");
-  const mentionsSpontane = t.includes("spontan") || t.includes("au repos") || t.includes("apres effort") || t.includes("apres un effort") || t.includes("effort") || t.includes("en courant") || t.includes("en march");
+  const mentionsSpontane = t.includes("spontan") || t.includes("au repos") || t.includes("apres effort") || t.includes("effort") || t.includes("en courant") || t.includes("en march");
   const mentionsChoc = t.includes("choc") || t.includes("coup") || t.includes("trauma") || t.includes("chute") || t.includes("heurter") || t.includes("collision");
   return mentionDouleur && (mentionsSpontane || mentionsChoc);
 }
 
-
-/**
- * Mappe la réponse utilisateur à "spontane" | "choc" | "unknown".
- * Très tolérante : accepte "effort", "en courant", "je courais", "après avoir couru", "marche", etc.
- */
+// classifie une réponse utilisateur courte en "spontane" | "choc" | "unknown"
 function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
   const t = normalizeText(s);
   if (!t) return "unknown";
 
-  // tokens indicateurs pour choc/trauma
-  const chocTokens = [
-    "choc", "coup", "traum", "chute", "heurter", "collision", "tomber", "frapper", "fracture"
-  ];
-  // tokens indicateurs pour effort / activité → on traite comme "spontane"
+  const chocTokens = ["choc","coup","traum","chute","heurter","collision","tomber","frapper","fracture"];
   const effortTokens = [
-    "spontan", "spontane", "spontanement", "au repos",
-    "apres effort", "apres un effort", "apres une effort", "apres avoir", "effort",
-    "en courant", "courir", "courais", "couru", "course", "jogging",
-    "marche", "marcheur", "sport", "exercice", "entrainement", "porter", "soulever"
+    "spontan","spontane","spontanement","au repos",
+    "apres effort","apres un effort","apres une effort","apres avoir","effort",
+    "en courant","courir","courais","couru","course","jogging",
+    "marche","sport","exercice","entrainement","soulever","porter"
   ];
 
-  // d'abord les signes de choc (priorité pour éviter faux positifs)
   if (chocTokens.some(tok => t.includes(tok))) return "choc";
-
-  // ensuite les signes d'effort/spontané
   if (effortTokens.some(tok => t.includes(tok))) return "spontane";
-
-  // couverture explicite pour "spontané"/"spontanement"
   if (/\bspontan(?:e|ement)?\b/.test(t)) return "spontane";
-
-  // si l'utilisateur répond par un mot court comme "effort"
-  if (t === "effort" || t === "en courant" || t === "courir" || t === "cours" || t === "course") return "spontane";
+  if (t === "effort" || t === "en courant" || t === "courir") return "spontane";
 
   return "unknown";
 }
-
-
-
 
 // ---------- OpenAI ----------
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
-// Analyseur LLM minimaliste (retourne un label court)
+// petit wrapper LLM detector
 async function llmFlag(
   kind: "suicide" | "medical",
   userText: string
@@ -151,7 +124,7 @@ async function llmFlag(
       ? `Tu es un détecteur de crise suicidaire. Analyse objectivement le message.
 Réponds UNIQUEMENT par "hit" si tu suspectes un risque suicidaire ou "safe" sinon. Aucune explication.`
       : `Tu es un détecteur d'urgence médicale. Analyse objectivement le message.
-Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur thoracique sévère, détresse respiratoire, signes d'AVC, hémorragie, perte de connaissance, etc.) ou "safe" sinon. Conseil de consulter un médecin pour s'en assurer.`;
+Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur thoracique sévère, détresse respiratoire, signes d'AVC, hémorragie, perte de connaissance, etc.) ou "safe" sinon.`;
 
   const completion = await openai.chat.completions.create({
     model: MODEL,
@@ -171,27 +144,29 @@ Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur tho
 const SUICIDE_QUESTION_TEXT =
   "As-tu des idées suicidaires en ce moment ? Réponds par **oui** ou **non**, s’il te plaît.";
 
-
 const MEDICAL_TRIAGE_QUESTION =
   "Cette douleur est-elle apparue **spontanément** (au repos / après un effort — ex. « effort », « en courant ») ou **suite à un choc** récent ? Réponds par **spontané** ou **choc**.";
 
-// **Question de clarification** lorsque le message contient à la fois des signaux médicaux et suicidaires
+// question de clarification neutre (si detection à la fois med + suicide)
 const CLARIFY_PHYSICAL_OR_SUICIDE =
   "Je veux bien comprendre pour t'aider correctement : parles-tu d'une **douleur physique** (réponds `douleur`) ou de **pensées de te faire du mal / d'en finir** (réponds `pensées`) ?";
 
 // Fermetures empathiques
 const CLOSING_SUICIDE = `Je te prends profondément au sérieux. 
-Tu vis un moment très difficile et tu n’as pas à le traverser seul·e.  
-Je ne peux pas poursuivre la séance d’EFT car une situation d’urgence demande un soutien humain direct.
+Je sens que tu traverses un moment très difficile — tu n'as pas à le vivre seul·e.
 
-Appelle dès maintenant :
-• **3114** — Prévention du suicide (gratuit, 24h/24 et 7j/7)  
-• **112** — Urgences  
-• **15** — SAMU (si tu es en danger immédiat)
+Je ne peux pas poursuivre la séance d'EFT dans cette situation : il est important de contacter immédiatement une aide humaine.
+Appelle s'il te plaît **en priorité** :
+• **3114** — Prévention du suicide (gratuit, 24h/24 et 7j/7) — France (service spécialisé)
+Ensuite si besoin :
+• **112** — Urgences (numéro européen)  
+• **15** — SAMU (France)
 
-Si quelqu’un est près de toi, parle-lui ou demande-lui de t’aider à appeler.  
-Tu comptes, ta présence est importante. ❤️  
-Je reste avec toi en pensée.`;
+Si quelqu’un est près de toi, demande-lui de t’aider à appeler maintenant.
+Reste avec la personne qui écoute et, si possible, mets-toi en lieu sûr.
+
+Tu comptes, ta présence est importante. Je suis de tout cœur avec toi. ❤️
+(Je suspends la séance pour prioriser ta sécurité.)`;
 
 const CLOSING_MEDICAL = `Je comprends que tu vis une situation intense et cela m’inquiète pour ta sécurité.  
 Je ne peux pas poursuivre une séance d’EFT dans une situation qui peut relever d’une urgence médicale et demander une intervention humaine rapide.
@@ -203,7 +178,7 @@ Je t’invite à appeler sans attendre :
 Si quelqu’un est près de toi, demande-lui de t’aider à passer l’appel.  
 Prends soin de toi avant tout, c’est la priorité absolue. ❤️ `;
 
-// ---------- computeCrisis (remplacée : gère clarify, medical, suicide, none) ----------
+// ---------- computeCrisis (gestion clarify / medical / suicide / none) ----------
 function computeCrisis(
   history: ChatMessage[],
   modelAnswer: string,
@@ -213,15 +188,13 @@ function computeCrisis(
 
   const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
 
-  // Signaux individuels
   const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
   const hasMedicalKeyword = containsAny(lastUser, MEDICAL_TRIGGERS);
   const suicideSignal = hasSuicideKeyword || suicideLLM === "hit" || assistantSuggestsAlert(modelAnswer);
   const medicalSignal = hasMedicalKeyword || medicalLLM === "hit";
 
-  // 1) Si uniquement suicide -> ASK suicide
+  // 1) suicide only
   if (suicideSignal && !medicalSignal) {
-    // suicide questions / checks (comme avant)
     const asks: number[] = [];
     history.forEach((m, i) => { if (m.role === "assistant" && isCrisisQuestion(m.content)) asks.push(i); });
     const lastAskIdx = asks.length ? asks[asks.length - 1] : -1;
@@ -238,7 +211,7 @@ function computeCrisis(
     return { crisis: "ask", reason: "suicide" };
   }
 
-  // 2) Si uniquement médical -> ASK médical (triage)
+  // 2) medical only
   if (medicalSignal && !suicideSignal) {
     const askIdxs: number[] = [];
     history.forEach((m, i) => { if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) askIdxs.push(i); });
@@ -256,9 +229,8 @@ function computeCrisis(
     return { crisis: "ask", reason: "medical" };
   }
 
-  // 3) Si les deux signaux (med + suicide) -> clarification demandée
+  // 3) both -> clarification
   if (medicalSignal && suicideSignal) {
-    // Cherche si on avait déjà demandé une clarification type "douleur/pensées"
     const clarifyPatterns = ["parles", "douleur", "pensées", "te faire du mal", "en finir"];
     const assistantClarifyIdxs: number[] = [];
     history.forEach((m, i) => {
@@ -274,23 +246,18 @@ function computeCrisis(
 
       const t = userAfterClarify.trim().toLowerCase();
       if (/^douleur\b|^douleur|^physique\b|^physique/.test(t)) {
-        // utilisateur précise que c'est une douleur → on bascule vers le triage médical
         return { crisis: "ask", reason: "medical" };
       }
       if (/^pensées\b|^pensée\b|^pensées|^je veux|^je vais|^me tuer|^en finir|^me faire du mal/.test(t)) {
-        // utilisateur confirme pensées suicidaires → on bascule vers la question suicide
         return { crisis: "ask", reason: "suicide" };
       }
-
-      // si réponse ambigüe, répéter la clarification
       return { crisis: "ask", reason: "clarify" };
     }
 
-    // pas encore clarifié -> demander clarification
     return { crisis: "ask", reason: "clarify" };
   }
 
-  // 4) pas d'alerte
+  // 4) none
   return { crisis: "none", reason: "none" };
 }
 
@@ -323,44 +290,58 @@ export async function POST(req: NextRequest) {
     lastUserMsg ? llmFlag("medical", lastUserMsg) : Promise.resolve<"hit" | "safe">("safe"),
   ]);
 
+  // --- OPTIONAL DEBUG (commenté) ---
+  // Si tu veux activer le debug temporairement, décommente ce bloc pour renvoyer
+  // des informations utiles dans la réponse JSON (pense à le retirer ensuite).
+  /*
+  const medAskIdxs: number[] = [];
+  history.forEach((m, i) => {
+    if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) medAskIdxs.push(i);
+  });
+  const lastMedAskIdx = medAskIdxs.length ? medAskIdxs[medAskIdxs.length - 1] : -1;
+  const userAfterMedAsk = lastMedAskIdx >= 0 ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null : null;
+  const medClass = classifyMedicalReply(userAfterMedAsk);
+  const debugObj = {
+    lastMedAskIdx,
+    userAfterMedAskPreview: userAfterMedAsk ? userAfterMedAsk.slice(0, 200) : null,
+    medClass,
+    suicideLLM,
+    medicalLLM,
+    lastUserMsgPreview: (lastUserMsg || "").slice(0,200),
+  };
+  */
+
   const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
 
-     // --- Safety override : si l'assistant venait d'interroger sur le risque suicidaire
-  // et que l'utilisateur répond explicitement "oui", forcer la fermeture empathique IMMÉDIATEMENT.
+  // --- Safety override : si la dernière question de l'assistant était la question suicide
+  // et l'utilisateur a répondu explicitement "oui", on renvoie immédiatement la fermeture empathique.
   const lastAssistantAskForSuicide = [...history].reverse().find(
     (m) => m.role === "assistant" && isCrisisQuestion(m.content)
   );
-
-  // ATTENTION : on utilise la variable `lastUserMsg` déjà déclarée plus haut dans POST
   if (lastAssistantAskForSuicide && isExplicitYes(lastUserMsg)) {
     const forcedAnswer = CLOSING_SUICIDE;
-    return new NextResponse(
-      JSON.stringify({ answer: forcedAnswer, crisis: "lock", reason: "suicide" }),
-      { headers, status: 200 }
-    );
+    return new NextResponse(JSON.stringify({ answer: forcedAnswer, crisis: "lock", reason: "suicide" }), {
+      headers,
+      status: 200,
+    });
   }
-
 
   // ——— Forcer le message renvoyé selon l’état d’urgence
   if (crisis === "lock") {
-    // Fermeture empathique (comme avant)
     answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
   } else if (crisis === "ask") {
-    // Si on demande un triage médical explicite
     if (reason === "medical") {
       answer = MEDICAL_TRIAGE_QUESTION;
     } else if (reason === "suicide") {
       answer = SUICIDE_QUESTION_TEXT;
     } else if (reason === "clarify") {
-      // Cas où le message révèle à la fois des signaux médicaux et suicidaires :
-      // on pose une question de disambiguation courte et neutre.
       answer = CLARIFY_PHYSICAL_OR_SUICIDE;
     } else {
-      // fallback (sécurité) : demander la question suicide par défaut
       answer = SUICIDE_QUESTION_TEXT;
     }
   }
 
+  // Si tu as activé le debug plus haut, renvoie { answer, crisis, debug: debugObj } ; sinon renvoie normal
   return new NextResponse(JSON.stringify({ answer, crisis }), {
     headers,
     status: 200,
