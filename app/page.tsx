@@ -93,130 +93,99 @@ function PromoCard() {
   );
 }
 
-/* ---------- Mobile Promo Modal (minimize behaviour) ---------- */
+/* ---------- Mobile Promo Modal (minimized bar ALWAYS visible; user cannot hide it) ---------- */
 function MobilePromoModal() {
-  // Legacy-friendly MediaQueryList type (no 'any')
   type MqlWithLegacy = MediaQueryList & {
     addListener?: (listener: (e: MediaQueryListEvent) => void) => void;
     removeListener?: (listener: (e: MediaQueryListEvent) => void) => void;
   };
 
   const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false); // modal expanded
-  const [minimized, setMinimized] = useState(false); // reduced bar shown
-  const [justOpened, setJustOpened] = useState(false); // guard to avoid immediate double-click reopen
+  const [modalVisible, setModalVisible] = useState(false);
+  const [minimizedVisible, setMinimizedVisible] = useState(false);
+  const [justOpened, setJustOpened] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     if (typeof window === "undefined") return;
 
-    const parseDismiss = (): { dismissedAt?: number; minimized?: boolean } | null => {
+    const readInfo = (): { minimizedPreferred?: boolean } => {
       try {
         const raw = localStorage.getItem(DISMISS_KEY);
-        if (!raw) return null;
-        // Support legacy numeric timestamp as string
+        if (!raw) return {};
+        // keep backward compat if stored value was a number/string
         if (/^\d+$/.test(raw)) {
-          return { dismissedAt: Number(raw), minimized: true };
+          return { minimizedPreferred: true };
         }
-        return JSON.parse(raw);
+        return JSON.parse(raw) || {};
       } catch {
-        return null;
+        return {};
       }
-    };
-
-    const canOpenNow = (): boolean => {
-      const info = parseDismiss();
-      if (info?.dismissedAt) {
-        if (Date.now() - (info.dismissedAt || 0) < DISMISS_TTL) {
-          return false;
-        }
-      }
-      return true;
     };
 
     const mql = window.matchMedia("(max-width: 767px)") as MqlWithLegacy;
+    const info = readInfo();
 
-    const info = parseDismiss();
-    if (mql.matches) {
-      if (info?.dismissedAt && Date.now() - (info.dismissedAt || 0) < DISMISS_TTL) {
-        setVisible(false);
-        setMinimized(Boolean(info.minimized ?? true));
-      } else {
-        setVisible(canOpenNow());
-        setMinimized(false);
-      }
-    } else {
-      setVisible(false);
-      setMinimized(false);
-    }
+    // On mobile the minimized bar is always shown; modal opens only if user did NOT previously prefer minimized.
+    const isMobile = mql.matches;
+    setMinimizedVisible(isMobile); // always show minimized bar on mobile
+    setModalVisible(isMobile && !info.minimizedPreferred);
 
     const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
       const matches = "matches" in e ? e.matches : false;
-      if (matches) {
-        const info2 = parseDismiss();
-        if (info2?.dismissedAt && Date.now() - (info2.dismissedAt || 0) < DISMISS_TTL) {
-          setVisible(false);
-          setMinimized(Boolean(info2.minimized ?? true));
-        } else {
-          setVisible(canOpenNow());
-          setMinimized(false);
-        }
-      } else {
-        setVisible(false);
-        setMinimized(false);
-      }
+      const cur = readInfo();
+      setMinimizedVisible(matches); // keep bar visible on mobile, hidden on desktop
+      setModalVisible(matches && !cur.minimizedPreferred);
     };
 
     if (typeof mql.addEventListener === "function") {
-      const wrapped = (ev: Event) => {
-        const mqEvent = ev as MediaQueryListEvent;
-        onChange(mqEvent);
-      };
+      const wrapped = (ev: Event) => onChange(ev as MediaQueryListEvent);
       mql.addEventListener("change", wrapped);
-      return () => {
-        mql.removeEventListener?.("change", wrapped);
-      };
+      return () => mql.removeEventListener?.("change", wrapped);
     } else if (typeof mql.addListener === "function") {
       mql.addListener(onChange as (e: MediaQueryListEvent) => void);
-      return () => {
-        mql.removeListener?.(onChange as (e: MediaQueryListEvent) => void);
-      };
+      return () => mql.removeListener?.(onChange as (e: MediaQueryListEvent) => void);
     }
 
     return;
   }, []);
 
-  function close(remember: boolean) {
-    setVisible(false);
-    if (remember && typeof window !== "undefined") {
-      try {
-        const payload = { dismissedAt: Date.now(), minimized: true };
-        localStorage.setItem(DISMISS_KEY, JSON.stringify(payload));
-        setMinimized(true);
-      } catch {
-        setMinimized(true);
-      }
-    } else {
-      setMinimized(false);
+  if (!mounted) return null;
+  if (!modalVisible && !minimizedVisible) return null;
+
+  // persist that user prefers minimized (so modal won't auto-open again)
+  function persistMinimizedPreferred() {
+    try {
+      const raw = localStorage.getItem(DISMISS_KEY);
+      const info = raw ? JSON.parse(raw) : {};
+      info.minimizedPreferred = true;
+      localStorage.setItem(DISMISS_KEY, JSON.stringify(info));
+    } catch {
+      // ignore
     }
   }
 
+  function minimizeFromModal() {
+    setModalVisible(false);
+    setMinimizedVisible(true);
+    persistMinimizedPreferred();
+  }
+
   function reopenFromMinimized() {
-    setVisible(true);
-    setMinimized(false);
+    setModalVisible(true);
+    // keep minimizedVisible true while modal is open or hide it visually — here we hide it while modal open
+    setMinimizedVisible(false);
     setJustOpened(true);
     setTimeout(() => setJustOpened(false), 600);
   }
 
-  if (!mounted) return null;
-  if (!visible && !minimized) return null;
-
-  if (visible) {
-    const modal = (
+  // Modal JSX (overlay + content)
+  if (modalVisible) {
+    return createPortal(
       <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 py-6 sm:items-start">
         <div
           className="absolute inset-0 bg-black/40"
-          onClick={() => close(true)} // minimize on overlay click
+          onClick={() => minimizeFromModal()} // overlay click minimizes (keeps the reduced bar visible)
           aria-hidden
         />
         <div
@@ -235,8 +204,8 @@ function MobilePromoModal() {
 
             <div className="flex-shrink-0">
               <button
-                onClick={() => close(true)}
-                aria-label="Fermer la fenêtre promotion (réduire)"
+                onClick={() => minimizeFromModal()}
+                aria-label="Réduire la fenêtre promotion"
                 className="rounded-full bg-white border px-3 py-1 text-lg shadow-sm"
               >
                 ×
@@ -249,7 +218,7 @@ function MobilePromoModal() {
               href="https://ecole-eft-france.fr/pages/formations-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
+              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
             >
               Se former à l&apos;EFT pour un usage professionnel
             </a>
@@ -258,7 +227,7 @@ function MobilePromoModal() {
               href="https://technique-eft.com/livres-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
+              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
             >
               Les livres EFT
             </a>
@@ -267,77 +236,60 @@ function MobilePromoModal() {
               href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
+              className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
             >
               Se former à l&apos;EFT pour un usage personnel
             </a>
 
             <div className="mt-3 flex items-center justify-between gap-3">
-              <button
-                onClick={() => { close(true); }}
-                className="rounded-lg border px-3 py-2 bg-white text-[#0f3d69]"
-              >
-                Fermer (ne plus montrer aujourd&apos;hui)
-              </button>
-
               <div className="flex-shrink-0">
                 <AyniButton />
               </div>
             </div>
 
-            <p className="text-xs mt-3 opacity-80">Tu peux fermer la fenêtre ou revenir plus tard.</p>
+            <p className="text-xs mt-3 opacity-80">Tu peux réduire la fenêtre — la barre "Soutenir EFTY" restera toujours visible.</p>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
-
-    return createPortal(modal, document.body);
   }
 
-  // Minimized bar (clickable)
-  const minimizedBar = (
-    <div
-      role="button"
-      aria-label="Ouvrir la fenêtre promotion EFTY"
-      onClick={() => {
-        if (justOpened) return;
-        reopenFromMinimized();
-      }}
-      className="fixed left-4 right-4 bottom-4 z-[60] mx-auto max-w-md cursor-pointer"
-    >
-      <div className="flex items-center justify-between rounded-full border bg-[#F3EEE6] p-2 shadow-md">
-        <div className="flex items-center gap-3 px-2">
-          <div className="flex-shrink-0 rounded-full bg-white p-2 border">
-            <span role="img" aria-hidden>❤️</span>
+  // Minimized bar JSX (NO close button — cannot be hidden)
+  if (minimizedVisible) {
+    return createPortal(
+      <div
+        role="button"
+        aria-label="Ouvrir la fenêtre promotion EFTY"
+        onClick={() => {
+          if (justOpened) return;
+          reopenFromMinimized();
+        }}
+        className="fixed left-4 right-4 bottom-4 z-[60] mx-auto max-w-md cursor-pointer"
+      >
+        <div className="flex items-center justify-between rounded-full border bg-[#F3EEE6] p-2 shadow-md">
+          <div className="flex items-center gap-3 px-2">
+            <div className="flex-shrink-0 rounded-full bg-white p-2 border">
+              <span role="img" aria-hidden>❤️</span>
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-[#0f3d69]">Soutenir EFTY</div>
+              <div className="text-xs text-[#0f3d69] opacity-80">Revoir la fenêtre</div>
+            </div>
           </div>
-          <div>
-            <div className="text-sm font-semibold text-[#0f3d69]">Soutenir EFTY</div>
-            <div className="text-xs text-[#0f3d69] opacity-80">Revoir la fenêtre</div>
+
+          <div className="flex items-center gap-2 pr-2">
+            {/* Intentionally no "×" button here — the minimized bar cannot be hidden by the user */}
           </div>
         </div>
+      </div>,
+      document.body
+    );
+  }
 
-        <div className="flex items-center gap-2 pr-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              try {
-                localStorage.setItem(DISMISS_KEY, JSON.stringify({ dismissedAt: Date.now(), minimized: false }));
-              } catch {}
-              setMinimized(false);
-            }}
-            className="rounded-md bg-white px-3 py-1 text-sm border"
-            aria-label="Masquer la barre promotion pour aujourd'hui"
-            title="Masquer pour aujourd'hui"
-          >
-            ×
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  return createPortal(minimizedBar, document.body);
+  return null;
 }
+
 
 /* ---------- Alerte flottante (utilisée dans Page) ---------- */
 function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
