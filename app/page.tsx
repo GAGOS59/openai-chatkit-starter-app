@@ -259,7 +259,7 @@ function MobilePromoModal() {
 }
 
 /* ---------- Alerte flottante (utilisée dans Page) ---------- */
-function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reason?: string }) {
+function CrisisFloating({ reason }: { reason?: string }) {
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -272,7 +272,7 @@ function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reaso
       {!collapsed && (
         <p className="mt-0.5 text-sm opacity-80">
           Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences. 
-          Il semble que tu traverses un moment très difficile. Je ne peux pas poursuivre l'EFT dans cette situation.
+          Il semble que tu traverses un moment très difficile. Je ne peux pas poursuivre l&apos;EFT dans cette situation.
         </p>
       )}
       <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
@@ -308,7 +308,7 @@ function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reaso
         </ul>
 
         <div className="mt-2 text-xs">
-          <strong>Signes d'AVC (FAST) :</strong> visage affaissé, faiblesse d'un côté, trouble de la parole → agir tout de suite.
+          <strong>Signes d&apos;AVC (FAST) :</strong> visage affaissé, faiblesse d&apos;un côté, trouble de la parole → agir tout de suite.
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -317,7 +317,7 @@ function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reaso
         </div>
       </div>
       {!collapsed && (
-        <p className="mt-2 text-sm opacity-80">Si possible, demande à quelqu’un de rester avec toi et d’aider à appeler les secours.</p>
+        <p className="mt-2 text-sm opacity-80">Si possible, demande à quelqu&apos;un de rester avec toi et d&apos;aider à appeler les secours.</p>
       )}
     </>
   );
@@ -325,7 +325,7 @@ function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reaso
   const genericContent = (
     <>
       <div className="text-sm font-semibold">Message important</div>
-      {!collapsed && <p className="mt-0.5 text-sm opacity-80">Priorité à ta sécurité. Si tu es en danger, contacte les services d'urgence.</p>}
+      {!collapsed && <p className="mt-0.5 text-sm opacity-80">Priorité à ta sécurité. Si tu es en danger, contacte les services d&apos;urgence.</p>}
     </>
   );
 
@@ -377,7 +377,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t'accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
+        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd&apos;hui ?",
     },
   ]);
   const [input, setInput] = useState<string>("");
@@ -482,7 +482,7 @@ export default function Page() {
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: reply || "Je n'ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
+        { role: "assistant", content: reply || "Je n&apos;ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
       ]);
 
       // IMPORTANT : utiliser la raison envoyée par le serveur si présente
@@ -508,7 +508,7 @@ export default function Page() {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Désolé, je n'ai pas pu répondre. Réessaie dans un instant ou reformule ta demande." },
+        { role: "assistant", content: "Désolé, je n&apos;ai pas pu répondre. Réessaie dans un instant ou reformule ta demande." },
       ]);
     } finally {
       setLoading(false);
@@ -576,7 +576,7 @@ export default function Page() {
           </div>
 
           {/* Alerte flottante */}
-          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} reason={crisisReason} />}
+          {crisisMode !== "none" && <CrisisFloating reason={crisisReason} />}
 
           {/* Formulaire */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
