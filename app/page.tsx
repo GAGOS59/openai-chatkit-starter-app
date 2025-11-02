@@ -376,7 +376,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
+        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
     },
   ]);
   const [input, setInput] = useState<string>("");
