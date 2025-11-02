@@ -63,7 +63,7 @@ function PromoCard() {
           rel="noopener noreferrer"
           className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] transition"
         >
-          Se former à l'EFT officielle
+          Se former à l&apos;EFT officielle
         </a>
 
         <a
