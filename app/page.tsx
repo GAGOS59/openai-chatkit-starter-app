@@ -95,55 +95,80 @@ function PromoCard() {
 }
 
 /* ---------- Mobile Promo Modal (robuste, sans any) ---------- */
+/* ---------- Mobile Promo Modal (robuste, minimise en bas si demandé) ---------- */
 function MobilePromoModal() {
-  // Legacy-friendly MediaQueryList type (no 'any')
   type MqlWithLegacy = MediaQueryList & {
     addListener?: (listener: (e: MediaQueryListEvent) => void) => void;
     removeListener?: (listener: (e: MediaQueryListEvent) => void) => void;
   };
 
-  const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false); // modal expanded
+  const [minimized, setMinimized] = useState(false); // reduced bar shown
+  const [justOpened, setJustOpened] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     if (typeof window === "undefined") return;
 
-    const canOpen = (): boolean => {
+    const parseDismiss = (): { dismissedAt?: number; minimized?: boolean } | null => {
       try {
-        const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
-        if (dismissed && Date.now() - dismissed < DISMISS_TTL) return false;
+        const raw = localStorage.getItem(DISMISS_KEY);
+        if (!raw) return null;
+        if (/^\d+$/.test(raw)) {
+          return { dismissedAt: Number(raw), minimized: true };
+        }
+        return JSON.parse(raw);
       } catch {
-        // ignore localStorage errors
+        return null;
+      }
+    };
+
+    const canOpenNow = (): boolean => {
+      const info = parseDismiss();
+      if (info?.dismissedAt) {
+        if (Date.now() - (info.dismissedAt || 0) < DISMISS_TTL) {
+          return false;
+        }
       }
       return true;
     };
 
     const mql = window.matchMedia("(max-width: 767px)") as MqlWithLegacy;
 
-    // ouvrir uniquement si mobile et pas récemment fermé
-    if (mql.matches && canOpen()) {
-      setVisible(true);
+    const info = parseDismiss();
+    if (mql.matches) {
+      if (info?.dismissedAt && Date.now() - (info.dismissedAt || 0) < DISMISS_TTL) {
+        setVisible(false);
+        setMinimized(Boolean(info.minimized ?? true));
+      } else {
+        setVisible(canOpenNow());
+        setMinimized(false);
+      }
     } else {
       setVisible(false);
+      setMinimized(false);
     }
 
-    // handler typé
     const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
       const matches = "matches" in e ? e.matches : false;
       if (matches) {
-        if (canOpen()) setVisible(true);
+        const info2 = parseDismiss();
+        if (info2?.dismissedAt && Date.now() - (info2.dismissedAt || 0) < DISMISS_TTL) {
+          setVisible(false);
+          setMinimized(Boolean(info2.minimized ?? true));
+        } else {
+          setVisible(canOpenNow());
+          setMinimized(false);
+        }
       } else {
         setVisible(false);
+        setMinimized(false);
       }
     };
 
-    // brancher la meilleure API disponible (modern / legacy)
     if (typeof mql.addEventListener === "function") {
-      // addEventListener expects an EventListener, but our handler is compatible
-      // Using a wrapper keeps types clean
       const wrapped = (ev: Event) => {
-        // Try to coerce to MediaQueryListEvent - modern browsers call with it
         const mqEvent = ev as MediaQueryListEvent;
         onChange(mqEvent);
       };
@@ -158,105 +183,162 @@ function MobilePromoModal() {
       };
     }
 
-    // fallback - no listeners available
     return;
-  }, []); // DISMISS_TTL and DISMISS_KEY are module constants -> ok to leave deps empty
-
-  if (!mounted || !visible) return null;
+  }, []);
 
   function close(remember: boolean) {
     setVisible(false);
     if (remember && typeof window !== "undefined") {
       try {
-        localStorage.setItem(DISMISS_KEY, String(Date.now()));
+        const payload = { dismissedAt: Date.now(), minimized: true };
+        localStorage.setItem(DISMISS_KEY, JSON.stringify(payload));
+        setMinimized(true);
       } catch {
-        // ignore
+        setMinimized(true);
       }
+    } else {
+      setMinimized(false);
     }
   }
 
-  const modal = (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 py-6 sm:items-start">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={() => close(false)}
-        aria-hidden
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="relative w-full max-w-lg rounded-t-xl bg-[#F3EEE6] p-4 shadow-xl"
-        style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-semibold leading-tight mb-1">Pour aller plus loin avec l&apos;EFT</h3>
-            <p className="text-sm text-[#0f3d69] opacity-90 mb-2">
-              Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS&reg;</strong>.
-            </p>
-          </div>
+  function reopenFromMinimized() {
+    setVisible(true);
+    setMinimized(false);
+    setJustOpened(true);
+    setTimeout(() => setJustOpened(false), 600);
+  }
 
-          <div className="flex-shrink-0">
-            <button
-              onClick={() => close(true)}
-              aria-label="Fermer la fenêtre promotion"
-              className="rounded-full bg-white border px-3 py-1 text-lg shadow-sm"
-            >
-              ×
-            </button>
-          </div>
-        </div>
+  if (!mounted) return null;
+  if (!visible && !minimized) return null;
 
-        <div className="mt-2 flex flex-col gap-2">
-          <a
-            href="https://ecole-eft-france.fr/pages/formations-eft.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
-          >
-            Se former à l&apos;EFT pour un usage professionnel
-          </a>
-
-          <a
-            href="https://technique-eft.com/livres-eft.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
-          >
-            Les livres EFT
-          </a>
-
-          <a
-          href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+  if (visible) {
+    const modal = (
+      <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 py-6 sm:items-start">
+        {/* <-- CHANGED: overlay click now minimizes (close(true)) instead of hiding without minimizing */}
+        <div
+          className="absolute inset-0 bg-black/40"
+          onClick={() => close(true)}
+          aria-hidden
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="relative w-full max-w-lg rounded-t-xl bg-[#F3EEE6] p-4 shadow-xl"
+          style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
         >
-          Se former à l&apos;EFT pour un usage personnel
-        </a>
-
-
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <button
-              onClick={() => close(true)}
-              className="rounded-lg border px-3 py-2 bg-white text-[#6fbaec]"
-            >
-              Fermer (ne plus montrer aujourd&apos;hui)
-            </button>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold leading-tight mb-1">Pour aller plus loin avec l&apos;EFT</h3>
+              <p className="text-sm text-[#0f3d69] opacity-90 mb-2">
+                Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS&reg;</strong>.
+              </p>
+            </div>
 
             <div className="flex-shrink-0">
-              <AyniButton />
+              <button
+                onClick={() => close(true)} // minimise on X click (unchanged)
+                aria-label="Fermer la fenêtre promotion (réduire)"
+                className="rounded-full bg-white border px-3 py-1 text-lg shadow-sm"
+              >
+                ×
+              </button>
             </div>
           </div>
 
-          <p className="text-xs mt-3 opacity-80">Tu peux fermer la fenêtre ou revenir plus tard.</p>
+          <div className="mt-2 flex flex-col gap-2">
+            <a
+              href="https://ecole-eft-france.fr/pages/formations-eft.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+            >
+              Se former à l&apos;EFT pour un usage professionnel
+            </a>
+
+            <a
+              href="https://technique-eft.com/livres-eft.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+            >
+              Les livres EFT
+            </a>
+
+            <a
+              href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+            >
+              Se former à l&apos;EFT pour un usage personnel
+            </a>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <button
+                onClick={() => { close(true); }}
+                className="rounded-lg border px-3 py-2 bg-white text-[#0f3d69]"
+              >
+                Fermer (ne plus montrer aujourd&apos;hui)
+              </button>
+
+              <div className="flex-shrink-0">
+                <AyniButton />
+              </div>
+            </div>
+
+            <p className="text-xs mt-3 opacity-80">Tu peux fermer la fenêtre ou revenir plus tard.</p>
+          </div>
+        </div>
+      </div>
+    );
+
+    return createPortal(modal, document.body);
+  }
+
+  const minimizedBar = (
+    <div
+      role="button"
+      aria-label="Ouvrir la fenêtre promotion EFTY"
+      onClick={() => {
+        if (justOpened) return;
+        reopenFromMinimized();
+      }}
+      className="fixed left-4 right-4 bottom-4 z-[60] mx-auto max-w-md cursor-pointer"
+    >
+      <div className="flex items-center justify-between rounded-full border bg-[#F3EEE6] p-2 shadow-md">
+        <div className="flex items-center gap-3 px-2">
+          <div className="flex-shrink-0 rounded-full bg-white p-2 border">
+            <span role="img" aria-hidden>❤️</span>
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-[#0f3d69]">Soutenir EFTY</div>
+            <div className="text-xs text-[#0f3d69] opacity-80">Revoir la fenêtre</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pr-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              try {
+                localStorage.setItem(DISMISS_KEY, JSON.stringify({ dismissedAt: Date.now(), minimized: false }));
+              } catch {}
+              setMinimized(false);
+            }}
+            className="rounded-md bg-white px-3 py-1 text-sm border"
+            aria-label="Masquer la barre promotion pour aujourd'hui"
+            title="Masquer pour aujourd'hui"
+          >
+            ×
+          </button>
         </div>
       </div>
     </div>
   );
 
-  return createPortal(modal, document.body);
+  return createPortal(minimizedBar, document.body);
 }
+
 
 /* ---------- Alerte flottante (utilisée dans Page) ---------- */
 function CrisisFloating({ reason }: { reason?: string }) {
