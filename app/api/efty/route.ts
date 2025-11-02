@@ -140,6 +140,10 @@ const SUICIDE_QUESTION_TEXT =
 const MEDICAL_TRIAGE_QUESTION =
   "Cette douleur est-elle apparue **spontanément** (au repos / après un effort) ou **suite à un **choc** récent ? Réponds par **spontané** ou **choc**.";
 
+// **Question de clarification** lorsque le message contient à la fois des signaux médicaux et suicidaires
+const CLARIFY_PHYSICAL_OR_SUICIDE =
+  "Je veux bien comprendre pour t'aider correctement : parles-tu d'une **douleur physique** (réponds `douleur`) ou de **pensées de te faire du mal / d'en finir** (réponds `pensées`) ?";
+
 // Fermetures empathiques
 const CLOSING_SUICIDE = `Je te prends profondément au sérieux. 
 Tu vis un moment très difficile et tu n’as pas à le traverser seul·e.  
@@ -154,7 +158,6 @@ Si quelqu’un est près de toi, parle-lui ou demande-lui de t’aider à appele
 Tu comptes, ta présence est importante. ❤️  
 Je reste avec toi en pensée.`;
 
-
 const CLOSING_MEDICAL = `Je comprends que tu vis une situation intense et cela m’inquiète pour ta sécurité.  
 Je ne peux pas poursuivre une séance d’EFT dans une situation qui peut relever d’une urgence médicale et demander une intervention humaine rapide.
 
@@ -165,24 +168,43 @@ Je t’invite à appeler sans attendre :
 Si quelqu’un est près de toi, demande-lui de t’aider à passer l’appel.  
 Prends soin de toi avant tout, c’est la priorité absolue. ❤️ `;
 
-
-
-
-// Politique : suicide = 2 questions max → lock si pas de NON ; médical = triage d’abord
+// ---------- computeCrisis (remplacée : gère clarify, medical, suicide, none) ----------
 function computeCrisis(
   history: ChatMessage[],
   modelAnswer: string,
   suicideLLM: "hit" | "safe",
   medicalLLM: "hit" | "safe"
-): { crisis: Crisis; reason: "none" | "suicide" | "medical" } {
+): { crisis: Crisis; reason: "none" | "suicide" | "medical" | "clarify" } {
 
   const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
 
-  // ===== 1) URGENCE MÉDICALE : poser d'abord 1 question de triage
-  const medicalSuspicion = containsAny(lastUser, MEDICAL_TRIGGERS) || medicalLLM === "hit";
+  // Signaux individuels
+  const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
+  const hasMedicalKeyword = containsAny(lastUser, MEDICAL_TRIGGERS);
+  const suicideSignal = hasSuicideKeyword || suicideLLM === "hit" || assistantSuggestsAlert(modelAnswer);
+  const medicalSignal = hasMedicalKeyword || medicalLLM === "hit";
 
-  if (medicalSuspicion) {
-    // a) si l’assistant a déjà posé la question de triage, on regarde la réponse utilisateur
+  // 1) Si uniquement suicide -> ASK suicide
+  if (suicideSignal && !medicalSignal) {
+    // suicide questions / checks (comme avant)
+    const asks: number[] = [];
+    history.forEach((m, i) => { if (m.role === "assistant" && isCrisisQuestion(m.content)) asks.push(i); });
+    const lastAskIdx = asks.length ? asks[asks.length - 1] : -1;
+
+    let userAfterLastAsk: string | null = null;
+    if (lastAskIdx >= 0) {
+      userAfterLastAsk = history.slice(lastAskIdx + 1).find(m => m.role === "user")?.content ?? null;
+    }
+
+    if (userAfterLastAsk && isExplicitYes(userAfterLastAsk)) return { crisis: "lock", reason: "suicide" };
+    if (userAfterLastAsk && isExplicitNo(userAfterLastAsk))  return { crisis: "none", reason: "none" };
+    if (asks.length >= 2)                                    return { crisis: "lock", reason: "suicide" };
+
+    return { crisis: "ask", reason: "suicide" };
+  }
+
+  // 2) Si uniquement médical -> ASK médical (triage)
+  if (medicalSignal && !suicideSignal) {
     const askIdxs: number[] = [];
     history.forEach((m, i) => { if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) askIdxs.push(i); });
     const lastMedAskIdx = askIdxs.length ? askIdxs[askIdxs.length - 1] : -1;
@@ -193,35 +215,47 @@ function computeCrisis(
 
       if (cls === "spontane") return { crisis: "lock", reason: "medical" };
       if (cls === "choc")     return { crisis: "none", reason: "none" };
-      // réponse floue/absente → on reste en ASK et on (re)pose la question
       return { crisis: "ask", reason: "medical" };
     }
 
-    // b) suspicion médicale détectée mais question pas encore posée → ASK (pas de lock)
     return { crisis: "ask", reason: "medical" };
   }
 
-  // ===== 2) SUICIDE : règle 2 questions → lock
-  // indices des questions posées
-  const asks: number[] = [];
-  history.forEach((m, i) => { if (m.role === "assistant" && isCrisisQuestion(m.content)) asks.push(i); });
-  const lastAskIdx = asks.length ? asks[asks.length - 1] : -1;
+  // 3) Si les deux signaux (med + suicide) -> clarification demandée
+  if (medicalSignal && suicideSignal) {
+    // Cherche si on avait déjà demandé une clarification type "douleur/pensées"
+    const clarifyPatterns = ["parles", "douleur", "pensées", "te faire du mal", "en finir"];
+    const assistantClarifyIdxs: number[] = [];
+    history.forEach((m, i) => {
+      if (m.role === "assistant" && clarifyPatterns.some(p => m.content.toLowerCase().includes(p))) {
+        assistantClarifyIdxs.push(i);
+      }
+    });
+    const lastClarifyIdx = assistantClarifyIdxs.length ? assistantClarifyIdxs[assistantClarifyIdxs.length - 1] : -1;
 
-  // réponse utilisateur après la dernière question
-  let userAfterLastAsk: string | null = null;
-  if (lastAskIdx >= 0) {
-    userAfterLastAsk = history.slice(lastAskIdx + 1).find(m => m.role === "user")?.content ?? null;
+    if (lastClarifyIdx >= 0) {
+      const userAfterClarify = history.slice(lastClarifyIdx + 1).find(m => m.role === "user")?.content ?? null;
+      if (!userAfterClarify) return { crisis: "ask", reason: "clarify" };
+
+      const t = userAfterClarify.trim().toLowerCase();
+      if (/^douleur\b|^douleur|^physique\b|^physique/.test(t)) {
+        // utilisateur précise que c'est une douleur → on bascule vers le triage médical
+        return { crisis: "ask", reason: "medical" };
+      }
+      if (/^pensées\b|^pensée\b|^pensées|^je veux|^je vais|^me tuer|^en finir|^me faire du mal/.test(t)) {
+        // utilisateur confirme pensées suicidaires → on bascule vers la question suicide
+        return { crisis: "ask", reason: "suicide" };
+      }
+
+      // si réponse ambigüe, répéter la clarification
+      return { crisis: "ask", reason: "clarify" };
+    }
+
+    // pas encore clarifié -> demander clarification
+    return { crisis: "ask", reason: "clarify" };
   }
 
-  if (userAfterLastAsk && isExplicitYes(userAfterLastAsk)) return { crisis: "lock", reason: "suicide" };
-  if (userAfterLastAsk && isExplicitNo(userAfterLastAsk))  return { crisis: "none", reason: "none" };
-  if (asks.length >= 2)                                    return { crisis: "lock", reason: "suicide" };
-
-  // signaux souples -> ASK (jamais lock sans oui / 2 questions)
-  if (containsAny(lastUser, SUICIDE_TRIGGERS) || suicideLLM === "hit" || assistantSuggestsAlert(modelAnswer)) {
-    return { crisis: "ask", reason: "suicide" };
-  }
-
+  // 4) pas d'alerte
   return { crisis: "none", reason: "none" };
 }
 
@@ -258,12 +292,22 @@ export async function POST(req: NextRequest) {
 
   // ——— Forcer le message renvoyé selon l’état d’urgence
   if (crisis === "lock") {
-    // Fermeture empathique (déjà OK)
+    // Fermeture empathique (comme avant)
     answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
   } else if (crisis === "ask") {
-    // ✅ On remplace la réponse libre du modèle par LA question obligatoire
-    answer = reason === "medical" ? MEDICAL_TRIAGE_QUESTION : SUICIDE_QUESTION_TEXT;
-    // (pas de lock ici : on attend la réponse utilisateur)
+    // Si on demande un triage médical explicite
+    if (reason === "medical") {
+      answer = MEDICAL_TRIAGE_QUESTION;
+    } else if (reason === "suicide") {
+      answer = SUICIDE_QUESTION_TEXT;
+    } else if (reason === "clarify") {
+      // Cas où le message révèle à la fois des signaux médicaux et suicidaires :
+      // on pose une question de disambiguation courte et neutre.
+      answer = CLARIFY_PHYSICAL_OR_SUICIDE;
+    } else {
+      // fallback (sécurité) : demander la question suicide par défaut
+      answer = SUICIDE_QUESTION_TEXT;
+    }
   }
 
   return new NextResponse(JSON.stringify({ answer, crisis }), {
