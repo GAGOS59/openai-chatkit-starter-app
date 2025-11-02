@@ -91,7 +91,7 @@ function PromoCard() {
   );
 }
 
-/* ---------- Mobile Promo Modal (s'ouvre sur mobile) ---------- */
+/* ---------- Mobile Promo Modal (remplacement robuste) ---------- */
 function MobilePromoModal() {
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -104,35 +104,46 @@ function MobilePromoModal() {
     setMounted(true);
     if (typeof window === "undefined") return;
 
-    try {
-      const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
-      if (dismissed && Date.now() - dismissed < DISMISS_TTL) {
-        return; // fermé récemment -> ne pas ouvrir
+    const canOpen = () => {
+      try {
+        const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
+        if (dismissed && Date.now() - dismissed < DISMISS_TTL) return false;
+      } catch {
+        /* ignore */
       }
-    } catch {
-      // ignore localStorage errors
-    }
+      return true;
+    };
 
-    // n'ouvrir que sur petits écrans (mobile)
-    if (window.innerWidth < 768) {
+    const mql = window.matchMedia("(max-width: 767px)");
+
+    if (mql.matches && canOpen()) {
       setVisible(true);
+    } else {
+      setVisible(false);
     }
-  }, []);
 
-  useEffect(() => {
-    function handleResize() {
-      if (!visible && typeof window !== "undefined" && window.innerWidth < 768) {
-        try {
-          const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
-          if (!dismissed || Date.now() - dismissed >= DISMISS_TTL) setVisible(true);
-        } catch {
-          setVisible(true);
-        }
+    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
+      if (e.matches) {
+        if (canOpen()) setVisible(true);
+      } else {
+        setVisible(false);
       }
+    };
+
+    if (typeof mql.addEventListener === "function") {
+      mql.addEventListener("change", onChange as EventListener);
+    } else if (typeof (mql as any).addListener === "function") {
+      (mql as any).addListener(onChange);
     }
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [visible]);
+
+    return () => {
+      if (typeof mql.removeEventListener === "function") {
+        mql.removeEventListener("change", onChange as EventListener);
+      } else if (typeof (mql as any).removeListener === "function") {
+        (mql as any).removeListener(onChange);
+      }
+    };
+  }, []);
 
   if (!mounted || !visible) return null;
 
@@ -142,24 +153,22 @@ function MobilePromoModal() {
       try {
         localStorage.setItem(DISMISS_KEY, String(Date.now()));
       } catch {
-        // ignore
+        /* ignore */
       }
     }
   }
 
   const modal = (
     <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 py-6 sm:items-start">
-      {/* overlay */}
       <div
         className="absolute inset-0 bg-black/40"
         onClick={() => close(false)}
         aria-hidden
       />
-      {/* bottom sheet style for mobile */}
       <div
         role="dialog"
         aria-modal="true"
-        className="relative w-full max-w-lg rounded-t-xl bg-[#F3EEE6] p-4 shadow-xl animate-slide-up"
+        className="relative w-full max-w-lg rounded-t-xl bg-[#F3EEE6] p-4 shadow-xl"
         style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
       >
         <div className="flex items-start justify-between gap-3">
@@ -183,12 +192,12 @@ function MobilePromoModal() {
 
         <div className="mt-2 flex flex-col gap-2">
           <a
-            href="https://technique-eft.com/livres-eft.html"
+            href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
           >
-            1 — Les livres de Geneviève Gagos
+            1 — Aller plus loin avec l&apos;EFT
           </a>
 
           <a
@@ -197,7 +206,7 @@ function MobilePromoModal() {
             rel="noopener noreferrer"
             className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
           >
-            2 — Aller plus loin avec l'EFT
+            2 — EFTY vous aide
           </a>
 
           <div className="mt-3 flex items-center justify-between gap-3">
@@ -374,10 +383,10 @@ export default function Page() {
 
       {/* === GRILLE : Chat (gauche) + Promo (droite) ===
           - mobile: 1 colonne (promo modal) -> promo aside hidden on mobile
-          - desktop: 2 colonnes (2fr / 1fr) with promo sticky */}
-      <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 items-start">
-        {/* ---- Colonne gauche : Chat ---- */}
-        <div className="space-y-6">
+          - desktop: 3-col grid with explicit col-spans for robustness */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        {/* ---- Colonne gauche : Chat (occupe 2/3 sur desktop) ---- */}
+        <div className="space-y-6 md:col-span-2">
           {/* Zone de chat */}
           <div
             ref={chatRef}
@@ -506,8 +515,8 @@ export default function Page() {
         </div>
 
         {/* ---- Colonne droite : PROMO (desktop sticky) ---- */}
-        {/* IMPORTANT : hidden sur mobile; mobile a sa propre modal pour éviter duplication */}
-        <aside className="hidden md:block space-y-4 md:sticky md:top-6">
+        {/* hidden sur mobile; sur desktop : 1/3 de la largeur - sticky en haut */}
+        <aside className="hidden md:block md:col-span-1 md:self-start md:sticky md:top-6">
           <PromoCard />
         </aside>
       </div>
