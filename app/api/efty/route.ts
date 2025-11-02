@@ -315,6 +315,33 @@ export async function POST(req: NextRequest) {
     lastUserMsg ? llmFlag("medical", lastUserMsg) : Promise.resolve<"hit" | "safe">("safe"),
   ]);
 
+  // --- Overwrites immédiats : si l'assistant a posé une question de clarification
+// et que l'utilisateur répond explicitement "oui", on force le lock immédiat.
+// (Reproduit le même comportement robuste que pour l'alerte suicide.)
+
+// a) si l'assistant a demandé la question suicide standard et que l'utilisateur a dit "oui"
+const lastAssistantAskForSuicide = [...history].reverse().find(
+  (m) => m.role === "assistant" && isCrisisQuestion(m.content)
+);
+if (lastAssistantAskForSuicide && isExplicitYes(lastUserMsg)) {
+  return new NextResponse(
+    JSON.stringify({ answer: CLOSING_SUICIDE, crisis: "lock", reason: "suicide" }),
+    { headers, status: 200 }
+  );
+}
+
+// b) si l'assistant a posé la question de triage médical (notre template) et que l'utilisateur a dit "oui"
+const lastAssistantAskForMedical = [...history].reverse().find(
+  (m) => m.role === "assistant" && isMedicalClarifierQuestion(m.content)
+);
+if (lastAssistantAskForMedical && isExplicitYes(lastUserMsg)) {
+  return new NextResponse(
+    JSON.stringify({ answer: CLOSING_MEDICAL, crisis: "lock", reason: "medical" }),
+    { headers, status: 200 }
+  );
+}
+
+  
   const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
 
   // --- Safety override : si l'assistant venait d'interroger sur le risque suicidaire
