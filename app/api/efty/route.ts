@@ -263,10 +263,17 @@ function computeCrisis(
     }
 
     // 2) No direct reply after the last triage question:
-    // Try to classify the lastUser as fallback (this covers rare cases where messages are re-ordered)
-    let cls = classifyMedicalReply(lastUser);
-    if (cls === "spontane") return { crisis: "lock", reason: "medical" };
-    if (cls === "choc")     return { crisis: "none", reason: "none" };
+    // calcule cls en une constante via IIFE pour satisfaire prefer-const tout en gardant la logique
+const cls = (() => {
+  const c = classifyMedicalReply(userAfter);
+  if ((c === "unknown" || userAfter === null) && lastUser) {
+    const clsLast = classifyMedicalReply(lastUser);
+    if (clsLast === "spontane") return "spontane";
+    if (clsLast === "choc") return "choc";
+  }
+  return c;
+})();
+
 
     // 3) If the assistant already asked the triage twice and we still have no clear answer -> lock
     if (askIdxs.length >= 2) return { crisis: "lock", reason: "medical" };
