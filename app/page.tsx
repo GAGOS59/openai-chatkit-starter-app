@@ -10,8 +10,10 @@ import React, {
 import { createPortal } from "react-dom";
 import Image from "next/image";
 
-/* ---------- Constantes ---------- */
+/* ---------- Constantes globales pour la promo mobile ---------- */
 const PAYPAL_URL = "https://paypal.me/efty25";
+const DISMISS_KEY = "efty_promo_dismissed_at_v1";
+const DISMISS_TTL = 24 * 60 * 60 * 1000; // 24h
 
 /* ---------- Bouton AYNI ---------- */
 function AyniButton({ className = "" }: { className?: string }) {
@@ -39,7 +41,7 @@ type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
-/* ---------- Carte Promo (toujours visible en desktop) ---------- */
+/* ---------- Carte Promo (desktop) ---------- */
 function PromoCard() {
   return (
     <aside
@@ -50,7 +52,7 @@ function PromoCard() {
       <div>
         <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
         <p className="text-sm mb-3 leading-relaxed">
-          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
+          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS&reg;</strong>.
         </p>
       </div>
 
@@ -79,7 +81,7 @@ function PromoCard() {
           rel="noopener noreferrer"
           className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
         >
-          Méthode TIPS®
+          Méthode TIPS&reg;
         </a>
 
         <div className="pt-2">
@@ -91,14 +93,10 @@ function PromoCard() {
   );
 }
 
-/* ---------- Mobile Promo Modal (remplacement robuste) ---------- */
+/* ---------- Mobile Promo Modal (robuste) ---------- */
 function MobilePromoModal() {
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
-
-  // clé localStorage et TTL pour ne pas réouvrir tout le temps
-  const DISMISS_KEY = "efty_promo_dismissed_at_v1";
-  const DISMISS_TTL = 24 * 60 * 60 * 1000; // 24h
 
   useEffect(() => {
     setMounted(true);
@@ -109,7 +107,7 @@ function MobilePromoModal() {
         const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
         if (dismissed && Date.now() - dismissed < DISMISS_TTL) return false;
       } catch {
-        /* ignore */
+        // ignore localStorage errors
       }
       return true;
     };
@@ -143,7 +141,7 @@ function MobilePromoModal() {
         (mql as any).removeListener(onChange);
       }
     };
-  }, []);
+  }, []); // DISMISS_TTL globaled -> no dependency
 
   if (!mounted || !visible) return null;
 
@@ -153,7 +151,7 @@ function MobilePromoModal() {
       try {
         localStorage.setItem(DISMISS_KEY, String(Date.now()));
       } catch {
-        /* ignore */
+        // ignore
       }
     }
   }
@@ -175,7 +173,7 @@ function MobilePromoModal() {
           <div>
             <h3 className="text-lg font-semibold leading-tight mb-1">Pour aller plus loin avec l&apos;EFT</h3>
             <p className="text-sm text-[#0f3d69] opacity-90 mb-2">
-              Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
+              Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS&reg;</strong>.
             </p>
           </div>
 
@@ -231,13 +229,101 @@ function MobilePromoModal() {
   return createPortal(modal, document.body);
 }
 
-/* ---------- Page (principal) ---------- */
+/* ---------- Alerte flottante (utilisée dans Page) ---------- */
+function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
+  const [mounted, setMounted] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  const wrapper = (
+    <div
+      role="region"
+      aria-live="assertive"
+      aria-atomic="true"
+      className={[
+        "fixed z-50",
+        "left-4 right-4 bottom-24",
+        "md:left-auto md:right-6 md:top-6 md:bottom-auto md:w-[420px]",
+      ].join(" ")}
+    >
+      <div className="rounded-xl border border-rose-300 bg-rose-50 text-rose-900 shadow-xl">
+        <div className="flex items-start gap-3 px-3 py-2">
+          <div className="flex-1">
+            <div className="text-sm font-semibold">Message important</div>
+            {!collapsed && (
+              <p className="mt-0.5 text-sm opacity-80">
+                Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences.
+              </p>
+            )}
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setCollapsed((v) => !v)}
+              className="rounded-md border border-rose-300 bg-white px-2 py-1 text-sm"
+              aria-label={collapsed ? "Développer le message" : "Réduire le message"}
+              title={collapsed ? "Développer" : "Réduire"}
+            >
+              {collapsed ? "▾" : "▴"}
+            </button>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="rounded-md border border-rose-300 bg-white px-2 py-1 text-sm"
+              aria-label="Réduire"
+              title="Réduire"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {!collapsed && (
+          <div className="px-3 pb-3">
+            <p className="text-sm">
+              Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+              Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
+            </p>
+
+            <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
+              <div className="text-xs font-semibold">📞 En France</div>
+              <ul className="mt-1 text-sm leading-6">
+                <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
+                <li><strong>15</strong> — SAMU</li>
+                <li><strong>112</strong> — Urgences (si danger immédiat)</li>
+              </ul>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
+                <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
+                <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
+              </div>
+            </div>
+
+            {mode === "ask" && (
+              <p className="mt-2 text-sm">
+                Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+              </p>
+            )}
+            {mode === "lock" && (
+              <p className="mt-2 text-sm">
+                Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return createPortal(wrapper, document.body);
+}
+
+/* ---------- Page principale (export default) ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
+        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd&apos;hui ?",
     },
   ]);
   const [input, setInput] = useState<string>("");
@@ -337,7 +423,7 @@ export default function Page() {
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: reply || "Je n’ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
+        { role: "assistant", content: reply || "Je n'ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
       ]);
 
       if (data.crisis && data.crisis !== "none") {
@@ -350,7 +436,7 @@ export default function Page() {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Désolé, je n’ai pas pu répondre. Réessaie dans un instant ou reformule ta demande." },
+        { role: "assistant", content: "Désolé, je n'ai pas pu répondre. Réessaie dans un instant ou reformule ta demande." },
       ]);
     } finally {
       setLoading(false);
@@ -381,21 +467,41 @@ export default function Page() {
         </div>
       </div>
 
-     {/* === GRILLE : Chat (gauche) + Promo (droite) ===
-    - mobile: 1 colonne (promo modal) -> promo aside hidden on mobile
-    - desktop: 3-col grid with explicit col-start/col-end for robustness */}
-<div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-  {/* ---- Colonne gauche : Chat (occupe 2/3 sur desktop) ---- */}
-  <div className="space-y-6 md:col-start-1 md:col-end-3">
-    {/* ... tout le contenu de la colonne gauche (chat, note de prudence, etc.) ... */}
-  </div>
-
-  {/* ---- Colonne droite : PROMO (desktop sticky) ---- */}
-  {/* hidden sur mobile; sur desktop : start colonne 3, sticky top */}
-  <aside className="hidden md:block md:col-start-3 md:col-end-4 md:self-start md:sticky md:top-6">
-    <PromoCard />
-  </aside>
-</div>
+      {/* === FLEX : Chat (gauche) + Promo (droite) ===
+          - mobile: colonne (promo modal used)
+          - desktop: row with left 2/3 and right 1/3 */}
+      <div className="flex flex-col md:flex-row md:gap-6 items-start">
+        {/* gauche : prend 2/3 en desktop */}
+        <div className="w-full md:w-2/3 space-y-6">
+          {/* Zone de chat */}
+          <div
+            ref={chatRef}
+            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+          >
+            <div className="space-y-3">
+              {messages.map((m, i) => (
+                <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
+                  <div
+                    className={
+                      (m.role === "assistant"
+                        ? "bg-gray-50 text-gray-900 border-gray-200"
+                        : "bg-blue-50 text-blue-900 border-blue-200") +
+                      " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
+                    }
+                  >
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {loading && (
+                <div className="flex">
+                  <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
+                    … je réfléchis
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Alerte flottante */}
           {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
@@ -494,106 +600,14 @@ export default function Page() {
           )}
         </div>
 
-        {/* ---- Colonne droite : PROMO (desktop sticky) ---- */}
-        {/* hidden sur mobile; sur desktop : 1/3 de la largeur - sticky en haut */}
-        <aside className="md:sticky md:top-6 flex flex-col gap-6">
+        {/* droite : prend 1/3 en desktop, sticky */}
+        <aside className="hidden md:block md:w-1/3 md:self-start md:sticky md:top-6">
           <PromoCard />
         </aside>
       </div>
 
-
-
-  
       {/* Mobile promo modal - s'affichera uniquement sur mobile */}
       <MobilePromoModal />
     </main>
   );
-}
-
-/* ---------- Alerte flottante ---------- */
-function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
-  const [mounted, setMounted] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
-  const wrapper = (
-    <div
-      role="region"
-      aria-live="assertive"
-      aria-atomic="true"
-      className={[
-        "fixed z-50",
-        "left-4 right-4 bottom-24",
-        "md:left-auto md:right-6 md:top-6 md:bottom-auto md:w-[420px]",
-      ].join(" ")}
-    >
-      <div className="rounded-xl border border-rose-300 bg-rose-50 text-rose-900 shadow-xl">
-        <div className="flex items-start gap-3 px-3 py-2">
-          <div className="flex-1">
-            <div className="text-sm font-semibold">Message important</div>
-            {!collapsed && (
-              <p className="mt-0.5 text-sm opacity-80">
-                Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences.
-              </p>
-            )}
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={() => setCollapsed((v) => !v)}
-              className="rounded-md border border-rose-300 bg-white px-2 py-1 text-sm"
-              aria-label={collapsed ? "Développer le message" : "Réduire le message"}
-              title={collapsed ? "Développer" : "Réduire"}
-            >
-              {collapsed ? "▾" : "▴"}
-            </button>
-            <button
-              onClick={() => setCollapsed(true)}
-              className="rounded-md border border-rose-300 bg-white px-2 py-1 text-sm"
-              aria-label="Réduire"
-              title="Réduire"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        {!collapsed && (
-          <div className="px-3 pb-3">
-            <p className="text-sm">
-              Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
-              Je ne peux pas t’accompagner avec l’EFT dans une situation d’urgence : ta sécurité est prioritaire.
-            </p>
-
-            <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
-              <div className="text-xs font-semibold">📞 En France</div>
-              <ul className="mt-1 text-sm leading-6">
-                <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
-                <li><strong>15</strong> — SAMU</li>
-                <li><strong>112</strong> — Urgences (si danger immédiat)</li>
-              </ul>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
-                <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
-                <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
-              </div>
-            </div>
-
-            {mode === "ask" && (
-              <p className="mt-2 text-sm">
-                Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
-              </p>
-            )}
-            {mode === "lock" && (
-              <p className="mt-2 text-sm">
-                Ta sécurité est prioritaire. Je ne poursuivrai pas l’EFT dans cette situation.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  return createPortal(wrapper, document.body);
 }
