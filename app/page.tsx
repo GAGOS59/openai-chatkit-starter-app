@@ -259,11 +259,77 @@ function MobilePromoModal() {
 }
 
 /* ---------- Alerte flottante (utilisée dans Page) ---------- */
-function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
+function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reason?: string }) {
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
+
+  // contenu différent selon la raison
+  const suicideContent = (
+    <>
+      <div className="text-sm font-semibold">Message important</div>
+      {!collapsed && (
+        <p className="mt-0.5 text-sm opacity-80">
+          Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences. 
+          Il semble que tu traverses un moment très difficile. Je ne peux pas poursuivre l'EFT dans cette situation.
+        </p>
+      )}
+      <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
+        <div className="text-xs font-semibold">📞 En France</div>
+        <ul className="mt-1 text-sm leading-6">
+          <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
+          <li><strong>15</strong> — SAMU</li>
+          <li><strong>112</strong> — Urgences (si danger immédiat)</li>
+        </ul>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
+          <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
+          <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
+        </div>
+      </div>
+    </>
+  );
+
+  const medicalContent = (
+    <>
+      <div className="text-sm font-semibold">Message important</div>
+      {!collapsed && (
+        <p className="mt-0.5 text-sm opacity-80">
+          Priorité : urgence médicale. Si tu as un symptôme grave (douleur forte à la poitrine, difficulté à respirer, perte de connaissance,
+          faiblesse soudaine d’un côté, trouble de la parole, saignement abondant, traumatisme), appelle immédiatement les secours.
+        </p>
+      )}
+      <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
+        <div className="text-xs font-semibold">📞 Appeler :</div>
+        <ul className="mt-1 text-sm leading-6">
+          <li><strong>112</strong> — Urgences (numéro européen)</li>
+          <li><strong>15</strong> — SAMU (France)</li>
+        </ul>
+
+        <div className="mt-2 text-xs">
+          <strong>Signes d'AVC (FAST) :</strong> visage affaissé, faiblesse d'un côté, trouble de la parole → agir tout de suite.
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
+          <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 15</a>
+        </div>
+      </div>
+      {!collapsed && (
+        <p className="mt-2 text-sm opacity-80">Si possible, demande à quelqu’un de rester avec toi et d’aider à appeler les secours.</p>
+      )}
+    </>
+  );
+
+  const genericContent = (
+    <>
+      <div className="text-sm font-semibold">Message important</div>
+      {!collapsed && <p className="mt-0.5 text-sm opacity-80">Priorité à ta sécurité. Si tu es en danger, contacte les services d'urgence.</p>}
+    </>
+  );
+
+  const body = reason === "medical" ? medicalContent : reason === "suicide" ? suicideContent : genericContent;
 
   const wrapper = (
     <div
@@ -278,14 +344,7 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
     >
       <div className="rounded-xl border border-rose-300 bg-rose-50 text-rose-900 shadow-xl">
         <div className="flex items-start gap-3 px-3 py-2">
-          <div className="flex-1">
-            <div className="text-sm font-semibold">Message important</div>
-            {!collapsed && (
-              <p className="mt-0.5 text-sm opacity-80">
-                Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences.
-              </p>
-            )}
-          </div>
+          <div className="flex-1">{body}</div>
           <div className="flex gap-1">
             <button
               onClick={() => setCollapsed((v) => !v)}
@@ -305,40 +364,6 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
             </button>
           </div>
         </div>
-
-        {!collapsed && (
-          <div className="px-3 pb-3">
-            <p className="text-sm">
-              Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
-              Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
-            </p>
-
-            <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
-              <div className="text-xs font-semibold">📞 En France</div>
-              <ul className="mt-1 text-sm leading-6">
-                <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
-                <li><strong>15</strong> — SAMU</li>
-                <li><strong>112</strong> — Urgences (si danger immédiat)</li>
-              </ul>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
-                <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
-                <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
-              </div>
-            </div>
-
-            {mode === "ask" && (
-              <p className="mt-2 text-sm">
-                Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
-              </p>
-            )}
-            {mode === "lock" && (
-              <p className="mt-2 text-sm">
-                Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -359,6 +384,7 @@ export default function Page() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [crisisMode, setCrisisMode] = useState<CrisisFlag>("none");
+  const [crisisReason, setCrisisReason] = useState<string>("none"); // <-- ajouté
   const [toast, setToast] = useState<ToastState>(null);
   const [lastAskedSud, setLastAskedSud] = useState(false);
 
@@ -426,7 +452,11 @@ export default function Page() {
     if (!value || loading) return;
 
     setError(null);
-    if (crisisMode === "ask" && isAffirmativeYes(value)) setCrisisMode("lock");
+    // local quick-check: if we are already in ask and user answers yes we can optimistically set lock
+    if (crisisMode === "ask" && isAffirmativeYes(value)) {
+      setCrisisMode("lock");
+      // keep reason until server replies (server will overwrite)
+    }
 
     if (lastAskedSud) {
       const sud = extractSud(value);
@@ -447,7 +477,7 @@ export default function Page() {
       });
       if (!res.ok) throw new Error("Réponse serveur non valide");
 
-      const data: { answer?: string; error?: string; crisis?: CrisisFlag } = await res.json();
+      const data: { answer?: string; error?: string; crisis?: CrisisFlag; reason?: string } = await res.json();
       const reply = (data.answer || data.error || "").trim();
 
       setMessages((prev) => [
@@ -455,11 +485,24 @@ export default function Page() {
         { role: "assistant", content: reply || "Je n'ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
       ]);
 
+      // IMPORTANT : utiliser la raison envoyée par le serveur si présente
       if (data.crisis && data.crisis !== "none") {
         setCrisisMode(data.crisis);
+        setCrisisReason(data.reason ?? "none");
       } else {
-        if (inferAskFromReply(reply)) setCrisisMode("ask");
-        if (crisisMode === "ask" && isAffirmativeYes(value)) setCrisisMode("lock");
+        if (inferAskFromReply(reply)) {
+          setCrisisMode("ask");
+          setCrisisReason("none");
+        } else {
+          // si on était déjà en 'ask' et l'utilisateur a dit oui -> lock (fallback local)
+          if (crisisMode === "ask" && isAffirmativeYes(value)) {
+            setCrisisMode("lock");
+            setCrisisReason((prev) => (prev === "none" ? "unknown" : prev));
+          } else {
+            setCrisisMode("none");
+            setCrisisReason("none");
+          }
+        }
       }
     } catch {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
@@ -533,7 +576,7 @@ export default function Page() {
           </div>
 
           {/* Alerte flottante */}
-          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
+          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} reason={crisisReason} />}
 
           {/* Formulaire */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
