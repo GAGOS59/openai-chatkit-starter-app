@@ -574,7 +574,7 @@ export default function Page() {
               <button
                 type="submit"
                 disabled={loading || !input.trim() || crisisMode === "lock"}
-                className="rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99]"
+                className="rounded-xl border px-4 py-2 shadow-sm bg-white text-[#0f3d69] hover:bg-gray-50 active:scale-[0.99]"
               >
                 {loading ? "Envoi..." : "Envoyer"}
               </button>
