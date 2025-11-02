@@ -33,6 +33,7 @@ function AyniButton({ className = "" }: { className?: string }) {
   );
 }
 
+
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
