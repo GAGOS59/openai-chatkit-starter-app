@@ -39,7 +39,7 @@ type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
-/* ---------- Carte Promo (toujours visible, mobile = sous le chat) ---------- */
+/* ---------- Carte Promo (toujours visible en desktop) ---------- */
 function PromoCard() {
   return (
     <aside
@@ -91,7 +91,138 @@ function PromoCard() {
   );
 }
 
-/* ---------- Page ---------- */
+/* ---------- Mobile Promo Modal (s'ouvre sur mobile) ---------- */
+function MobilePromoModal() {
+  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // clé localStorage et TTL pour ne pas réouvrir tout le temps
+  const DISMISS_KEY = "efty_promo_dismissed_at_v1";
+  const DISMISS_TTL = 24 * 60 * 60 * 1000; // 24h
+
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window === "undefined") return;
+
+    try {
+      const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
+      if (dismissed && Date.now() - dismissed < DISMISS_TTL) {
+        return; // fermé récemment -> ne pas ouvrir
+      }
+    } catch {
+      // ignore localStorage errors
+    }
+
+    // n'ouvrir que sur petits écrans (mobile)
+    if (window.innerWidth < 768) {
+      setVisible(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      if (!visible && typeof window !== "undefined" && window.innerWidth < 768) {
+        try {
+          const dismissed = Number(localStorage.getItem(DISMISS_KEY) || "0");
+          if (!dismissed || Date.now() - dismissed >= DISMISS_TTL) setVisible(true);
+        } catch {
+          setVisible(true);
+        }
+      }
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [visible]);
+
+  if (!mounted || !visible) return null;
+
+  function close(remember: boolean) {
+    setVisible(false);
+    if (remember && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(DISMISS_KEY, String(Date.now()));
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const modal = (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 py-6 sm:items-start">
+      {/* overlay */}
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={() => close(false)}
+        aria-hidden
+      />
+      {/* bottom sheet style for mobile */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="relative w-full max-w-lg rounded-t-xl bg-[#F3EEE6] p-4 shadow-xl animate-slide-up"
+        style={{ borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold leading-tight mb-1">Pour aller plus loin avec l&apos;EFT</h3>
+            <p className="text-sm text-[#0f3d69] opacity-90 mb-2">
+              Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
+            </p>
+          </div>
+
+          <div className="flex-shrink-0">
+            <button
+              onClick={() => close(true)}
+              aria-label="Fermer la fenêtre promotion"
+              className="rounded-full bg-white border px-3 py-1 text-lg shadow-sm"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-2 flex flex-col gap-2">
+          <a
+            href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+          >
+            1 — Aller plus loin avec l&apos;EFT
+          </a>
+
+          <a
+            href="https://ecole-eft-france.fr/pages/formations-eft.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
+          >
+            2 — EFTY vous aide
+          </a>
+
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <button
+              onClick={() => close(true)}
+              className="rounded-lg border px-3 py-2 bg-white text-[#0f3d69]"
+            >
+              Fermer (ne plus montrer aujourd&apos;hui)
+            </button>
+
+            <div className="flex-shrink-0">
+              <AyniButton />
+            </div>
+          </div>
+
+          <p className="text-xs mt-3 opacity-80">Tu peux fermer la fenêtre ou revenir plus tard.</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}
+
+/* ---------- Page (principal) ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -242,8 +373,8 @@ export default function Page() {
       </div>
 
       {/* === GRILLE : Chat (gauche) + Promo (droite) ===
-          - mobile: 1 colonne (promo passe sous le chat)
-          - desktop: 2 colonnes (2fr / 1fr) avec promo sticky */}
+          - mobile: 1 colonne (promo modal) -> promo aside hidden on mobile
+          - desktop: 2 colonnes (2fr / 1fr) with promo sticky */}
       <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 items-start">
         {/* ---- Colonne gauche : Chat ---- */}
         <div className="space-y-6">
@@ -375,10 +506,14 @@ export default function Page() {
         </div>
 
         {/* ---- Colonne droite : PROMO (desktop sticky) ---- */}
-        <aside className="space-y-4 md:sticky md:top-6">
+        {/* IMPORTANT : hidden sur mobile; mobile a sa propre modal pour éviter duplication */}
+        <aside className="hidden md:block space-y-4 md:sticky md:top-6">
           <PromoCard />
         </aside>
       </div>
+
+      {/* Mobile promo modal - s'affichera uniquement sur mobile */}
+      <MobilePromoModal />
     </main>
   );
 }
