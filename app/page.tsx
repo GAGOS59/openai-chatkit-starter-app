@@ -39,18 +39,19 @@ type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
-/* ---------- Promo ---------- */
+/* ---------- Promo (mobile = fixe en bas, desktop = sticky dans la colonne droite) ---------- */
 function PromoCard() {
   const [visible, setVisible] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth <= 768);
+    const check = () => setIsMobile(window.innerWidth < 768); // md breakpoint
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // Réserve de l'espace en bas uniquement si la promo est visible en mobile
   useEffect(() => {
     const prev = document.body.style.paddingBottom || "";
     if (visible && isMobile) {
@@ -66,17 +67,20 @@ function PromoCard() {
   const closePromo = () => setVisible(false);
   if (!visible) return null;
 
+  const containerClass = isMobile
+    ? "fixed left-0 right-0 bottom-0 z-50"
+    : "md:sticky md:top-6";
+
   return (
     <aside
-      className={
-        "rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm " +
-        "md:sticky md:top-6 " +
-        "fixed left-0 right-0 bottom-0 md:relative md:w-auto z-50"
-      }
+      className={[
+        "rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm",
+        containerClass,
+      ].join(" ")}
       role="complementary"
       aria-label="Promotion EFTY"
     >
-      <div className="w-full max-w-[980px] mx-auto flex flex-col gap-4 items-center md:items-stretch">
+      <div className="w-full mx-auto flex flex-col gap-4 items-center md:items-stretch">
         <div className="w-full">
           <h2 className="text-xl font-semibold mb-1 text-center md:text-left">
             Pour aller plus loin avec l&apos;EFT
@@ -96,7 +100,7 @@ function PromoCard() {
             Réaligner sa pratique EFT
           </a>
 
-          <a
+        <a
             href="https://ecole-eft-france.fr/pages/formations-eft.html"
             target="_blank"
             rel="noopener noreferrer"
@@ -118,7 +122,6 @@ function PromoCard() {
             <p className="text-sm opacity-80 text-center md:text-left">
               EFTY te soutient. Voudrais-tu soutenir EFTY ?
             </p>
-
             <div className="w-full flex justify-center">
               <AyniButton className="w-full md:w-auto" />
             </div>
@@ -152,7 +155,6 @@ export default function Page() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [crisisMode, setCrisisMode] = useState<CrisisFlag>("none");
-
   const [toast, setToast] = useState<ToastState>(null);
 
   // états SUD + utilitaire d'extraction
@@ -226,10 +228,12 @@ export default function Page() {
 
     setError(null);
 
+    // Si on demande oui/non et que l’utilisateur répond "oui" → lock immédiat
     if (crisisMode === "ask" && isAffirmativeYes(value)) {
       setCrisisMode("lock");
     }
 
+    // interception SUD si on vient de le demander
     if (lastAskedSud) {
       const sud = extractSud(value);
       if (sud !== null) {
@@ -239,6 +243,7 @@ export default function Page() {
 
     const userMsg: Message = { role: "user", content: value };
 
+    // Affiche immédiatement le message utilisateur
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
@@ -266,12 +271,15 @@ export default function Page() {
         },
       ]);
 
+      // 1) Priorité au flag renvoyé par l'API
       if (data.crisis && data.crisis !== "none") {
         setCrisisMode(data.crisis);
       } else {
+        // 2) Sinon, heuristique : si la réponse contient la question oui/non → ask
         if (inferAskFromReply(reply)) {
           setCrisisMode("ask");
         }
+        // 3) Si on était déjà en ask et que l'utilisateur vient de dire "oui" → lock
         if (crisisMode === "ask" && isAffirmativeYes(value)) {
           setCrisisMode("lock");
         }
@@ -317,10 +325,38 @@ export default function Page() {
       {/* Grille : chat (gauche) + promo (droite) */}
       <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 items-start w-full">
 
-        {/* ===== Colonne gauche : tout le flux de séance ===== */}
+        {/* ===== Colonne gauche : flux de séance ===== */}
         <div className="space-y-6">
+          {/* Zone de chat */}
+          <div
+            ref={chatRef}
+            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+          >
+            <div className="space-y-3">
+              {messages.map((m, i) => (
+                <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
+                  <div
+                    className={
+                      (m.role === "assistant"
+                        ? "bg-gray-50 text-gray-900 border-gray-200"
+                        : "bg-blue-50 text-blue-900 border-blue-200") +
+                      " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
+                    }
+                  >
+                    {m.content}
+                  </div>
+                </div>
+              ))}
 
-          
+              {loading && (
+                <div className="flex">
+                  <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
+                    … je réfléchis
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Alerte flottante (superposée) */}
           {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
@@ -424,7 +460,7 @@ export default function Page() {
         </div>
 
         {/* ===== Colonne droite : PROMO ===== */}
-        <aside className="space-y-4 md:sticky md:top-6">
+        <aside className="space-y-4">
           <PromoCard />
         </aside>
       </div>
@@ -447,7 +483,7 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
       aria-atomic="true"
       className={[
         "fixed z-50",
-        "left-4 right-4 bottom-24",
+        "left-4 right-4 bottom-24", // mobile: au-dessus de la promo
         "md:left-auto md:right-6 md:top-6 md:bottom-auto md:w-[420px]",
       ].join(" ")}
     >
@@ -520,3 +556,4 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
 
   return createPortal(wrapper, document.body);
 }
+
