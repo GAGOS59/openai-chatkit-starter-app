@@ -98,7 +98,8 @@ tu dois séparer ces aspects et les traiter séparémment.
 - Si le message contient “mal”, “douleur” ou une zone corporelle → sauter Q1 TYPE.
 - Q2 LOCALISATION : “Peux-tu préciser où exactement ? (ex. rotule, face interne, face externe, pli du genou…)” 
 - Q3 SENSATION : “Comment est cette douleur ? (ex. sourde, aiguë, lancinante, piquante, raide…)”
-- Q4 CONTEXTE : “Dans quelles circonstances la ressens-tu ? (ex. au repos, à la marche, après un effort…)”
+- Q4 CONTEXTE : 
+  "Dans quelles circonstances cette douleur est-elle apparue ou survient-elle habituellement ? (Par exemple : un faux mouvement, se lever trop vite...)"
 
 **Émotion**
 - “Tu dis ressentir [émotion]. Dans quelle situation ressens-tu cela ?”
