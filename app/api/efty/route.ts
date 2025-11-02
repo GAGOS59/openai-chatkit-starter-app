@@ -89,7 +89,7 @@ function isMedicalClarifierQuestion(s: string) {
   return mentionDouleur && (mentionsSpontane || mentionsChoc);
 }
 
-// detecteur de notre future formulation oui/non (tolérant)
+// detecteur d'une question oui/non formatée par notre template
 function isMedicalYesNoQuestion(s: string) {
   if (!s) return false;
   const t = s.toLowerCase();
@@ -158,7 +158,6 @@ function MEDICAL_TRIAGE_QUESTION_FOR(symptomRaw: string) {
   return `La question rapide : "${excerpt}" est-elle apparue spontanément, sans choc (ne t'être cogné·e ou reçu un coup) ? Réponds par "oui" ou "non".`;
 }
 
-// question de clarification neutre (si detection à la fois med + suicide)
 const CLARIFY_PHYSICAL_OR_SUICIDE =
   "Je veux bien comprendre pour t'aider correctement : parles-tu d'une **douleur physique** (réponds `douleur`) ou de **pensées de te faire du mal / d'en finir** (réponds `pensées`) ?";
 
@@ -179,15 +178,15 @@ Reste avec la personne qui écoute et, si possible, mets-toi en lieu sûr.
 Tu comptes, ta présence est importante. Je suis de tout cœur avec toi. ❤️
 (Je suspends la séance pour prioriser ta sécurité.)`;
 
-const CLOSING_MEDICAL = `Je comprends que tu vis une situation intense et cela m’inquiète pour ta sécurité.  
-Je ne peux pas poursuivre une séance d’EFT dans une situation qui peut relever d’une urgence médicale et demander une intervention humaine rapide.
+const CLOSING_MEDICAL = `Je comprends que tu vis une situation préoccupante pour ta santé. 
+Si tu présentes un symptôme grave (douleur thoracique importante, difficulté à respirer, perte de connaissance, faiblesse soudaine d’un côté, trouble brutal de la parole, saignement abondant, traumatisme grave, etc.), appelle immédiatement les secours.
 
-Je t’invite à appeler sans attendre :
-• **112** — Urgences (gratuit, accessible partout dans l’UE)  
+• **112** — Urgences (numéro européen)  
 • **15** — SAMU (France)
 
-Si quelqu’un est près de toi, demande-lui de t’aider à passer l’appel.  
-Prends soin de toi avant tout, c’est la priorité absolue. ❤️ `;
+Si quelqu’un est près de toi, demande-lui de t’aider à appeler.  
+Si tu es seul·e, mets-toi en sécurité (allongé·e si besoin), évite tout effort et attends les secours.  
+Ta sécurité passe avant tout — je suspends la séance pour prioriser ton accompagnement médical.`;
 
 // ---------- computeCrisis (gestion clarify / medical / suicide / none) ----------
 function computeCrisis(
@@ -316,8 +315,6 @@ export async function POST(req: NextRequest) {
     lastUserMsg ? llmFlag("medical", lastUserMsg) : Promise.resolve<"hit" | "safe">("safe"),
   ]);
 
-  // (Safety override suicide déjà présent — garde la priorité pour les confirmations explicites)
-  // Compute crisis:
   const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
 
   // --- Safety override : si l'assistant venait d'interroger sur le risque suicidaire
@@ -338,7 +335,6 @@ export async function POST(req: NextRequest) {
     answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
   } else if (crisis === "ask") {
     if (reason === "medical") {
-      // génère une question oui/non qui reprend le symptôme signalé par l'utilisateur
       answer = MEDICAL_TRIAGE_QUESTION_FOR(lastUserMsg);
     } else if (reason === "suicide") {
       answer = SUICIDE_QUESTION_TEXT;
@@ -349,7 +345,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return new NextResponse(JSON.stringify({ answer, crisis }), {
+  return new NextResponse(JSON.stringify({ answer, crisis, reason }), {
     headers,
     status: 200,
   });
