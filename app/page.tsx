@@ -61,7 +61,7 @@ function PromoCard() {
           href="https://ecole-eft-france.fr/pages/formations-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] text-[#0f3d69] transition"
         >
           Se former à l&apos;EFT pour un usage professionnel
         </a>
