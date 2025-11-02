@@ -253,7 +253,7 @@ export default function Page() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
-                placeholder="Écris ici… (ex. « J'ai mal au genou », « Je me sens anxieuse », …)"
+                placeholder="Écris ici… (ex. « J&apos;ai mal au genou », « Je me sens anxieuse », …)"
                 aria-label="Saisis ton message"
                 disabled={loading || crisisMode === "lock"}
               />
@@ -268,7 +268,7 @@ export default function Page() {
 
             {crisisMode === "ask" && (
               <p className="text-sm text-[#0f3d69] opacity-80">
-                Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s'il te plaît.
+                Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s&apos;il te plaît.
               </p>
             )}
           </form>
