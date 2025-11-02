@@ -58,31 +58,23 @@ function PromoCard() {
 
       <div className="flex flex-col gap-3">
         <a
-          href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
-        >
-          Réaligner sa pratique EFT
-        </a>
-
-        <a
           href="https://ecole-eft-france.fr/pages/formations-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] transition"
         >
-          Formations EFT
+          Se former à l'EFT officielle
         </a>
 
         <a
-          href="https://ecole-eft-france.fr/pages/tips.html"
+          href="https://technique-eft.com/livres-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#164b84] transition"
         >
-          Méthode TIPS&reg;
+          Les livres EFT de Geneviève Gagos
         </a>
+
 
         <div className="pt-2">
           <p className="text-sm opacity-80 text-center">EFTY te soutient. Voudrais-tu soutenir EFTY ?</p>
@@ -208,7 +200,7 @@ function MobilePromoModal() {
 
         <div className="mt-2 flex flex-col gap-2">
           <a
-            href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+            href="https://ecole-eft-france.fr/pages/formations-eft.html"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
@@ -217,12 +209,12 @@ function MobilePromoModal() {
           </a>
 
           <a
-            href="https://ecole-eft-france.fr/pages/formations-eft.html"
+            href="https://technique-eft.com/livres-eft.html"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
           >
-            2 — EFTY vous aide
+            2 — Les livres EFT
           </a>
 
           <div className="mt-3 flex items-center justify-between gap-3">
