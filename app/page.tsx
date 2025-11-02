@@ -359,20 +359,19 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Grille : chat + sidebar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Colonne gauche : chat */}
-        <div className="md:col-span-2 space-y-6">
-          … le contenu du chat …
-          {/* ✅ Alerte flottante (un seul élément sous le &&) */}
-          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
+      {/* Grille : chat + promo */}
+<div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 items-start w-full">
+  {/* Colonne gauche : chat */}
+  <div className="space-y-6">
+    {/* Ton contenu chat ici */}
   </div>
 
   {/* Colonne droite : promo */}
   <div className="space-y-4">
-    … le bloc "Pour aller plus loin avec l’EFT" …
+    <PromoCard />
   </div>
 </div>
+
 
           {/* Formulaire d’envoi */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
