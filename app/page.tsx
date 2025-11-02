@@ -39,6 +39,58 @@ type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
+/* ---------- Carte Promo (toujours visible, mobile = sous le chat) ---------- */
+function PromoCard() {
+  return (
+    <aside
+      className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm"
+      role="complementary"
+      aria-label="Promotion EFTY"
+    >
+      <div>
+        <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
+        <p className="text-sm mb-3 leading-relaxed">
+          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <a
+          href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+        >
+          Réaligner sa pratique EFT
+        </a>
+
+        <a
+          href="https://ecole-eft-france.fr/pages/formations-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
+        >
+          Formations EFT
+        </a>
+
+        <a
+          href="https://ecole-eft-france.fr/pages/tips.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+        >
+          Méthode TIPS®
+        </a>
+
+        <div className="pt-2">
+          <p className="text-sm opacity-80 text-center">EFTY te soutient. Voudrais-tu soutenir EFTY ?</p>
+          <AyniButton className="mt-2" />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 /* ---------- Page ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
@@ -189,7 +241,9 @@ export default function Page() {
         </div>
       </div>
 
-      {/* === GRILLE : Chat (gauche) + Promo (droite) === */}
+      {/* === GRILLE : Chat (gauche) + Promo (droite) ===
+          - mobile: 1 colonne (promo passe sous le chat)
+          - desktop: 2 colonnes (2fr / 1fr) avec promo sticky */}
       <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 items-start">
         {/* ---- Colonne gauche : Chat ---- */}
         <div className="space-y-6">
@@ -320,55 +374,11 @@ export default function Page() {
           )}
         </div>
 
-        {/* ---- Colonne droite : PROMO (desktop) ---- */}
-        <aside className="hidden md:block space-y-4 md:sticky md:top-6">
-          <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
-            <div>
-              <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
-              <p className="text-sm mb-3 leading-relaxed">
-                Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <a
-                href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
-              >
-                Réaligner sa pratique EFT
-              </a>
-
-              <a
-                href="https://ecole-eft-france.fr/pages/formations-eft.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
-              >
-                Formations EFT
-              </a>
-
-              <a
-                href="https://ecole-eft-france.fr/pages/tips.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
-              >
-                Méthode TIPS®
-              </a>
-
-              <div className="pt-2">
-                <p className="text-sm opacity-80 text-center">EFTY te soutient. Voudrais-tu soutenir EFTY ?</p>
-                <AyniButton className="mt-2" />
-              </div>
-            </div>
-          </div>
+        {/* ---- Colonne droite : PROMO (desktop sticky) ---- */}
+        <aside className="space-y-4 md:sticky md:top-6">
+          <PromoCard />
         </aside>
       </div>
-
-      {/* Promo compacte mobile */}
-      <PromoMobile />
     </main>
   );
 }
@@ -436,24 +446,9 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
                 <li><strong>112</strong> — Urgences (si danger immédiat)</li>
               </ul>
               <div className="mt-2 flex flex-wrap gap-2">
-                <a
-                  href="tel:3114"
-                  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm"
-                >
-                  Appeler 3114
-                </a>
-                <a
-                  href="tel:112"
-                  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm"
-                >
-                  Appeler 112
-                </a>
-                <a
-                  href="tel:15"
-                  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm"
-                >
-                  Appeler le 15
-                </a>
+                <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
+                <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
+                <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
               </div>
             </div>
 
@@ -474,88 +469,4 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
   );
 
   return createPortal(wrapper, document.body);
-}
-
-/* ---------- Promo compacte mobile ---------- */
-function PromoMobile() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const prev = document.body.style.paddingBottom || "";
-    document.body.style.paddingBottom = open ? "220px" : "90px";
-    return () => { document.body.style.paddingBottom = prev; };
-  }, [open]);
-
-  return (
-    <div className="md:hidden fixed inset-x-0 bottom-0 z-40 p-3">
-      {/* Barre compacte */}
-      {!open && (
-        <div className="pointer-events-auto rounded-xl border bg-[#F3EEE6] text-[#0f3d69] shadow-lg px-4 py-3 flex items-center justify-between">
-          <div className="text-sm font-medium">Pour aller plus loin avec l’EFT</div>
-          <button
-            onClick={() => setOpen(true)}
-            className="rounded-lg border border-[#0f3d69] px-3 py-1 text-sm"
-            aria-label="Ouvrir les ressources"
-          >
-            Ouvrir
-          </button>
-        </div>
-      )}
-
-      {/* Panneau déployé */}
-      {open && (
-        <div className="pointer-events-auto rounded-xl border bg-[#F3EEE6] text-[#0f3d69] shadow-xl p-4">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="text-base font-semibold">Pour aller plus loin avec l’EFT</h2>
-            <button
-              onClick={() => setOpen(false)}
-              className="rounded-md border border-[#0f3d69] px-2 py-1 text-sm"
-              aria-label="Fermer"
-              title="Fermer"
-            >
-              ×
-            </button>
-          </div>
-
-          <p className="text-xs mt-1 mb-3 opacity-90">
-            Des formations fidèles à l’EFT d’origine et la méthode <strong>TIPS®</strong>.
-          </p>
-
-          <div className="flex flex-col gap-2">
-            <a
-              href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-center rounded-lg border border-[#0f3d69] px-3 py-2 text-sm"
-            >
-              Réaligner sa pratique EFT
-            </a>
-            <a
-              href="https://ecole-eft-france.fr/pages/formations-eft.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-center rounded-lg bg-[#0f3d69] text-white px-3 py-2 text-sm"
-            >
-              Formations EFT
-            </a>
-            <a
-              href="https://ecole-eft-france.fr/pages/tips.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-center rounded-lg border border-[#0f3d69] px-3 py-2 text-sm"
-            >
-              Méthode TIPS®
-            </a>
-
-            <div className="pt-1">
-              <p className="text-xs opacity-80 text-center">
-                EFTY te soutient. Voudrais-tu soutenir EFTY ?
-              </p>
-              <AyniButton className="mt-2" />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
