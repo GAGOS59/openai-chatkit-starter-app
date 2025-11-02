@@ -246,188 +246,179 @@ export default function Page() {
       </div>
 
       {/* === GRILLE : Chat (gauche) + Promo (droite) === */}
-      <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-6 items-start">
-        {/* ---- Colonne gauche : Chat ---- */}
-        <div className="space-y-6">
-          {/* Zone de chat */}
-          <div
-            ref={chatRef}
-            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
-          >
-            <div className="space-y-3">
-              {messages.map((m, i) => (
-                <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
-                  <div
-                    className={
-                      (m.role === "assistant"
-                        ? "bg-gray-50 text-gray-900 border-gray-200"
-                        : "bg-blue-50 text-blue-900 border-blue-200") +
-                      " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
-                    }
-                  >
-                    {m.content}
-                  </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex">
-                  <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
-                    … je réfléchis
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Alerte flottante */}
-          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
-
-          {/* Formulaire */}
-          <form onSubmit={onSubmit} className="flex flex-col gap-2">
-            <div className="flex gap-2">
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
-                placeholder="Écris ici… (ex. « J&apos;ai mal au genou », « Je me sens anxieuse », …)"
-                aria-label="Saisis ton message"
-                disabled={loading || crisisMode === "lock"}
-              />
-              <button
-                type="submit"
-                disabled={loading || !input.trim() || crisisMode === "lock"}
-                className="rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99]"
-              >
-                {loading ? "Envoi..." : "Envoyer"}
-              </button>
-            </div>
-            {crisisMode === "ask" && (
-              <p className="text-sm text-[#0f3d69] opacity-80">
-                Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s&apos;il te plaît.
-              </p>
-            )}
-          </form>
-
-          {/* Erreur / Note / Toast / Boutons urgence */}
-          {error && <div className="text-red-600">{error}</div>}
-
-          <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-2">
-            <strong className="block mb-1">Note de prudence</strong>
-            <p className="text-sm leading-relaxed">
-              Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
-              psychologique ou professionnel.<br />
-              L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation,
-              l&apos;usage ou les conséquences liés à l&apos;application des informations ou protocoles présentés.<br />
-              Chaque utilisateur reste responsable de sa pratique et de ses choix.
-              <br /><br />
-              <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas
-              vos échanges réalisés dans ce chat. Mais comme pour tout ce qui transite par Internet, nous vous invitons
-              à rester prudents et à ne pas divulguer d&apos;éléments très personnels.
-            </p>
-            <p className="text-xs mt-3 opacity-80">
-              — Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos
-            </p>
-          </div>
-
-          {/* Promo Mobile compacte, placée APRÈS la note pour rester discrète */}
-          <PromoMobile />
-
-          <div
-            aria-live="assertive"
-            className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50"
-          >
-            <div className="flex w-full flex-col items-center space-y-4 sm:items-end">
-              {toast && (
-                <div
-                  key={toast.key}
-                  role="status"
-                  className="pointer-events-auto w-full sm:w-auto max-w-sm overflow-hidden rounded-xl border bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5"
-                >
-                  <div className="p-4">
-                    <p className="text-sm text-gray-900">{toast.msg}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {crisisMode !== "none" && (
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+  {/* ---- Colonne gauche : Chat ---- */}
+  <div className="md:col-span-2 space-y-6">
+    {/* Zone de chat */}
+    <div
+      ref={chatRef}
+      className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+    >
+      <div className="space-y-3">
+        {messages.map((m, i) => (
+          <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
             <div
-              aria-label="Accès rapide urgence"
-              className="fixed bottom-20 right-4 z-50 flex flex-col gap-2"
+              className={
+                (m.role === "assistant"
+                  ? "bg-gray-50 text-gray-900 border-gray-200"
+                  : "bg-blue-50 text-blue-900 border-blue-200") +
+                " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
+              }
             >
-              <a
-                href="tel:3114"
-                className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
-              >
-                📞 3114 — Prévention du suicide (gratuit, 24/7)
-              </a>
-              <a
-                href="tel:112"
-                className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
-              >
-                🚨 112 — Urgences
-              </a>
-              <a
-                href="tel:15"
-                className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
-              >
-                🏥 15 — SAMU
-              </a>
-            </div>
-          )}
-        </div>
-
-        {/* ---- Colonne droite : PROMO Desktop (toujours à droite) ---- */}
-        <aside className="hidden md:block space-y-4 md:sticky md:top-6">
-          <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
-            <div>
-              <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
-              <p className="text-sm mb-3 leading-relaxed">
-                Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <a
-                href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
-              >
-                Réaligner sa pratique EFT
-              </a>
-
-              <a
-                href="https://ecole-eft-france.fr/pages/formations-eft.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
-              >
-                Formations EFT
-              </a>
-
-              <a
-                href="https://ecole-eft-france.fr/pages/tips.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
-              >
-                Méthode TIPS®
-              </a>
-
-              <div className="pt-2">
-                <p className="text-sm opacity-80 text-center">EFTY te soutient. Voudrais-tu soutenir EFTY ?</p>
-                <AyniButton className="mt-2" />
-              </div>
+              {m.content}
             </div>
           </div>
-        </aside>
+        ))}
+        {loading && (
+          <div className="flex">
+            <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
+              … je réfléchis
+            </div>
+          </div>
+        )}
       </div>
-    </main>
-  );
-}
+    </div>
+
+    {/* Alerte flottante */}
+    {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
+
+    {/* Formulaire */}
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <div className="flex gap-2">
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="flex-1 rounded-xl border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm"
+          placeholder="Écris ici… (ex. « J&apos;ai mal au genou », « Je me sens anxieuse », …)"
+          aria-label="Saisis ton message"
+          disabled={loading || crisisMode === "lock"}
+        />
+        <button
+          type="submit"
+          disabled={loading || !input.trim() || crisisMode === "lock"}
+          className="rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99]"
+        >
+          {loading ? "Envoi..." : "Envoyer"}
+        </button>
+      </div>
+
+      {crisisMode === "ask" && (
+        <p className="text-sm text-[#0f3d69] opacity-80">
+          Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s&apos;il te plaît.
+        </p>
+      )}
+    </form>
+
+    {/* Erreur */}
+    {error && <div className="text-red-600">{error}</div>}
+
+    {/* Note de prudence */}
+    <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm mb-2">
+      <strong className="block mb-1">Note de prudence</strong>
+      <p className="text-sm leading-relaxed">
+        Ce guide est proposé à titre informatif et éducatif. Il ne remplace en aucun cas un avis médical,
+        psychologique ou professionnel.<br />
+        L&apos;École EFT France et ses représentants déclinent toute responsabilité quant à l&apos;interprétation,
+        l&apos;usage ou les conséquences liés à l&apos;application des informations ou protocoles présentés.<br />
+        Chaque utilisateur reste responsable de sa pratique et de ses choix.
+        <br /><br />
+        <strong>Important :</strong> L&apos;École EFT France ou Geneviève Gagos ne voit pas et n&apos;enregistre pas
+        vos échanges réalisés dans ce chat. Mais comme pour tout ce qui transite par Internet, nous vous invitons
+        à rester prudents et à ne pas divulguer d&apos;éléments très personnels.
+      </p>
+      <p className="text-xs mt-3 opacity-80">
+        — Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos
+      </p>
+    </div>
+
+    {/* Promo mobile compacte (optionnelle, discrète) */}
+    <PromoMobile />
+
+    {/* Toast */}
+    <div
+      aria-live="assertive"
+      className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50"
+    >
+      <div className="flex w-full flex-col items-center space-y-4 sm:items-end">
+        {toast && (
+          <div
+            key={toast.key}
+            role="status"
+            className="pointer-events-auto w-full sm:w-auto max-w-sm overflow-hidden rounded-xl border bg-white/95 backdrop-blur shadow-lg ring-1 ring-black/5"
+          >
+            <div className="p-4">
+              <p className="text-sm text-gray-900">{toast.msg}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Boutons d’urgence flottants */}
+    {crisisMode !== "none" && (
+      <div
+        aria-label="Accès rapide urgence"
+        className="fixed bottom-20 right-4 z-50 flex flex-col gap-2"
+      >
+        <a href="tel:3114" className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition">
+          📞 3114 — Prévention du suicide (gratuit, 24/7)
+        </a>
+        <a href="tel:112" className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition">
+          🚨 112 — Urgences
+        </a>
+        <a href="tel:15" className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition">
+          🏥 15 — SAMU
+        </a>
+      </div>
+    )}
+  </div>
+
+  {/* ---- Colonne droite : PROMO Desktop ---- */}
+  <aside className="hidden md:block space-y-4 md:sticky md:top-6">
+    <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
+      <div>
+        <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
+        <p className="text-sm mb-3 leading-relaxed">
+          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <a
+          href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+        >
+          Réaligner sa pratique EFT
+        </a>
+        <a
+          href="https://ecole-eft-france.fr/pages/formations-eft.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
+        >
+          Formations EFT
+        </a>
+        <a
+          href="https://ecole-eft-france.fr/pages/tips.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+        >
+          Méthode TIPS®
+        </a>
+
+        <div className="pt-2">
+          <p className="text-sm opacity-80 text-center">EFTY te soutient. Voudrais-tu soutenir EFTY ?</p>
+          <AyniButton className="mt-2" />
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
 
 /* ---------- Alerte flottante ---------- */
 function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
