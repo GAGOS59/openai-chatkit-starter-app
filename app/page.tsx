@@ -389,7 +389,7 @@ export default function Page() {
 
       {crisisMode === "ask" && (
         <p className="text-sm text-[#0f3d69] opacity-80">
-          Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s'il te plaît.
+          Réponds simplement par <strong>oui</strong> ou <strong>non</strong>, s&apos;il te plaît.
         </p>
       )}
     </form>
