@@ -43,6 +43,7 @@ const SUICIDE_TRIGGERS = [
 
 const MEDICAL_TRIGGERS = [
   "douleur violente à la poitrine","douleur forte à la poitrine","oppression thoracique",
+  "douleur poitrine","douleur à la poitrine","douleur thoracique",
   "difficulté à respirer","je n'arrive plus à respirer","essoufflement important",
   "faiblesse d'un côté","paralysie d'un côté","bouche de travers",
   "troubles de la parole soudains","parler devient difficile",
@@ -71,7 +72,6 @@ function assistantSuggestsAlert(s: string) {
 // ---------- Normalisation & classification médicales (tolérantes) ----------
 function normalizeText(s: string | null): string {
   if (!s) return "";
-  // retire accents, met en minuscule, supprime ponctuation non alphanumérique
   try {
     const noAccents = s.normalize("NFD").replace(/\p{M}/gu, "");
     return noAccents.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -87,6 +87,13 @@ function isMedicalClarifierQuestion(s: string) {
   const mentionsSpontane = t.includes("spontan") || t.includes("au repos") || t.includes("apres effort") || t.includes("effort") || t.includes("en courant") || t.includes("en march");
   const mentionsChoc = t.includes("choc") || t.includes("coup") || t.includes("trauma") || t.includes("chute") || t.includes("heurter") || t.includes("collision");
   return mentionDouleur && (mentionsSpontane || mentionsChoc);
+}
+
+// detecteur de notre future formulation oui/non (tolérant)
+function isMedicalYesNoQuestion(s: string) {
+  if (!s) return false;
+  const t = s.toLowerCase();
+  return t.includes("est-elle apparue spontan") || (t.includes('réponds par "oui"') && t.includes("spontan"));
 }
 
 // classifie une réponse utilisateur courte en "spontane" | "choc" | "unknown"
@@ -144,8 +151,12 @@ Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur tho
 const SUICIDE_QUESTION_TEXT =
   "As-tu des idées suicidaires en ce moment ? Réponds par **oui** ou **non**, s’il te plaît.";
 
-const MEDICAL_TRIAGE_QUESTION =
-  "Cette douleur est-elle apparue **spontanément** (au repos / après un effort — ex. « effort », « en courant ») ou **suite à un choc** récent ? Réponds par **spontané** ou **choc**.";
+// Template : construit une question oui/non qui reprend le symptôme de l'utilisateur
+function MEDICAL_TRIAGE_QUESTION_FOR(symptomRaw: string) {
+  const s = (symptomRaw || "").trim();
+  const excerpt = s.length > 120 ? s.slice(0, 117).trim() + "…" : s;
+  return `La question rapide : "${excerpt}" est-elle apparue spontanément, sans choc (ne t'être cogné·e ou reçu un coup) ? Réponds par "oui" ou "non".`;
+}
 
 // question de clarification neutre (si detection à la fois med + suicide)
 const CLARIFY_PHYSICAL_OR_SUICIDE =
@@ -211,25 +222,32 @@ function computeCrisis(
     return { crisis: "ask", reason: "suicide" };
   }
 
-  // 2) medical only (robust : check userAfterAsk then fallback on lastUser)
+  // 2) medical only (robust : accepts explicit yes/no just after the triage question; fallback to lastUser)
   if (medicalSignal && !suicideSignal) {
     const askIdxs: number[] = [];
-    history.forEach((m, i) => { if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) askIdxs.push(i); });
+    // on accepte désormais que la question médicale soit une question classique ou notre yes/no template
+    history.forEach((m, i) => { 
+      if (m.role === "assistant" && (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))) askIdxs.push(i); 
+    });
     const lastMedAskIdx = askIdxs.length ? askIdxs[askIdxs.length - 1] : -1;
 
-    // user reply that directly follows the assistant's triage question (preferred)
+    // preferred: user reply that directly follows the assistant's triage question
     const userAfter = lastMedAskIdx >= 0 ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null : null;
-    let cls = classifyMedicalReply(userAfter);
 
-    // FALLBACK: if the preferred userAfter is absent or unknown, check the last user message in the history
+    // 1) si la réponse suit immédiatement la question et c'est un "oui"/"non" explicite -> agir
+    if (userAfter) {
+      if (isExplicitYes(userAfter)) return { crisis: "lock", reason: "medical" };
+      if (isExplicitNo(userAfter))  return { crisis: "none", reason: "none" };
+    }
+
+    // 2) fallback : classifier la réponse (effort, spontané, choc, etc.)
+    let cls = classifyMedicalReply(userAfter);
     if ((cls === "unknown" || userAfter === null) && lastUser) {
       const clsLast = classifyMedicalReply(lastUser);
-      // if lastUser clearly indicates "spontane" or "choc", prefer that
       if (clsLast === "spontane") cls = "spontane";
       else if (clsLast === "choc") cls = "choc";
     }
 
-    // now decide
     if (cls === "spontane") return { crisis: "lock", reason: "medical" };
     if (cls === "choc")     return { crisis: "none", reason: "none" };
 
@@ -298,31 +316,12 @@ export async function POST(req: NextRequest) {
     lastUserMsg ? llmFlag("medical", lastUserMsg) : Promise.resolve<"hit" | "safe">("safe"),
   ]);
 
-  // --- OPTIONAL DEBUG (commenté) ---
-  // Si tu veux activer le debug temporairement, décommente ce bloc pour renvoyer
-  // des informations utiles dans la réponse JSON (pense à le retirer ensuite).
-  /*
-  const medAskIdxs: number[] = [];
-  history.forEach((m, i) => {
-    if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) medAskIdxs.push(i);
-  });
-  const lastMedAskIdx = medAskIdxs.length ? medAskIdxs[medAskIdxs.length - 1] : -1;
-  const userAfterMedAsk = lastMedAskIdx >= 0 ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null : null;
-  const medClass = classifyMedicalReply(userAfterMedAsk);
-  const debugObj = {
-    lastMedAskIdx,
-    userAfterMedAskPreview: userAfterMedAsk ? userAfterMedAsk.slice(0, 200) : null,
-    medClass,
-    suicideLLM,
-    medicalLLM,
-    lastUserMsgPreview: (lastUserMsg || "").slice(0,200),
-  };
-  */
-
+  // (Safety override suicide déjà présent — garde la priorité pour les confirmations explicites)
+  // Compute crisis:
   const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
 
-  // --- Safety override : si la dernière question de l'assistant était la question suicide
-  // et l'utilisateur a répondu explicitement "oui", on renvoie immédiatement la fermeture empathique.
+  // --- Safety override : si l'assistant venait d'interroger sur le risque suicidaire
+  // et que l'utilisateur répond explicitement "oui", on renvoie immédiatement la fermeture empathique.
   const lastAssistantAskForSuicide = [...history].reverse().find(
     (m) => m.role === "assistant" && isCrisisQuestion(m.content)
   );
@@ -339,7 +338,8 @@ export async function POST(req: NextRequest) {
     answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
   } else if (crisis === "ask") {
     if (reason === "medical") {
-      answer = MEDICAL_TRIAGE_QUESTION;
+      // génère une question oui/non qui reprend le symptôme signalé par l'utilisateur
+      answer = MEDICAL_TRIAGE_QUESTION_FOR(lastUserMsg);
     } else if (reason === "suicide") {
       answer = SUICIDE_QUESTION_TEXT;
     } else if (reason === "clarify") {
@@ -349,7 +349,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Si tu as activé le debug plus haut, renvoie { answer, crisis, debug: debugObj } ; sinon renvoie normal
   return new NextResponse(JSON.stringify({ answer, crisis }), {
     headers,
     status: 200,
