@@ -459,11 +459,15 @@ export default function Page() {
           )}
         </div>
 
-        {/* ===== Colonne droite : PROMO ===== */}
-        <aside className="space-y-4">
-          <PromoCard />
-        </aside>
+        {/* Colonne droite : promo */}
+        <div className="md:col-span-1">
+          <div className="md:sticky md:top-6 flex flex-col gap-6">
+            <PromoCard />
+            <div className="mt-2" />
+          </div>
+        </div>
       </div>
+
     </main>
   );
 }
