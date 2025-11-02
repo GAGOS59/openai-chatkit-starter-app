@@ -63,7 +63,16 @@ function PromoCard() {
           rel="noopener noreferrer"
           className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] transition"
         >
-          Se former à l&apos;EFT officielle
+          Se former à l&apos;EFT pour un usage professionnel
+        </a>
+
+        <a
+          href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] transition"
+        >
+          Se former à l&apos;EFT pour un usage personnel
         </a>
 
         <a
@@ -205,7 +214,7 @@ function MobilePromoModal() {
             rel="noopener noreferrer"
             className="block text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
           >
-            1 — Aller plus loin avec l&apos;EFT
+            Se former à l&apos;EFT pour un usage professionnel
           </a>
 
           <a
@@ -214,8 +223,18 @@ function MobilePromoModal() {
             rel="noopener noreferrer"
             className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
           >
-            2 — Les livres EFT
+            Les livres EFT
           </a>
+
+          <a
+          href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] transition"
+        >
+          Se former à l&apos;EFT pour un usage personnel
+        </a>
+
 
           <div className="mt-3 flex items-center justify-between gap-3">
             <button
