@@ -199,6 +199,7 @@ Si tu es seul·e, mets-toi en sécurité (allongé·e si besoin), évite tout ef
 Ta sécurité passe avant tout — je suspends la séance pour prioriser ton accompagnement médical.`;
 
 // ---------- computeCrisis (gestion clarify / medical / suicide / none) ----------
+// ---------- computeCrisis (gestion clarify / medical / suicide / none) ----------
 function computeCrisis(
   history: ChatMessage[],
   modelAnswer: string,
@@ -213,7 +214,7 @@ function computeCrisis(
   const suicideSignal = hasSuicideKeyword || suicideLLM === "hit" || assistantSuggestsAlert(modelAnswer);
   const medicalSignal = hasMedicalKeyword || medicalLLM === "hit";
 
-  // 1) suicide only
+  // 1) suicide only (inchangé : 2 questions max => lock)
   if (suicideSignal && !medicalSignal) {
     const asks: number[] = [];
     history.forEach((m, i) => { if (m.role === "assistant" && isCrisisQuestion(m.content)) asks.push(i); });
@@ -231,40 +232,50 @@ function computeCrisis(
     return { crisis: "ask", reason: "suicide" };
   }
 
-  // 2) medical only (robust : accepts explicit yes/no just after the triage question; fallback to lastUser)
+  // 2) medical only (nouveau comportement strict OU/NO + re-ask / lock après 2 essais)
   if (medicalSignal && !suicideSignal) {
     const askIdxs: number[] = [];
-    // on accepte désormais que la question médicale soit une question classique ou notre yes/no template
-    history.forEach((m, i) => { 
-      if (m.role === "assistant" && (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))) askIdxs.push(i); 
+    // Accept both our clarifier and our yes/no template as "assistant asked triage"
+    history.forEach((m, i) => {
+      if (
+        m.role === "assistant" &&
+        (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))
+      ) askIdxs.push(i);
     });
     const lastMedAskIdx = askIdxs.length ? askIdxs[askIdxs.length - 1] : -1;
 
-    // preferred: user reply that directly follows the assistant's triage question
-    const userAfter = lastMedAskIdx >= 0 ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null : null;
+    // reply immediately following the assistant's triage question, if any
+    const userAfter = lastMedAskIdx >= 0
+      ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null
+      : null;
 
-    // 1) si la réponse suit immédiatement la question et c'est un "oui"/"non" explicite -> agir
+    // 1) If user replied directly after the triage question and used explicit yes/no -> act immediately
     if (userAfter) {
       if (isExplicitYes(userAfter)) return { crisis: "lock", reason: "medical" };
       if (isExplicitNo(userAfter))  return { crisis: "none", reason: "none" };
+      // if reply is present but NOT an explicit yes/no -> we must re-ask (unless we've already asked twice)
+      if (askIdxs.length >= 2) {
+        // Deux demandes d'éclaircissement sans réponse explicite -> on verrouille pour prioriser la sécurité
+        return { crisis: "lock", reason: "medical" };
+      }
+      // otherwise: re-ask (ask again)
+      return { crisis: "ask", reason: "medical" };
     }
 
-    // 2) fallback : classifier la réponse (effort, spontané, choc, etc.)
-    let cls = classifyMedicalReply(userAfter);
-    if ((cls === "unknown" || userAfter === null) && lastUser) {
-      const clsLast = classifyMedicalReply(lastUser);
-      if (clsLast === "spontane") cls = "spontane";
-      else if (clsLast === "choc") cls = "choc";
-    }
-
+    // 2) No direct reply after the last triage question:
+    // Try to classify the lastUser as fallback (this covers rare cases where messages are re-ordered)
+    let cls = classifyMedicalReply(lastUser);
     if (cls === "spontane") return { crisis: "lock", reason: "medical" };
     if (cls === "choc")     return { crisis: "none", reason: "none" };
 
-    // otherwise ask triage again (or confirm)
+    // 3) If the assistant already asked the triage twice and we still have no clear answer -> lock
+    if (askIdxs.length >= 2) return { crisis: "lock", reason: "medical" };
+
+    // otherwise ask triage (first or second attempt)
     return { crisis: "ask", reason: "medical" };
   }
 
-  // 3) both -> clarification
+  // 3) both -> clarification (inchangé)
   if (medicalSignal && suicideSignal) {
     const clarifyPatterns = ["parles", "douleur", "pensées", "te faire du mal", "en finir"];
     const assistantClarifyIdxs: number[] = [];
