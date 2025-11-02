@@ -13,7 +13,6 @@ import Image from "next/image";
 /* ---------- Constantes globales pour la promo mobile ---------- */
 const PAYPAL_URL = "https://paypal.me/efty25";
 const DISMISS_KEY = "efty_promo_dismissed_at_v1";
-const DISMISS_TTL = 24 * 60 * 60 * 1000; // 24h
 
 /* ---------- Bouton AYNI ---------- */
 function AyniButton({ className = "" }: { className?: string }) {
@@ -52,7 +51,7 @@ function PromoCard() {
       <div>
         <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
         <p className="text-sm mb-3 leading-relaxed">
-          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
+          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS&reg;</strong>.
         </p>
       </div>
 
@@ -61,7 +60,7 @@ function PromoCard() {
           href="https://ecole-eft-france.fr/pages/formations-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA]  transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#018df9]  transition"
         >
           Se former à l&apos;EFT pour un usage professionnel
         </a>
@@ -70,7 +69,7 @@ function PromoCard() {
           href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#018df9] transition"
         >
           Se former à l&apos;EFT pour un usage personnel
         </a>
@@ -79,7 +78,7 @@ function PromoCard() {
           href="https://technique-eft.com/livres-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#018df9] transition"
         >
           Les livres EFT de Geneviève Gagos
         </a>
@@ -93,7 +92,7 @@ function PromoCard() {
   );
 }
 
-/* ---------- Mobile Promo Modal (minimized bar ALWAYS visible; user cannot hide it) ---------- */
+/* ---------- Mobile Promo Modal (barre réduite INAMOVIBLE on mobile) ---------- */
 function MobilePromoModal() {
   type MqlWithLegacy = MediaQueryList & {
     addListener?: (listener: (e: MediaQueryListEvent) => void) => void;
@@ -113,10 +112,7 @@ function MobilePromoModal() {
       try {
         const raw = localStorage.getItem(DISMISS_KEY);
         if (!raw) return {};
-        // keep backward compat if stored value was a number/string
-        if (/^\d+$/.test(raw)) {
-          return { minimizedPreferred: true };
-        }
+        if (/^\d+$/.test(raw)) return { minimizedPreferred: true };
         return JSON.parse(raw) || {};
       } catch {
         return {};
@@ -126,15 +122,16 @@ function MobilePromoModal() {
     const mql = window.matchMedia("(max-width: 767px)") as MqlWithLegacy;
     const info = readInfo();
 
-    // On mobile the minimized bar is always shown; modal opens only if user did NOT previously prefer minimized.
+    // Sur mobile : la barre réduite est toujours visible ; le modal s'ouvre seulement si l'utilisateur
+    // n'a pas déjà exprimé la préférence "minimizedPreferred".
     const isMobile = mql.matches;
-    setMinimizedVisible(isMobile); // always show minimized bar on mobile
+    setMinimizedVisible(isMobile);
     setModalVisible(isMobile && !info.minimizedPreferred);
 
     const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
       const matches = "matches" in e ? e.matches : false;
       const cur = readInfo();
-      setMinimizedVisible(matches); // keep bar visible on mobile, hidden on desktop
+      setMinimizedVisible(matches);
       setModalVisible(matches && !cur.minimizedPreferred);
     };
 
@@ -146,14 +143,12 @@ function MobilePromoModal() {
       mql.addListener(onChange as (e: MediaQueryListEvent) => void);
       return () => mql.removeListener?.(onChange as (e: MediaQueryListEvent) => void);
     }
-
     return;
   }, []);
 
   if (!mounted) return null;
   if (!modalVisible && !minimizedVisible) return null;
 
-  // persist that user prefers minimized (so modal won't auto-open again)
   function persistMinimizedPreferred() {
     try {
       const raw = localStorage.getItem(DISMISS_KEY);
@@ -161,7 +156,7 @@ function MobilePromoModal() {
       info.minimizedPreferred = true;
       localStorage.setItem(DISMISS_KEY, JSON.stringify(info));
     } catch {
-      // ignore
+      /* ignore */
     }
   }
 
@@ -173,19 +168,17 @@ function MobilePromoModal() {
 
   function reopenFromMinimized() {
     setModalVisible(true);
-    // keep minimizedVisible true while modal is open or hide it visually — here we hide it while modal open
     setMinimizedVisible(false);
     setJustOpened(true);
     setTimeout(() => setJustOpened(false), 600);
   }
 
-  // Modal JSX (overlay + content)
   if (modalVisible) {
     return createPortal(
       <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 py-6 sm:items-start">
         <div
           className="absolute inset-0 bg-black/40"
-          onClick={() => minimizeFromModal()} // overlay click minimizes (keeps the reduced bar visible)
+          onClick={() => minimizeFromModal()}
           aria-hidden
         />
         <div
@@ -247,7 +240,7 @@ function MobilePromoModal() {
               </div>
             </div>
 
-            <p className="text-xs mt-3 opacity-80">Tu peux réduire la fenêtre — la barre "Soutenir EFTY" restera toujours visible.</p>
+            <p className="text-xs mt-3 opacity-80">Tu peux réduire la fenêtre — la barre &quot;Soutenir EFTY&quot; restera toujours visible.</p>
           </div>
         </div>
       </div>,
@@ -255,7 +248,6 @@ function MobilePromoModal() {
     );
   }
 
-  // Minimized bar JSX (NO close button — cannot be hidden)
   if (minimizedVisible) {
     return createPortal(
       <div
@@ -279,7 +271,7 @@ function MobilePromoModal() {
           </div>
 
           <div className="flex items-center gap-2 pr-2">
-            {/* Intentionally no "×" button here — the minimized bar cannot be hidden by the user */}
+            {/* intentionally no close button — the minimized bar cannot be hidden by the user */}
           </div>
         </div>
       </div>,
@@ -289,7 +281,6 @@ function MobilePromoModal() {
 
   return null;
 }
-
 
 /* ---------- Alerte flottante (utilisée dans Page) ---------- */
 function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
@@ -385,7 +376,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
+        "Bonjour 😊 je m&apos;appelle EFTY.\nJe te propose de t&apos;accompagner pas à pas dans ton auto-séance d&apos;EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
     },
   ]);
   const [input, setInput] = useState<string>("");
@@ -673,3 +664,4 @@ export default function Page() {
     </main>
   );
 }
+
