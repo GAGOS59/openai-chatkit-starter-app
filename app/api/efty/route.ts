@@ -78,30 +78,52 @@ function assistantSuggestsAlert(s: string) {
 }
 
 // ——— Médical : question de triage (spontané vs choc)
-// (on ne considère PLUS “effort” comme rassurant)
-function isMedicalClarifierQuestion(s: string) {
-  const t = (s || "").toLowerCase();
-  return t.includes("spontané") && t.includes("choc");
+// normalisation simple : minuscules, retire accents, supprime ponctuation excessive
+function normalizeText(s: string | null): string {
+  if (!s) return "";
+  // supprime accents (NFD) et les marques diacritiques
+  const noAccents = s.normalize("NFD").replace(/\p{M}/gu, "");
+  // garde lettres/chiffres/espaces, remplace le reste par espace, compacte espaces
+  return noAccents.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
-// Toute douleur “spontané / au repos / après effort” = urgence
-// Seul un “choc / coup / trauma / après une chute” est considéré non-urgent mais invite à la prudence
+
+// ——— Médical : question de triage (spontané vs choc)
+// plus tolérante : reconnaît "spontané", "spontanément", "au repos", "après un effort", "effort", "en courant", ...
+function isMedicalClarifierQuestion(s: string) {
+  const t = normalizeText(s);
+  // On identifie la question de triage si elle parle explicitement de "douleur" ET évoque les deux axes possibles
+  const mentionDouleur = t.includes("douleur") || t.includes("douleurs") || t.includes("douleur poitrine") || t.includes("douleur thoracique");
+  const mentionsSpontane = t.includes("spontan") || t.includes("au repos") || t.includes("apres effort") || t.includes("apres un effort") || t.includes("effort") || t.includes("en courant") || t.includes("en march");
+  const mentionsChoc = t.includes("choc") || t.includes("coup") || t.includes("trauma") || t.includes("chute") || t.includes("heurter") || t.includes("collision");
+  return mentionDouleur && (mentionsSpontane || mentionsChoc);
+}
+
+// classifyMedicalReply : mappe une réponse utilisateur courte vers "spontane" | "choc" | "unknown"
 function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
-  const t = (s || "").trim().toLowerCase();
+  const t = normalizeText(s);
   if (!t) return "unknown";
-  if (
-    /\bspontan(e|é)\b/.test(t) ||
-    t.includes("au repos") ||
-    t.includes("effort") ||
-    t.includes("sans choc")
-  ) return "spontane";
-  if (
-    /\bchoc\b/.test(t) ||
-    t.includes("coup") ||
-    t.includes("trauma") ||
-    t.includes("après une chute")
-  ) return "choc";
+
+  // regexs / mots-clés pour effort / activité → interpréter comme "spontane" (selon ta logique)
+  const effortRegex = /\b(spontan|au repos|apres(?: un| une)? effort|apres effort|effort|en courant|en march|cour(?:ir|u|ais|ant)|course|jogging|marche|marcheur|sport|exercice|entrainement|soulev|soul?ev|porter|monter esc|monter)\b/;
+  // mots-clés pour choc / traumatisme → "choc"
+  const chocRegex = /\b(choc|coup|traum|chute|heurter|collision|frapper|tomber|heurt|fracture)\b/;
+
+  if (chocRegex.test(t)) return "choc";
+  if (effortRegex.test(t) || t.includes("au repos") || t.includes("sans choc") || t.includes("apres un effort") || t.includes("apres avoir")) return "spontane";
+
+  // si réponse contient "spontané", "spontanément" explicitement
+  if (/\bspontan(?:e|ement)?\b/.test(t)) return "spontane";
+
+  // si la réponse est très courte et contient l'un des mots 'effort'/'course'/'courais' -> spontané
+  if (["effort", "course", "courais", "courir", "en courant", "je courais", "en courant"].some(w => t.includes(w))) return "spontane";
+
+  // si la réponse est "spontané" ou "spontane" (sans accent)
+  if (t === "spontane" || t === "spontane" || t === "spontane") return "spontane";
+
   return "unknown";
 }
+
+
 
 // ---------- OpenAI ----------
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
