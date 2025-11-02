@@ -14,6 +14,7 @@ type Crisis = "none" | "ask" | "lock";
 const ALLOWED_ORIGINS = [
   "https://ecole-eft-france.fr",
   "https://www.ecole-eft-france.fr",
+  "https://appli.ecole-eft-france.fr",
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
   "http://localhost:3000",
 ].filter(Boolean);
@@ -83,7 +84,7 @@ function isMedicalClarifierQuestion(s: string) {
   return t.includes("spontané") && t.includes("choc");
 }
 // Toute douleur “spontané / au repos / après effort” = urgence
-// Seul un “choc / coup / trauma / après une chute” est considéré non-urgent
+// Seul un “choc / coup / trauma / après une chute” est considéré non-urgent mais invite à la prudence
 function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
   const t = (s || "").trim().toLowerCase();
   if (!t) return "unknown";
@@ -116,7 +117,7 @@ async function llmFlag(
       ? `Tu es un détecteur de crise suicidaire. Analyse objectivement le message.
 Réponds UNIQUEMENT par "hit" si tu suspectes un risque suicidaire ou "safe" sinon. Aucune explication.`
       : `Tu es un détecteur d'urgence médicale. Analyse objectivement le message.
-Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur thoracique sévère, détresse respiratoire, signes d'AVC, hémorragie, perte de connaissance, etc.) ou "safe" sinon. Aucune explication.`;
+Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur thoracique sévère, détresse respiratoire, signes d'AVC, hémorragie, perte de connaissance, etc.) ou "safe" sinon. Conseil de consulter un médecin pour s'en assurer.`;
 
   const completion = await openai.chat.completions.create({
     model: MODEL,
@@ -155,7 +156,7 @@ Je reste avec toi en pensée.`;
 
 
 const CLOSING_MEDICAL = `Je comprends que tu vis une situation intense et cela m’inquiète pour ta sécurité.  
-Je ne peux pas poursuivre une séance d’EFT dans une situation qui peut relever d’une urgence médicale.
+Je ne peux pas poursuivre une séance d’EFT dans une situation qui peut relever d’une urgence médicale et demander une intervention humaine rapide.
 
 Je t’invite à appeler sans attendre :
 • **112** — Urgences (gratuit, accessible partout dans l’UE)  
