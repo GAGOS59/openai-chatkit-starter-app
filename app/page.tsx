@@ -496,11 +496,14 @@ export default function Page() {
 
         {/* ---- Colonne droite : PROMO (desktop sticky) ---- */}
         {/* hidden sur mobile; sur desktop : 1/3 de la largeur - sticky en haut */}
-        <aside className="hidden md:block md:col-span-1 md:self-start md:sticky md:top-6">
+        <aside className="md:sticky md:top-6 flex flex-col gap-6">
           <PromoCard />
         </aside>
       </div>
 
+
+
+  
       {/* Mobile promo modal - s'affichera uniquement sur mobile */}
       <MobilePromoModal />
     </main>
