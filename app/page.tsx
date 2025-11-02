@@ -61,7 +61,7 @@ function PromoCard() {
           href="https://ecole-eft-france.fr/pages/formations-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] text-[#0f3d69] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#6fbaec]  transition"
         >
           Se former à l&apos;EFT pour un usage professionnel
         </a>
@@ -70,7 +70,7 @@ function PromoCard() {
           href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#0f3d69] text-[#0f3d69] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#6fbaec] transition"
         >
           Se former à l&apos;EFT pour un usage personnel
         </a>
@@ -79,7 +79,7 @@ function PromoCard() {
           href="https://technique-eft.com/livres-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#ffffff] transition"
+          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#6fbaec] transition"
         >
           Les livres EFT de Geneviève Gagos
         </a>
@@ -221,7 +221,7 @@ function MobilePromoModal() {
             href="https://technique-eft.com/livres-eft.html"
             target="_blank"
             rel="noopener noreferrer"
-            className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
+            className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#6fbaec] transition"
           >
             Les livres EFT
           </a>
@@ -230,7 +230,7 @@ function MobilePromoModal() {
           href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#f6f9ff] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#6fbaec] transition"
         >
           Se former à l&apos;EFT pour un usage personnel
         </a>
@@ -239,7 +239,7 @@ function MobilePromoModal() {
           <div className="mt-3 flex items-center justify-between gap-3">
             <button
               onClick={() => close(true)}
-              className="rounded-lg border px-3 py-2 bg-white text-[#0f3d69]"
+              className="rounded-lg border px-3 py-2 bg-white text-[#6fbaec]"
             >
               Fermer (ne plus montrer aujourd&apos;hui)
             </button>
