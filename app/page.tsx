@@ -381,41 +381,21 @@ export default function Page() {
         </div>
       </div>
 
-      {/* === GRILLE : Chat (gauche) + Promo (droite) ===
-          - mobile: 1 colonne (promo modal) -> promo aside hidden on mobile
-          - desktop: 3-col grid with explicit col-spans for robustness */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {/* ---- Colonne gauche : Chat (occupe 2/3 sur desktop) ---- */}
-        <div className="space-y-6 md:col-span-2">
-          {/* Zone de chat */}
-          <div
-            ref={chatRef}
-            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
-          >
-            <div className="space-y-3">
-              {messages.map((m, i) => (
-                <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
-                  <div
-                    className={
-                      (m.role === "assistant"
-                        ? "bg-gray-50 text-gray-900 border-gray-200"
-                        : "bg-blue-50 text-blue-900 border-blue-200") +
-                      " max-w-[80%] whitespace-pre-wrap rounded-2xl border px-4 py-3 shadow-sm"
-                    }
-                  >
-                    {m.content}
-                  </div>
-                </div>
-              ))}
-              {loading && (
-                <div className="flex">
-                  <div className="bg-gray-50 text-gray-900 border-gray-200 rounded-2xl border px-4 py-3 shadow-sm">
-                    … je réfléchis
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+     {/* === GRILLE : Chat (gauche) + Promo (droite) ===
+    - mobile: 1 colonne (promo modal) -> promo aside hidden on mobile
+    - desktop: 3-col grid with explicit col-start/col-end for robustness */}
+<div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+  {/* ---- Colonne gauche : Chat (occupe 2/3 sur desktop) ---- */}
+  <div className="space-y-6 md:col-start-1 md:col-end-3">
+    {/* ... tout le contenu de la colonne gauche (chat, note de prudence, etc.) ... */}
+  </div>
+
+  {/* ---- Colonne droite : PROMO (desktop sticky) ---- */}
+  {/* hidden sur mobile; sur desktop : start colonne 3, sticky top */}
+  <aside className="hidden md:block md:col-start-3 md:col-end-4 md:self-start md:sticky md:top-6">
+    <PromoCard />
+  </aside>
+</div>
 
           {/* Alerte flottante */}
           {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
