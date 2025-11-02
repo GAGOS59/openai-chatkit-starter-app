@@ -29,7 +29,7 @@ function AyniButton({ className = "" }: { className?: string }) {
         aria-label="Soutenir EFTY sur PayPal"
       >
         <span aria-hidden className="text-2xl leading-none">❤️</span>
-        <span className="font-medium">Voudrais-tu soutenir EFTY ?</span>
+        <span className="font-medium">Soutenir EFTY</span>
       </a>
     </div>
   );
@@ -52,7 +52,7 @@ function PromoCard() {
       <div>
         <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
         <p className="text-sm mb-3 leading-relaxed">
-          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS&reg;</strong>.
+          Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
         </p>
       </div>
 
@@ -84,7 +84,6 @@ function PromoCard() {
           Les livres EFT de Geneviève Gagos
         </a>
 
-
         <div className="pt-2">
           <p className="text-sm opacity-80 text-center">EFTY te soutient. Voudrais-tu soutenir EFTY ?</p>
           <AyniButton className="mt-2" />
@@ -94,9 +93,9 @@ function PromoCard() {
   );
 }
 
-/* ---------- Mobile Promo Modal (robuste, sans any) ---------- */
-/* ---------- Mobile Promo Modal (robuste, minimise en bas si demandé) ---------- */
+/* ---------- Mobile Promo Modal (minimize behaviour) ---------- */
 function MobilePromoModal() {
+  // Legacy-friendly MediaQueryList type (no 'any')
   type MqlWithLegacy = MediaQueryList & {
     addListener?: (listener: (e: MediaQueryListEvent) => void) => void;
     removeListener?: (listener: (e: MediaQueryListEvent) => void) => void;
@@ -105,7 +104,7 @@ function MobilePromoModal() {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false); // modal expanded
   const [minimized, setMinimized] = useState(false); // reduced bar shown
-  const [justOpened, setJustOpened] = useState(false);
+  const [justOpened, setJustOpened] = useState(false); // guard to avoid immediate double-click reopen
 
   useEffect(() => {
     setMounted(true);
@@ -115,6 +114,7 @@ function MobilePromoModal() {
       try {
         const raw = localStorage.getItem(DISMISS_KEY);
         if (!raw) return null;
+        // Support legacy numeric timestamp as string
         if (/^\d+$/.test(raw)) {
           return { dismissedAt: Number(raw), minimized: true };
         }
@@ -214,10 +214,9 @@ function MobilePromoModal() {
   if (visible) {
     const modal = (
       <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 py-6 sm:items-start">
-        {/* <-- CHANGED: overlay click now minimizes (close(true)) instead of hiding without minimizing */}
         <div
           className="absolute inset-0 bg-black/40"
-          onClick={() => close(true)}
+          onClick={() => close(true)} // minimize on overlay click
           aria-hidden
         />
         <div
@@ -230,13 +229,13 @@ function MobilePromoModal() {
             <div>
               <h3 className="text-lg font-semibold leading-tight mb-1">Pour aller plus loin avec l&apos;EFT</h3>
               <p className="text-sm text-[#0f3d69] opacity-90 mb-2">
-                Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS&reg;</strong>.
+                Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
               </p>
             </div>
 
             <div className="flex-shrink-0">
               <button
-                onClick={() => close(true)} // minimise on X click (unchanged)
+                onClick={() => close(true)}
                 aria-label="Fermer la fenêtre promotion (réduire)"
                 className="rounded-full bg-white border px-3 py-1 text-lg shadow-sm"
               >
@@ -273,7 +272,13 @@ function MobilePromoModal() {
               Se former à l&apos;EFT pour un usage personnel
             </a>
 
-            
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <button
+                onClick={() => { close(true); }}
+                className="rounded-lg border px-3 py-2 bg-white text-[#0f3d69]"
+              >
+                Fermer (ne plus montrer aujourd&apos;hui)
+              </button>
 
               <div className="flex-shrink-0">
                 <AyniButton />
@@ -289,6 +294,7 @@ function MobilePromoModal() {
     return createPortal(modal, document.body);
   }
 
+  // Minimized bar (clickable)
   const minimizedBar = (
     <div
       role="button"
@@ -333,79 +339,12 @@ function MobilePromoModal() {
   return createPortal(minimizedBar, document.body);
 }
 
-
 /* ---------- Alerte flottante (utilisée dans Page) ---------- */
-function CrisisFloating({ reason }: { reason?: string }) {
+function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
-
-  // contenu différent selon la raison
-  const suicideContent = (
-    <>
-      <div className="text-sm font-semibold">Message important</div>
-      {!collapsed && (
-        <p className="mt-0.5 text-sm opacity-80">
-          Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences. 
-          Il semble que tu traverses un moment très difficile. Je ne peux pas poursuivre l&apos;EFT dans cette situation.
-        </p>
-      )}
-      <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
-        <div className="text-xs font-semibold">📞 En France</div>
-        <ul className="mt-1 text-sm leading-6">
-          <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
-          <li><strong>15</strong> — SAMU</li>
-          <li><strong>112</strong> — Urgences (si danger immédiat)</li>
-        </ul>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
-          <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
-          <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
-        </div>
-      </div>
-    </>
-  );
-
-  const medicalContent = (
-    <>
-      <div className="text-sm font-semibold">Message important</div>
-      {!collapsed && (
-        <p className="mt-0.5 text-sm opacity-80">
-          Priorité : urgence médicale. Si tu as un symptôme grave (douleur forte à la poitrine, difficulté à respirer, perte de connaissance,
-          faiblesse soudaine d’un côté, trouble de la parole, saignement abondant, traumatisme), appelle immédiatement les secours.
-        </p>
-      )}
-      <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
-        <div className="text-xs font-semibold">📞 Appeler :</div>
-        <ul className="mt-1 text-sm leading-6">
-          <li><strong>112</strong> — Urgences (numéro européen)</li>
-          <li><strong>15</strong> — SAMU (France)</li>
-        </ul>
-
-        <div className="mt-2 text-xs">
-          <strong>Signes d&apos;AVC (FAST) :</strong> visage affaissé, faiblesse d&apos;un côté, trouble de la parole → agir tout de suite.
-        </div>
-
-        <div className="mt-2 flex flex-wrap gap-2">
-          <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
-          <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 15</a>
-        </div>
-      </div>
-      {!collapsed && (
-        <p className="mt-2 text-sm opacity-80">Si possible, demande à quelqu&apos;un de rester avec toi et d&apos;aider à appeler les secours.</p>
-      )}
-    </>
-  );
-
-  const genericContent = (
-    <>
-      <div className="text-sm font-semibold">Message important</div>
-      {!collapsed && <p className="mt-0.5 text-sm opacity-80">Priorité à ta sécurité. Si tu es en danger, contacte les services d&apos;urgence.</p>}
-    </>
-  );
-
-  const body = reason === "medical" ? medicalContent : reason === "suicide" ? suicideContent : genericContent;
 
   const wrapper = (
     <div
@@ -420,7 +359,14 @@ function CrisisFloating({ reason }: { reason?: string }) {
     >
       <div className="rounded-xl border border-rose-300 bg-rose-50 text-rose-900 shadow-xl">
         <div className="flex items-start gap-3 px-3 py-2">
-          <div className="flex-1">{body}</div>
+          <div className="flex-1">
+            <div className="text-sm font-semibold">Message important</div>
+            {!collapsed && (
+              <p className="mt-0.5 text-sm opacity-80">
+                Priorité à ta sécurité. En cas de danger immédiat, contacte les urgences.
+              </p>
+            )}
+          </div>
           <div className="flex gap-1">
             <button
               onClick={() => setCollapsed((v) => !v)}
@@ -440,6 +386,40 @@ function CrisisFloating({ reason }: { reason?: string }) {
             </button>
           </div>
         </div>
+
+        {!collapsed && (
+          <div className="px-3 pb-3">
+            <p className="text-sm">
+              Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+              Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
+            </p>
+
+            <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
+              <div className="text-xs font-semibold">📞 En France</div>
+              <ul className="mt-1 text-sm leading-6">
+                <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
+                <li><strong>15</strong> — SAMU</li>
+                <li><strong>112</strong> — Urgences (si danger immédiat)</li>
+              </ul>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
+                <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
+                <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
+              </div>
+            </div>
+
+            {mode === "ask" && (
+              <p className="mt-2 text-sm">
+                Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+              </p>
+            )}
+            {mode === "lock" && (
+              <p className="mt-2 text-sm">
+                Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -460,7 +440,6 @@ export default function Page() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [crisisMode, setCrisisMode] = useState<CrisisFlag>("none");
-  const [crisisReason, setCrisisReason] = useState<string>("none"); // <-- ajouté
   const [toast, setToast] = useState<ToastState>(null);
   const [lastAskedSud, setLastAskedSud] = useState(false);
 
@@ -528,11 +507,7 @@ export default function Page() {
     if (!value || loading) return;
 
     setError(null);
-    // local quick-check: if we are already in ask and user answers yes we can optimistically set lock
-    if (crisisMode === "ask" && isAffirmativeYes(value)) {
-      setCrisisMode("lock");
-      // keep reason until server replies (server will overwrite)
-    }
+    if (crisisMode === "ask" && isAffirmativeYes(value)) setCrisisMode("lock");
 
     if (lastAskedSud) {
       const sud = extractSud(value);
@@ -553,38 +528,25 @@ export default function Page() {
       });
       if (!res.ok) throw new Error("Réponse serveur non valide");
 
-      const data: { answer?: string; error?: string; crisis?: CrisisFlag; reason?: string } = await res.json();
+      const data: { answer?: string; error?: string; crisis?: CrisisFlag } = await res.json();
       const reply = (data.answer || data.error || "").trim();
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: reply || "Je n&apos;ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
+        { role: "assistant", content: reply || "Je n'ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
       ]);
 
-      // IMPORTANT : utiliser la raison envoyée par le serveur si présente
       if (data.crisis && data.crisis !== "none") {
         setCrisisMode(data.crisis);
-        setCrisisReason(data.reason ?? "none");
       } else {
-        if (inferAskFromReply(reply)) {
-          setCrisisMode("ask");
-          setCrisisReason("none");
-        } else {
-          // si on était déjà en 'ask' et l'utilisateur a dit oui -> lock (fallback local)
-          if (crisisMode === "ask" && isAffirmativeYes(value)) {
-            setCrisisMode("lock");
-            setCrisisReason((prev) => (prev === "none" ? "unknown" : prev));
-          } else {
-            setCrisisMode("none");
-            setCrisisReason("none");
-          }
-        }
+        if (inferAskFromReply(reply)) setCrisisMode("ask");
+        if (crisisMode === "ask" && isAffirmativeYes(value)) setCrisisMode("lock");
       }
     } catch {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Désolé, je n&apos;ai pas pu répondre. Réessaie dans un instant ou reformule ta demande." },
+        { role: "assistant", content: "Désolé, je n'ai pas pu répondre. Réessaie dans un instant ou reformule ta demande." },
       ]);
     } finally {
       setLoading(false);
@@ -652,7 +614,7 @@ export default function Page() {
           </div>
 
           {/* Alerte flottante */}
-          {crisisMode !== "none" && <CrisisFloating reason={crisisReason} />}
+          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
 
           {/* Formulaire */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
