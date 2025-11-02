@@ -17,17 +17,21 @@ const PAYPAL_URL = "https://paypal.me/efty25";
 function AyniButton({ className = "" }: { className?: string }) {
   return (
     <div className={"flex justify-center " + className}>
-      <a/* app/page.tsx */
-"use client";
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  FormEvent,
-} from "react";
-import { createPortal } from "react-dom";
-import Image from "next/image";
+      <a
+        href={PAYPAL_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={
+          "inline-flex items-center gap-3 rounded-xl border px-4 py-2 shadow-sm bg-white hover:bg-gray-50 active:scale-[0.99] transition"
+        }
+        aria-label="Soutenir EFTY sur PayPal"
+      >
+        <span aria-hidden className="text-2xl leading-none">❤️</span>
+        <span className="font-medium">Soutenir EFTY</span>
+      </a>
+    </div>
+  );
+}
 
 /* ---------- Constants & small components ---------- */
 const PAYPAL_URL = "https://paypal.me/efty25";
