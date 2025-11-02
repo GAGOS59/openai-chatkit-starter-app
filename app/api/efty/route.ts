@@ -211,21 +211,29 @@ function computeCrisis(
     return { crisis: "ask", reason: "suicide" };
   }
 
-  // 2) medical only
+  // 2) medical only (robuste : check userAfterAsk puis fallback sur lastUser)
   if (medicalSignal && !suicideSignal) {
     const askIdxs: number[] = [];
     history.forEach((m, i) => { if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) askIdxs.push(i); });
     const lastMedAskIdx = askIdxs.length ? askIdxs[askIdxs.length - 1] : -1;
 
-    if (lastMedAskIdx >= 0) {
-      const userAfter = history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null;
-      const cls = classifyMedicalReply(userAfter);
+    // user reply that directly follows the assistant's triage question (preferred)
+    let userAfter = lastMedAskIdx >= 0 ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null : null;
+    let cls = classifyMedicalReply(userAfter);
 
-      if (cls === "spontane") return { crisis: "lock", reason: "medical" };
-      if (cls === "choc")     return { crisis: "none", reason: "none" };
-      return { crisis: "ask", reason: "medical" };
+    // FALLBACK: if the preferred userAfter is absent or unknown, check the last user message in the history
+    if ((cls === "unknown" || userAfter === null) && lastUser) {
+      const clsLast = classifyMedicalReply(lastUser);
+      // if lastUser clearly indicates "spontane" or "choc", prefer that
+      if (clsLast === "spontane") cls = "spontane";
+      else if (clsLast === "choc") cls = "choc";
     }
 
+    // now decide
+    if (cls === "spontane") return { crisis: "lock", reason: "medical" };
+    if (cls === "choc")     return { crisis: "none", reason: "none" };
+
+    // otherwise ask triage again (or confirm)
     return { crisis: "ask", reason: "medical" };
   }
 
