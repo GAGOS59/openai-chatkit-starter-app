@@ -368,6 +368,19 @@ export async function POST(req: NextRequest) {
       { headers, status: 200 }
     );
   }
+  // Si l'utilisateur répond explicitement NON à la question de triage médical,
+// on renvoie une réponse courte, empathique et sans diagnostic.
+if (lastAssistantAskForMedicalOverride && isExplicitNo(lastUserMsg)) {
+  return new NextResponse(
+    JSON.stringify({
+      answer: `D'accord, tu me dis "non", mais si tu as le moindre doute, consulte immédiatement. Ta santé est prioritaire.`,
+      crisis: "none",
+      reason: "medical"
+    }),
+    { headers, status: 200 }
+  );
+}
+
 
   // ——— compute crisis
   const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
