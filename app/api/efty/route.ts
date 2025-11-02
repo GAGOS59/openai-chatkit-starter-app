@@ -211,14 +211,14 @@ function computeCrisis(
     return { crisis: "ask", reason: "suicide" };
   }
 
-  // 2) medical only (robuste : check userAfterAsk puis fallback sur lastUser)
+  // 2) medical only (robust : check userAfterAsk then fallback on lastUser)
   if (medicalSignal && !suicideSignal) {
     const askIdxs: number[] = [];
     history.forEach((m, i) => { if (m.role === "assistant" && isMedicalClarifierQuestion(m.content)) askIdxs.push(i); });
     const lastMedAskIdx = askIdxs.length ? askIdxs[askIdxs.length - 1] : -1;
 
     // user reply that directly follows the assistant's triage question (preferred)
-    let userAfter = lastMedAskIdx >= 0 ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null : null;
+    const userAfter = lastMedAskIdx >= 0 ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null : null;
     let cls = classifyMedicalReply(userAfter);
 
     // FALLBACK: if the preferred userAfter is absent or unknown, check the last user message in the history
