@@ -155,7 +155,17 @@ const SUICIDE_QUESTION_TEXT =
 function MEDICAL_TRIAGE_QUESTION_FOR(symptomRaw: string) {
   const s = (symptomRaw || "").trim();
   const excerpt = s.length > 120 ? s.slice(0, 117).trim() + "…" : s;
-  return `La question rapide : "${excerpt}" est-elle apparue spontanément, sans choc (ne t'être cogné·e ou reçu un coup) ? Réponds par "oui" ou "non".`;
+  // heuristique simple pour choisir Ce / Cette (prédicat minimal basé sur mots fréquents)
+  const lower = excerpt.toLowerCase();
+  const feminineIndicators = [
+    "douleur", "douleurs", "naus", "oppression", "fatigue", "nausée", "nausées", "gêne", "gène",
+    "oppression thoracique", "douleur thoracique", "douleur poitrine"
+  ];
+  const article = feminineIndicators.some(tok => lower.startsWith(tok) || lower.includes(tok)) ? "Cette" : "Ce";
+  // accord du verbe selon le genre
+  const verb = article === "Cette" ? "est-elle apparue" : "est-il apparu";
+  // phrase finale (plus naturelle, poli et claire)
+  return `${article} "${excerpt}" ${verb} spontanément, sans choc (ne t'être cogné·e ni reçu un coup) ? Réponds par "oui" ou "non".`;
 }
 
 const CLARIFY_PHYSICAL_OR_SUICIDE =
@@ -316,63 +326,34 @@ export async function POST(req: NextRequest) {
   ]);
 
   // --- Overwrites immédiats : si l'assistant a posé une question de clarification
-// et que l'utilisateur répond explicitement "oui", on force le lock immédiat.
-// (Reproduit le même comportement robuste que pour l'alerte suicide.)
+  // et que l'utilisateur répond explicitement "oui", on force le lock immédiat.
+  // (Reproduit le même comportement robuste que pour l'alerte suicide.)
 
-// a) si l'assistant a demandé la question suicide standard et que l'utilisateur a dit "oui"
-const lastAssistantAskForSuicide = [...history].reverse().find(
-  (m) => m.role === "assistant" && isCrisisQuestion(m.content)
-);
-if (lastAssistantAskForSuicide && isExplicitYes(lastUserMsg)) {
-  return new NextResponse(
-    JSON.stringify({ answer: CLOSING_SUICIDE, crisis: "lock", reason: "suicide" }),
-    { headers, status: 200 }
-  );
-}
-
-// b) si l'assistant a posé la question de triage médical (notre template) et que l'utilisateur a dit "oui"
-const lastAssistantAskForMedical = [...history].reverse().find(
-  (m) => m.role === "assistant" && isMedicalClarifierQuestion(m.content)
-);
-if (lastAssistantAskForMedical && isExplicitYes(lastUserMsg)) {
-  return new NextResponse(
-    JSON.stringify({ answer: CLOSING_MEDICAL, crisis: "lock", reason: "medical" }),
-    { headers, status: 200 }
-  );
-}
-
-  
-  const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
-
-  // --- Safety override : si l'assistant venait d'interroger sur le risque suicidaire
-  // et que l'utilisateur répond explicitement "oui", on renvoie immédiatement la fermeture empathique.
-  const lastAssistantAskForSuicide = [...history].reverse().find(
+  // a) si l'assistant a demandé la question suicide standard et que l'utilisateur a dit "oui"
+  const lastAssistantAskForSuicideOverride = [...history].reverse().find(
     (m) => m.role === "assistant" && isCrisisQuestion(m.content)
   );
-  if (lastAssistantAskForSuicide && isExplicitYes(lastUserMsg)) {
-    const forcedAnswer = CLOSING_SUICIDE;
-    return new NextResponse(JSON.stringify({ answer: forcedAnswer, crisis: "lock", reason: "suicide" }), {
-      headers,
-      status: 200,
-    });
+  if (lastAssistantAskForSuicideOverride && isExplicitYes(lastUserMsg)) {
+    return new NextResponse(
+      JSON.stringify({ answer: CLOSING_SUICIDE, crisis: "lock", reason: "suicide" }),
+      { headers, status: 200 }
+    );
   }
 
-  // --- Safety override (MÉDICAL) : si l'assistant a posé la question de triage médical
-  // (notre template or clarifier) et que l'utilisateur répond explicitement "oui", on force la fermeture médicale.
-  const lastAssistantAskForMedical = [...history].reverse().find(
-    (m) =>
-      m.role === "assistant" &&
-      (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))
+  // b) si l'assistant a posé la question de triage médical (notre template) et que l'utilisateur a dit "oui"
+  const lastAssistantAskForMedicalOverride = [...history].reverse().find(
+    (m) => m.role === "assistant" && (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))
   );
-  if (lastAssistantAskForMedical && isExplicitYes(lastUserMsg)) {
-    const forcedAnswer = CLOSING_MEDICAL;
-    return new NextResponse(JSON.stringify({ answer: forcedAnswer, crisis: "lock", reason: "medical" }), {
-      headers,
-      status: 200,
-    });
+  if (lastAssistantAskForMedicalOverride && isExplicitYes(lastUserMsg)) {
+    return new NextResponse(
+      JSON.stringify({ answer: CLOSING_MEDICAL, crisis: "lock", reason: "medical" }),
+      { headers, status: 200 }
+    );
   }
 
-  
+  // ——— compute crisis
+  const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
+
   // ——— Forcer le message renvoyé selon l’état d’urgence
   if (crisis === "lock") {
     answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
