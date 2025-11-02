@@ -29,7 +29,7 @@ function AyniButton({ className = "" }: { className?: string }) {
         aria-label="Soutenir EFTY sur PayPal"
       >
         <span aria-hidden className="text-2xl leading-none">❤️</span>
-        <span className="font-medium">Soutenir EFTY</span>
+        <span className="font-medium">Voudrais-tu soutenir EFTY ?</span>
       </a>
     </div>
   );
