@@ -61,7 +61,7 @@ function PromoCard() {
           href="https://ecole-eft-france.fr/pages/formations-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC]  transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA]  transition"
         >
           Se former à l&apos;EFT pour un usage professionnel
         </a>
@@ -70,7 +70,7 @@ function PromoCard() {
           href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
         >
           Se former à l&apos;EFT pour un usage personnel
         </a>
@@ -79,7 +79,7 @@ function PromoCard() {
           href="https://technique-eft.com/livres-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+          className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
         >
           Les livres EFT de Geneviève Gagos
         </a>
@@ -250,7 +250,7 @@ function MobilePromoModal() {
               href="https://ecole-eft-france.fr/pages/formations-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
             >
               Se former à l&apos;EFT pour un usage professionnel
             </a>
@@ -259,7 +259,7 @@ function MobilePromoModal() {
               href="https://technique-eft.com/livres-eft.html"
               target="_blank"
               rel="noopener noreferrer"
-              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
             >
               Les livres EFT
             </a>
@@ -268,7 +268,7 @@ function MobilePromoModal() {
               href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
+              className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#006FCA] transition"
             >
               Se former à l&apos;EFT pour un usage personnel
             </a>
