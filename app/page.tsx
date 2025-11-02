@@ -79,7 +79,7 @@ function PromoCard() {
           href="https://technique-eft.com/livres-eft.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#164b84] transition"
+          className="text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#ffffff] transition"
         >
           Les livres EFT de Geneviève Gagos
         </a>
