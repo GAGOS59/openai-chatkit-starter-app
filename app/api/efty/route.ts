@@ -330,6 +330,22 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // --- Safety override (MÉDICAL) : si l'assistant a posé la question de triage médical
+  // (notre template or clarifier) et que l'utilisateur répond explicitement "oui", on force la fermeture médicale.
+  const lastAssistantAskForMedical = [...history].reverse().find(
+    (m) =>
+      m.role === "assistant" &&
+      (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))
+  );
+  if (lastAssistantAskForMedical && isExplicitYes(lastUserMsg)) {
+    const forcedAnswer = CLOSING_MEDICAL;
+    return new NextResponse(JSON.stringify({ answer: forcedAnswer, crisis: "lock", reason: "medical" }), {
+      headers,
+      status: 200,
+    });
+  }
+
+  
   // ——— Forcer le message renvoyé selon l’état d’urgence
   if (crisis === "lock") {
     answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
