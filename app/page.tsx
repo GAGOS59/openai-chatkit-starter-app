@@ -39,6 +39,62 @@ type Message = { role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
+/* ---------- Promo Mobile compacte ---------- */
+function PromoMobile() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="md:hidden">
+      <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] shadow-sm">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3"
+          aria-expanded={open}
+          aria-controls="promo-mobile-panel"
+        >
+          <span className="font-semibold">Pour aller plus loin avec l&apos;EFT</span>
+          <span className="text-xl">{open ? "▴" : "▾"}</span>
+        </button>
+        {open && (
+          <div id="promo-mobile-panel" className="px-4 pb-4 space-y-3">
+            <p className="text-sm">
+              Des formations fidèles à l&apos;EFT d&apos;origine et la méthode <strong>TIPS®</strong>.
+            </p>
+            <a
+              href="https://ecole-eft-france.fr/realigner-pratique-eft.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+            >
+              Réaligner sa pratique EFT
+            </a>
+            <a
+              href="https://ecole-eft-france.fr/pages/formations-eft.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#164b84] transition"
+            >
+              Formations EFT
+            </a>
+            <a
+              href="https://ecole-eft-france.fr/pages/tips.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-center rounded-lg border border-[#0f3d69] text-[#0f3d69] px-4 py-3 hover:bg-[#f6f9ff] transition"
+            >
+              Méthode TIPS®
+            </a>
+            <div className="pt-1">
+              <p className="text-sm opacity-80 text-center">EFTY te soutient. Voudrais-tu soutenir EFTY ?</p>
+              <AyniButton className="mt-2" />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Page ---------- */
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([
@@ -274,6 +330,9 @@ export default function Page() {
             </p>
           </div>
 
+          {/* Promo Mobile compacte, placée APRÈS la note pour rester discrète */}
+          <PromoMobile />
+
           <div
             aria-live="assertive"
             className="pointer-events-none fixed inset-0 flex items-end px-4 py-6 sm:items-start sm:p-6 z-50"
@@ -320,8 +379,8 @@ export default function Page() {
           )}
         </div>
 
-        {/* ---- Colonne droite : PROMO (toujours rendue) ---- */}
-        <aside className="space-y-4 md:sticky md:top-6">
+        {/* ---- Colonne droite : PROMO Desktop (toujours à droite) ---- */}
+        <aside className="hidden md:block space-y-4 md:sticky md:top-6">
           <div className="rounded-xl border bg-[#F3EEE6] text-[#0f3d69] p-4 shadow-sm">
             <div>
               <h2 className="text-xl font-semibold mb-1">Pour aller plus loin avec l&apos;EFT</h2>
@@ -457,4 +516,3 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
 
   return createPortal(wrapper, document.body);
 }
-
