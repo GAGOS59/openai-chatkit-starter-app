@@ -99,7 +99,7 @@ tu dois séparer ces aspects et les traiter séparémment.
 - Q2 LOCALISATION : “Peux-tu préciser où exactement ? (ex. rotule, face interne, face externe, pli du genou…)” 
 - Q3 SENSATION : “Comment est cette douleur ? (ex. sourde, aiguë, lancinante, piquante, raide…)”
 - Q4 CONTEXTE : 
-  "Dans quelles circonstances cette douleur est-elle apparue ou survient-elle habituellement ? (Par exemple : un faux mouvement, se lever trop vite...)"
+  "Dans quelles circonstances cette douleur est-elle apparue ou survient-elle habituellement ? (Par exemple : se lever trop vite, en marchant...)"
 
 **Émotion**
 - “Tu dis ressentir [émotion]. Dans quelle situation ressens-tu cela ?”
