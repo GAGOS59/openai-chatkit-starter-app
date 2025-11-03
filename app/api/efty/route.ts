@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
 // on renvoie un commentaire empathique (sans diagnostic) ET on pose directement
 // la question de localisation pour poursuivre le processus.
 if (lastAssistantAskForMedicalOverride && isExplicitNo(lastUserMsg)) {
-  const reply = `D'accord, tu me dis "non", mais si tu as le moindre doute, consulte immédiatement. Ta santé est prioritaire. Continuons ! Peux-tu préciser où exactement tu ressens [douleur] ?`;
+  const reply = `D'accord, tu me dis "non", mais si tu as le moindre doute, consulte immédiatement. Ta santé est prioritaire. Continuons ! Peux-tu préciser ce qui se passe pour toi ?`;
   return new NextResponse(
     JSON.stringify({ answer: reply, crisis: "none", reason: "medical" }),
     { headers, status: 200 }
