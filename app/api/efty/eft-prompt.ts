@@ -192,7 +192,7 @@ Après chaque ronde :
 // C’est ici que la logique ΔSUD et les retours sont unifiés.
 
 - **Aspect initial** : première cible complètement définie et mesurée (SUD #1).  
-- **Nouvel aspect / sous-aspect** : focus différent apparu lors d’une exploration (Δ=0/1, SUD≤1 “petit reste” ou changement spontané).  
+- **Nouvel aspect / sous-aspect** : focus différent apparu lors d’une exploration complémentaire.  
 - Les aspects sont gérés par une **pile (stack LIFO)** :
   - Chaque nouvel aspect est **empilé**. 
   - Ne mélange pas les SETUP du **Nouvel aspect / sous-aspect** avec ceux de l'**Aspect initial** quand tu calcules ASUD.
