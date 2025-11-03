@@ -530,16 +530,12 @@ export default function Page() {
         {/* gauche : prend 2/3 en desktop */}
         <div className="w-full md:w-2/3 space-y-6">
          
-          {/* Zone de chat */}  
+                    {/* Zone de chat */}
+          
           {/* --- Référence visuelle : photo + localisation des points EFT --- */}
           <div className="mb-4">
             <EFTPointsReference className="mx-auto w-full max-w-md" />
           </div>
-
-          <div
-            ref={chatRef}
-            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
-          >
 
           <div
             ref={chatRef}
@@ -678,4 +674,3 @@ export default function Page() {
     </main>
   );
 }
-
