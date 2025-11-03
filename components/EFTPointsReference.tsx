@@ -18,7 +18,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         <div>
           <div style={{ fontWeight: 600 }}>Repères visuels : points EFT (photo + localisation)</div>
           <div style={{ fontSize: 13, color: "#555" }}>
-            Voir la photo des points et la description précise (s'ouvre dans un nouvel onglet).
+            Voir la photo des points et la description précise (s&apos;ouvre dans un nouvel onglet).
           </div>
         </div>
       </a>
