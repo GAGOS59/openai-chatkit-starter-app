@@ -381,11 +381,6 @@ export default function Page() {
         "Bonjour 😊 je m'appelle EFTY.\nJe te propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
     },
   ]);
-{/* ... après <GuidedSequence /> ou le bloc de la première question */}
-<div className="mt-4">
-  <EFTPointsReference className="mx-auto w-full max-w-md" />
-</div>
-
 
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -534,7 +529,18 @@ export default function Page() {
       <div className="flex flex-col md:flex-row md:gap-6 items-start">
         {/* gauche : prend 2/3 en desktop */}
         <div className="w-full md:w-2/3 space-y-6">
-          {/* Zone de chat */}
+         
+          {/* Zone de chat */}  
+          {/* --- Référence visuelle : photo + localisation des points EFT --- */}
+          <div className="mb-4">
+            <EFTPointsReference className="mx-auto w-full max-w-md" />
+          </div>
+
+          <div
+            ref={chatRef}
+            className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
+          >
+
           <div
             ref={chatRef}
             className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
