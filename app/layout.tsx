@@ -5,11 +5,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "École EFT France — EFTY",
+    default: "École EFT France — EFTY, votre auto-séance EFT guidée.",
     template: "%s · École EFT France",
   },
   description:
-    "EFTY — votre auto-séance EFT guidée, fidèle à l’EFT d’origine de Gary Craig.",
+    "EFTY — votre auto-séance EFT guidée, fidèle à l’EFT d’origine de Gary Craig et développée par Geneviève Gagos.",
   openGraph: {
     title: "École EFT France — EFTY",
     description:
