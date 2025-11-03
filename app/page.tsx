@@ -242,7 +242,6 @@ function MobilePromoModal() {
               </div>
             </div>
 
-            <p className="text-xs mt-3 opacity-80">Tu peux réduire la fenêtre — la barre &quot;Soutenir EFTY&quot; restera toujours visible.</p>
           </div>
         </div>
       </div>,
