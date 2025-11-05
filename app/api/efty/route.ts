@@ -94,6 +94,24 @@ function isMedicalYesNoQuestion(s: string) {
   return t.includes("est-elle apparue spontan") || (t.includes('réponds par "oui"') && t.includes("spontan"));
 }
 
+// ---------- NOUVEAU: detecte si l'assistant demandait la localisation corporelle ----------
+/**
+ * Si l'assistant a demandé "où ressens-tu", "où dans ton corps", "dans quelle partie du corps",
+ * on considère que la prochaine réponse utilisateur peut contenir une description corporelle liée
+ * à une émotion (et ne doit pas automatiquement déclencher le triage médical).
+ */
+function isBodyLocationQuestion(s: string | null): boolean {
+  if (!s) return false;
+  const t = normalizeText(s);
+  const patterns = [
+    "ou ressens", "ou ressens tu", "ou ressens-tu",
+    "dans ton corps", "dans la poitrine", "dans l abdomen", "dans le ventre",
+    "dans quelle partie", "ou tu le ressens", "ou le sens tu", "ou sens tu", "ou sens-tu",
+    "ou le sens-tu"
+  ];
+  return patterns.some(p => t.includes(p));
+}
+
 // classifie une réponse utilisateur courte en "spontane" | "choc" | "unknown"
 function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
   const t = normalizeText(s);
@@ -203,9 +221,18 @@ function computeCrisis(
 
   const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
 
+  // --- NOUVEAU: détermination si le message assistant précédent était une question de localisation corporelle
+  const lastAssistantMsg = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
+  const lastAssistantIsBodyLocationQ = isBodyLocationQuestion(lastAssistantMsg);
+
   // détection simple par liste
   const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
-  const hasMedicalKeyword = containsAny(lastUser, MEDICAL_TRIGGERS);
+
+  // IMPORTANT: si le dernier assistant a demandé "où ressens-tu..." alors une réponse
+  // utilisateur parlant de "serrement dans la poitrine" est probablement une description
+  // corporelle liée à une émotion — on ne doit pas automatiquement déclencher le triage médical.
+  const hasMedicalKeywordRaw = containsAny(lastUser, MEDICAL_TRIGGERS);
+  const hasMedicalKeyword = hasMedicalKeywordRaw && !lastAssistantIsBodyLocationQ;
 
   // --- MUTUELLEMENT EXCLUSIF (priorité médicale)
   // medicalSignal = mot médical OU LLM médical == "hit"
