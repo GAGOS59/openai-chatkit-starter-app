@@ -283,12 +283,18 @@ function MobilePromoModal() {
   return null;
 }
 
-/* ---------- Alerte flottante (utilisée dans Page) ---------- */
-function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
+/* ---------- Alerte flottante (utilisée dans Page) ----------
+   NOTE : la prop 'reason' permet d'afficher soit le bloc suicide, soit le bloc médical.
+*/
+function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reason: "none" | "medical" | "suicide" | "clarify" }) {
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
+
+  // pour medical vs suicide on adapte le texte et les numéros affichés
+  const isSuicide = reason === "suicide";
+  const isMedical = reason === "medical";
 
   const wrapper = (
     <div
@@ -333,28 +339,36 @@ function CrisisFloating({ mode }: { mode: "ask" | "lock" | "none" }) {
 
         {!collapsed && (
           <div className="px-3 pb-3">
+            {/* message général */}
             <p className="text-sm">
-              Il semble que tu traverses un moment très difficile. Je te prends au sérieux.
+              Il semble que tu traverses un moment difficile. Je te prends au sérieux.
               Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
             </p>
 
+            {/* bloc numéros — adapté */}
             <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
               <div className="text-xs font-semibold">📞 En France</div>
               <ul className="mt-1 text-sm leading-6">
-                <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>
+                {isSuicide && <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>}
                 <li><strong>15</strong> — SAMU</li>
                 <li><strong>112</strong> — Urgences (si danger immédiat)</li>
               </ul>
               <div className="mt-2 flex flex-wrap gap-2">
-                <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>
+                {isSuicide && <a href="tel:3114" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 3114</a>}
                 <a href="tel:112" className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler 112</a>
                 <a href="tel:15"  className="rounded-md border border-rose-300 bg-rose-100 px-3 py-1 text-sm">Appeler le 15</a>
               </div>
             </div>
 
-            {mode === "ask" && (
+            {/* question / message selon le mode (ask vs lock) */}
+            {mode === "ask" && isSuicide && (
               <p className="mt-2 text-sm">
                 Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+              </p>
+            )}
+            {mode === "ask" && isMedical && (
+              <p className="mt-2 text-sm">
+                Peux-tu dire si le symptôme est une douleur apparue spontanément (sans choc) ? Réponds par <strong>oui</strong> ou <strong>non</strong>.
               </p>
             )}
             {mode === "lock" && (
@@ -385,6 +399,9 @@ export default function Page() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [crisisMode, setCrisisMode] = useState<CrisisFlag>("none");
+  // nouveau : raison précise de la crise (none | medical | suicide | clarify)
+  const [crisisReason, setCrisisReason] = useState<"none" | "medical" | "suicide" | "clarify">("none");
+
   const [toast, setToast] = useState<ToastState>(null);
   const [lastAskedSud, setLastAskedSud] = useState(false);
 
@@ -452,8 +469,6 @@ export default function Page() {
     if (!value || loading) return;
 
     setError(null);
-    if (crisisMode === "ask" && isAffirmativeYes(value)) setCrisisMode("lock");
-
     if (lastAskedSud) {
       const sud = extractSud(value);
       if (sud !== null) setLastAskedSud(false);
@@ -473,7 +488,7 @@ export default function Page() {
       });
       if (!res.ok) throw new Error("Réponse serveur non valide");
 
-      const data: { answer?: string; error?: string; crisis?: CrisisFlag } = await res.json();
+      const data: { answer?: string; error?: string; crisis?: CrisisFlag; reason?: "none" | "medical" | "suicide" | "clarify" } = await res.json();
       const reply = (data.answer || data.error || "").trim();
 
       setMessages((prev) => [
@@ -481,12 +496,26 @@ export default function Page() {
         { role: "assistant", content: reply || "Je n'ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
       ]);
 
-      if (data.crisis && data.crisis !== "none") {
-        setCrisisMode(data.crisis);
+      // --- utiliser strictement ce que renvoie le serveur ---
+      const serverCrisis = data.crisis ?? "none";
+      const serverReason = data.reason ?? "none";
+
+      // si serveur indique 'none' on efface toute alerte locale
+      if (serverCrisis === "none") {
+        setCrisisMode("none");
+        setCrisisReason("none");
       } else {
-        if (inferAskFromReply(reply)) setCrisisMode("ask");
-        if (crisisMode === "ask" && isAffirmativeYes(value)) setCrisisMode("lock");
+        setCrisisMode(serverCrisis);
+        setCrisisReason(serverReason);
       }
+
+      // fallback : si serveur n'a rien envoyé mais le reply contient la question de triage,
+      // on active 'ask' côté client pour inviter la réponse (raison = suicide par défaut ici)
+      if (!data.crisis && inferAskFromReply(reply)) {
+        setCrisisMode("ask");
+        setCrisisReason("suicide");
+      }
+
     } catch {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
@@ -522,16 +551,9 @@ export default function Page() {
         </div>
       </div>
 
-      {/* === FLEX : Chat (gauche) + Promo (droite) ===
-          - mobile: colonne (promo modal used)
-          - desktop: row with left 2/3 and right 1/3 */}
+      {/* === FLEX : Chat (gauche) + Promo (droite) === */}
       <div className="flex flex-col md:flex-row md:gap-6 items-start">
-        {/* gauche : prend 2/3 en desktop */}
         <div className="w-full md:w-2/3 space-y-6">
-         
-                    {/* Zone de chat */}
-          
-          {/* --- Référence visuelle : photo + localisation des points EFT --- */}
           <div className="mb-4">
             <EFTPointsReference className="mx-auto w-full max-w-md" />
           </div>
@@ -566,7 +588,7 @@ export default function Page() {
           </div>
 
           {/* Alerte flottante */}
-          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} />}
+          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} reason={crisisReason} />}
 
           {/* Formulaire */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
@@ -635,17 +657,20 @@ export default function Page() {
             </div>
           </div>
 
+          {/* Quick emergency buttons — adaptés selon reason */}
           {crisisMode !== "none" && (
             <div
               aria-label="Accès rapide urgence"
               className="fixed bottom-20 right-4 z-50 flex flex-col gap-2"
             >
-              <a
-                href="tel:3114"
-                className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
-              >
-                📞 3114 — Prévention du suicide (gratuit, 24/7)
-              </a>
+              {crisisReason === "suicide" && (
+                <a
+                  href="tel:3114"
+                  className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
+                >
+                  📞 3114 — Prévention du suicide (gratuit, 24/7)
+                </a>
+              )}
               <a
                 href="tel:112"
                 className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
