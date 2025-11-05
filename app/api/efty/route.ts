@@ -166,12 +166,9 @@ function MEDICAL_TRIAGE_QUESTION_FOR(symptomRaw: string) {
   return `${article} "${excerpt}" ${verb} spontanément, sans choc (ne t'être cogné·e ni reçu un coup) ? Réponds par "oui" ou "non".`;
 }
 
-const CLARIFY_PHYSICAL_OR_SUICIDE =
-  "Je veux bien comprendre pour t'aider correctement : parles-tu d'une **douleur physique** (réponds `douleur`) ou de **pensées de te faire du mal / d'en finir** (réponds `pensées`) ?";
-
 // Fermetures empathiques
 const CLOSING_SUICIDE = `Je te prends profondément au sérieux. 
-Je sens que tu traverses un moment très difficile — tu n'as pas à le vivre seul·e.
+Il semble que tu traverses un moment très difficile — tu n'as pas à le vivre seul·e.
 
 Je ne peux pas poursuivre la séance d'EFT dans cette situation : il est important de contacter immédiatement une aide humaine.
 Appelle s'il te plaît **en priorité** :
