@@ -203,17 +203,18 @@ function computeCrisis(
 
   const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
 
-   const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
+  // détection simple par liste
+  const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
   const hasMedicalKeyword = containsAny(lastUser, MEDICAL_TRIGGERS);
 
-  // priorité claire : si le message contient un trigger médical, on ne considère PAS un signal suicide
-  let suicideSignal = hasSuicideKeyword;
-  if (hasMedicalKeyword) suicideSignal = false;
-
+  // --- MUTUELLEMENT EXCLUSIF (priorité médicale)
+  // medicalSignal = mot médical OU LLM médical == "hit"
   const medicalSignal = hasMedicalKeyword || medicalLLM === "hit";
 
+  // suicideSignal = uniquement si pas de medicalSignal ET mot suicide détecté
+  const suicideSignal = !medicalSignal && hasSuicideKeyword;
 
-  // 1) suicide only (inchangé : 2 questions max => lock)
+  // 1) suicide only (2 questions max => lock)
   if (suicideSignal && !medicalSignal) {
     const asks: number[] = [];
     history.forEach((m, i) => { if (m.role === "assistant" && isCrisisQuestion(m.content)) asks.push(i); });
@@ -231,7 +232,7 @@ function computeCrisis(
     return { crisis: "ask", reason: "suicide" };
   }
 
-  // 2) medical only (nouveau comportement strict OU/NO + re-ask / lock après 2 essais)
+  // 2) medical only (strict OU/NO + re-ask / lock après 2 essais)
   if (medicalSignal && !suicideSignal) {
     const askIdxs: number[] = [];
     // Accept both our clarifier and our yes/no template as "assistant asked triage"
@@ -261,8 +262,6 @@ function computeCrisis(
       return { crisis: "ask", reason: "medical" };
     }
 
-  
-
     // 2) If the assistant already asked the triage twice and we still have no clear answer -> lock
     if (askIdxs.length >= 2) return { crisis: "lock", reason: "medical" };
 
@@ -270,7 +269,9 @@ function computeCrisis(
     return { crisis: "ask", reason: "medical" };
   }
 
-  // 3) both -> clarification (inchangé)
+  // 3) both -> clarification
+  // (avec la règle mutual-exclusive ci-dessus, on n'arrive normalement jamais ici,
+  //  mais on garde la logique pour sécurité si jamais les signaux changent)
   if (medicalSignal && suicideSignal) {
     const clarifyPatterns = ["parles", "douleur", "pensées", "te faire du mal", "en finir"];
     const assistantClarifyIdxs: number[] = [];
@@ -364,7 +365,7 @@ export async function POST(req: NextRequest) {
 if (lastAssistantAskForMedicalOverride && isExplicitNo(lastUserMsg)) {
   const reply = `D'accord, tu me dis "non", mais si tu as le moindre doute, consulte immédiatement. Ta santé est prioritaire. Continuons ! Peux-tu préciser ce qui se passe pour toi ?`;
   return new NextResponse(
-    JSON.stringify({ answer: reply, crisis: "none", reason: "medical" }),
+    JSON.stringify({ answer: reply, crisis: "none", reason: "none" }),
     { headers, status: 200 }
   );
 }
