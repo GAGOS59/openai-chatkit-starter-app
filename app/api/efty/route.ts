@@ -121,7 +121,7 @@ function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown"
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
-// petit wrapper LLM detector
+// petit wrapper LLM detector (LAISSÉ pour usage médical uniquement)
 async function llmFlag(
   kind: "suicide" | "medical",
   userText: string
@@ -189,7 +189,7 @@ Tu comptes, ta présence est importante. Je suis de tout cœur avec toi. ❤️
 (Je suspends la séance pour prioriser ta sécurité.)`;
 
 const CLOSING_MEDICAL = `Je comprends que tu vis une situation préoccupante pour ta santé. 
-Si tu présentes un symptôme grave (douleur thoracique importante, difficulté à respirer, perte de connaissance, faiblesse soudaine d’un côté, trouble brutal de la parole, saignement abondant, traumatisme grave, etc.), appelle immédiatement les secours.
+Si tu présentes un symptôme grave (douleur thoracique importante, difficulté à respirer, perte de connaissance, faiblesse soudaine d'un côté, trouble brutal de la parole, saignement abondant, traumatisme grave, etc.), appelle immédiatement les secours.
 
 • **112** — Urgences (numéro européen)  
 • **15** — SAMU (France)
@@ -198,7 +198,6 @@ Si quelqu’un est près de toi, demande-lui de t’aider à appeler.
 Si tu es seul·e, mets-toi en sécurité (allongé·e si besoin), évite tout effort et attends les secours.  
 Ta sécurité passe avant tout — je suspends la séance pour prioriser ton accompagnement médical.`;
 
-// ---------- computeCrisis (gestion clarify / medical / suicide / none) ----------
 // ---------- computeCrisis (gestion clarify / medical / suicide / none) ----------
 function computeCrisis(
   history: ChatMessage[],
@@ -211,7 +210,8 @@ function computeCrisis(
 
   const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
   const hasMedicalKeyword = containsAny(lastUser, MEDICAL_TRIGGERS);
-  const suicideSignal = hasSuicideKeyword || suicideLLM === "hit" || assistantSuggestsAlert(modelAnswer);
+  // **MODIF** : suicideSignal repose uniquement sur la présence d'un trigger explicite dans SUICIDE_TRIGGERS
+  const suicideSignal = hasSuicideKeyword;
   const medicalSignal = hasMedicalKeyword || medicalLLM === "hit";
 
   // 1) suicide only (inchangé : 2 questions max => lock)
@@ -338,10 +338,10 @@ export async function POST(req: NextRequest) {
 
   // Analyse mixte du dernier message user
   const lastUserMsg = [...history].reverse().find(m => m.role === "user")?.content ?? "";
-  const [suicideLLM, medicalLLM] = await Promise.all([
-    lastUserMsg ? llmFlag("suicide", lastUserMsg) : Promise.resolve<"hit" | "safe">("safe"),
-    lastUserMsg ? llmFlag("medical", lastUserMsg) : Promise.resolve<"hit" | "safe">("safe"),
-  ]);
+
+  // **MODIF** : ne plus appeler le détecteur LLM pour le SUICIDE - on l'utilise uniquement pour le médical.
+  const suicideLLM: "hit" | "safe" = "safe";
+  const medicalLLM: "hit" | "safe" = lastUserMsg ? await llmFlag("medical", lastUserMsg) : "safe";
 
   // --- Overwrites immédiats : si l'assistant a posé une question de clarification
   // et que l'utilisateur répond explicitement "oui", on force le lock immédiat.
