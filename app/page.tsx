@@ -376,16 +376,17 @@ function CrisisFloating({
             </div>
 
             {/* question / message selon le mode (ask vs lock) */}
-                        {mode === "ask" && isSuicide && (
-              <p className="mt-2 text-sm">
-                As-tu des idées suicidaires en ce moment&nbsp;? Réponds uniquement par <strong>"oui"</strong> ou par <strong>"non"</strong>.
-              </p>
-            )}
-            {mode === "ask" && isMedical && !isSuicide && (
-              <p className="mt-2 text-sm">
-                Peux-tu dire si le symptôme est une douleur apparue spontanément (sans choc) ? Réponds par <strong>oui</strong> ou <strong>non</strong>.
-              </p>
-            )}
+                       {mode === "ask" && isSuicide && (
+  <p className="mt-2 text-sm">
+    As-tu des idées suicidaires en ce moment&nbsp;? Réponds uniquement par <strong>&quot;oui&quot;</strong> ou par <strong>&quot;non&quot;</strong>.
+  </p>
+)}
+{mode === "ask" && isMedical && !isSuicide && (
+  <p className="mt-2 text-sm">
+    Peux-tu dire si le symptôme est une douleur apparue spontanément (sans choc) ? Réponds par <strong>oui</strong> ou <strong>non</strong>.
+  </p>
+)}
+
 
           </div>
         )}
