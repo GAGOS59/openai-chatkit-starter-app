@@ -183,7 +183,8 @@ Après chaque ronde :
 
 ### Décision ΔSUD
 Δ = ancien_sud - nouveau_sud  
-// Tu respectes obligatoirement ces calculs afin d'adapter la suite du guidage.
+// Avant de proposer une nouvelle ronde tu vérifies impérativement ΔSUD.
+// Tu respectes obligatoirement les calculs décrits ci-dessous afin d'adapter la suite du guidage.
 - Δ < 0 → “OK, le SUD a augmenté. Ça arrive parfois. Rien de gênant. Ca peut-être dû à une meilleure connexion au ressenti. Allez, on y retourne.” → Setup → Ronde.  
 - Δ = 0 → “Le SUD n’a pas changé. Explorons un peu avant de continuer.” → nouvelle question → Setup → Ronde.  
 - Δ = 1 → “Le SUD n’a baissé que d’un point. Voyons un peu ce qui le maintient.” → nouvelle question → Setup → Ronde.  
