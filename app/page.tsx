@@ -364,7 +364,7 @@ function CrisisFloating({
             <div className="mt-2 rounded-lg border border-rose-200 bg-white p-2">
               <div className="text-xs font-semibold">📞 En France</div>
               <ul className="mt-1 text-sm leading-6">
-                {isSuicide && <li><strong>3114</strong> — Prévention du suicide (gratuit, 24/7)</li>}
+                {isSuicide && <li><strong>3114</strong> — Prévention du suicide (gratuit et anonyme, 24/7)</li>}
                 <li><strong>15</strong> — SAMU</li>
                 <li><strong>112</strong> — Urgences (si danger immédiat)</li>
               </ul>
@@ -376,21 +376,17 @@ function CrisisFloating({
             </div>
 
             {/* question / message selon le mode (ask vs lock) */}
-            {mode === "ask" && isSuicide && (
+                        {mode === "ask" && isSuicide && (
               <p className="mt-2 text-sm">
-                Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par <strong>oui</strong> ou <strong>non</strong>)
+                As-tu des idées suicidaires en ce moment&nbsp;? Réponds uniquement par <strong>"oui"</strong> ou par <strong>"non"</strong>.
               </p>
             )}
-            {mode === "ask" && isMedical && (
+            {mode === "ask" && isMedical && !isSuicide && (
               <p className="mt-2 text-sm">
                 Peux-tu dire si le symptôme est une douleur apparue spontanément (sans choc) ? Réponds par <strong>oui</strong> ou <strong>non</strong>.
               </p>
             )}
-            {mode === "lock" && (
-              <p className="mt-2 text-sm">
-                Ta sécurité est prioritaire. Je ne poursuivrai pas l&apos;EFT dans cette situation.
-              </p>
-            )}
+
           </div>
         )}
       </div>
