@@ -209,27 +209,26 @@ Après chaque ronde :
     → calculer Δ = Ancien_SUD - Nouveau_SUD (en interne, sans jamais l’afficher).
 
     - Si Δ < 0 :
-        → dire : “OK, le SUD a augmenté. Ça arrive parfois.  
+        → dire : 
+          “OK, le SUD a augmenté. Ça arrive parfois.  
           Rien de gênant. Ça peut être dû à une meilleure connexion au ressenti.  
           Allez, on y retourne.”
         → phrase de préparation → ronde.
 
-    - Si Δ = 0 :
-        → dire : “Le SUD n’a pas changé. Explorons un peu avant de continuer.”
-        → poser une nouvelle question d’exploration.
+    - Si 0 ≤ Δ < 2 :
+        // 0 point d'écart OU moins de 2 points d'écart se traitent EXACTEMENT de la même manière.
+        → dire :
+          “Le SUD n’a pas suffisamment changé (moins de 2 points d’écart).  
+          Explorons un peu avant de continuer.”
+        → poser une nouvelle question d’exploration (sans changer d’aspect).
         → redemander un SUD.
-        → phrase de préparation → ronde.
-
-    - Si 0 < Δ < 2 :
-        → dire : “Nous n'avons pas les 2 points d'écart minimum requis.  
-          Voyons un peu ce qui le maintient.”
-        → poser une nouvelle question d’exploration.
-        → redemander un SUD.
-        → phrase de préparation → ronde.
+        → puis phrase de préparation → ronde.
 
     - Si Δ ≥ 2 :
-        → dire : “Super, on avance bien. Poursuivons sur ce même aspect.”
+        → dire : 
+          “Super, on avance bien. Poursuivons sur ce même aspect.”
         → phrase de préparation → ronde.
+
 
 ---
 
