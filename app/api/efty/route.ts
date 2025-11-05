@@ -352,20 +352,25 @@ export async function POST(req: NextRequest) {
   });
   let answer = String(completion.choices[0]?.message?.content ?? "").trim();
 
-  // Analyse mixte du dernier message user
+    // Analyse mixte du dernier message user
   const lastUserMsg = [...history].reverse().find(m => m.role === "user")?.content ?? "";
 
-  // Priorité aux mots-clés suicidaires : si le user contient un trigger suicide explicite,
-// on n'appelle pas le détecteur médical (évite que l'LLM médical masque le signal suicide).
-const suicideLLM: "hit" | "safe" = "safe";
-const hasSuicideKeyword = containsAny(lastUserMsg, SUICIDE_TRIGGERS);
+  // récupère aussi le dernier message assistant (utile pour décider d'ignorer le détecteur médical)
+  const lastAssistantMsg = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
+  const lastAssistantIsBodyLocationQ = isBodyLocationQuestion(lastAssistantMsg);
 
-// n'appelle le détecteur médical QUE si on n'a PAS trouvé un mot-clé suicide explicite
-const medicalLLM: "hit" | "safe" = hasSuicideKeyword
-  ? "safe"
-  : lastUserMsg
-  ? await llmFlag("medical", lastUserMsg)
-  : "safe";
+  // Priorité aux mots-clés suicidaires : si le user contient un trigger suicide explicite,
+  // on n'appelle pas le détecteur médical (évite que l'LLM médical masque le signal suicide).
+  const suicideLLM: "hit" | "safe" = "safe";
+  const hasSuicideKeyword = containsAny(lastUserMsg, SUICIDE_TRIGGERS);
+
+  // IMPORTANT : si l'assistant venait de demander "où ressens-tu cela dans ton corps ?",
+  // on **n'appelle pas** le détecteur médical (pour éviter les faux positifs sur descriptions corporelles).
+  let medicalLLM: "hit" | "safe" = "safe";
+  if (!hasSuicideKeyword && lastUserMsg && !lastAssistantIsBodyLocationQ) {
+    medicalLLM = await llmFlag("medical", lastUserMsg);
+  }
+
 
 
   // --- Overwrites immédiats : si l'assistant a posé une question de clarification
