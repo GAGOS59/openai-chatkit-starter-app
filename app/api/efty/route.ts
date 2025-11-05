@@ -34,11 +34,11 @@ function corsHeaders(origin: string | null) {
 // ---------- Détection locale : suicide & médical ----------
 const SUICIDE_TRIGGERS = [
   "suicide","me suicider","idées suicidaires","envie d'en finir",
-  "mettre fin à mes jours","je veux mourir","je vais me tuer",
+  "mettre fin à mes jours","je veux mourir","je vais me tuer","je veux me tuer",
   "plus envie de vivre","je veux tout arrêter","je veux que tout s'arrête",
-  "je veux disparaître","je ne vois plus de sens","tout le monde serait mieux sans moi",
-  "je veux dormir pour toujours","je veux me faire du mal","me blesser","me couper",
-  "plus la force","plus d'espoir","je n'en peux plus de vivre",
+  "je veux disparaître","je ne vois plus de sens à la vie","tout le monde serait mieux sans moi",
+  "je veux m'endormir pour toujours","je veux me faire du mal","je veux dormir pour toujours",
+  "plus la force","plus d'espoir","je n'en peux plus de vivre","je veux m'endormir et ne plus me réveiller",
 ];
 
 const MEDICAL_TRIGGERS = [
@@ -102,7 +102,7 @@ function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown"
   const chocTokens = ["choc","coup","traum","chute","heurter","collision","tomber","frapper","fracture"];
   const effortTokens = [
     "spontan","spontane","spontanement","au repos",
-    "apres effort","apres un effort","apres une effort","apres avoir","effort",
+    "apres effort","apres un effort","apres une effort","apres avoir","à l'effort","effort",
     "en courant","courir","courais","couru","course","jogging",
     "marche","sport","exercice","entrainement","soulever","porter"
   ];
@@ -163,7 +163,7 @@ function MEDICAL_TRIAGE_QUESTION_FOR(symptomRaw: string) {
   // accord du verbe selon le genre
   const verb = article === "Cette" ? "est-elle apparue" : "est-il apparu";
   // phrase finale (plus naturelle, poli et claire)
-  return `${article} "${excerpt}" ${verb} spontanément, sans choc (ne t'être cogné·e ni reçu un coup) ? Réponds par "oui" ou "non".`;
+  return `${article} "${excerpt}" ${verb} spontanément, sans choc (tu ne t'es pas cogné·e ni reçu un coup) ? Réponds par "oui" ou "non".`;
 }
 
 // Fermetures empathiques
