@@ -68,6 +68,25 @@ function assistantSuggestsAlert(s: string) {
   const t = (s || "").toLowerCase();
   return t.includes("danger immédiat") || t.includes("urgence") || t.includes("appelle le");
 }
+// after fetch('/api/efty', { method:'POST', body: JSON.stringify({ messages }) })
+fetch('/api/efty', opts)
+  .then(r => r.json())
+  .then(data => {
+    renderChatAnswer(data.answer); // ta fonction existante
+    // --- hide the pink suicide alert AND the floating flags when it's not a suicide lock ---
+    if (data.crisis === 'none' || data.reason !== 'suicide') {
+      // hide popup
+      const pink = document.querySelector('#efty-suicide-popup'); // adapte le sélecteur
+      if (pink) pink.style.display = 'none';
+      // hide floating flags
+      document.querySelectorAll('.suicide-flag').forEach(el => el.style.display = 'none');
+    }
+    // If there is a medical lock we still show the medical modal (if you want)
+    if (data.crisis === 'lock' && data.reason === 'medical') {
+      showMedicalModal(data.answer); // ou ton affichage existant
+    }
+  });
+
 
 // ---------- Normalisation & classification médicales (tolérantes) ----------
 function normalizeText(s: string | null): string {
@@ -208,11 +227,15 @@ function computeCrisis(
 
   const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
 
-  const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
+   const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
   const hasMedicalKeyword = containsAny(lastUser, MEDICAL_TRIGGERS);
-  // **MODIF** : suicideSignal repose uniquement sur la présence d'un trigger explicite dans SUICIDE_TRIGGERS
-  const suicideSignal = hasSuicideKeyword;
+
+  // priorité claire : si le message contient un trigger médical, on ne considère PAS un signal suicide
+  let suicideSignal = hasSuicideKeyword;
+  if (hasMedicalKeyword) suicideSignal = false;
+
   const medicalSignal = hasMedicalKeyword || medicalLLM === "hit";
+
 
   // 1) suicide only (inchangé : 2 questions max => lock)
   if (suicideSignal && !medicalSignal) {
