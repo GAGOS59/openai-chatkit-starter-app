@@ -382,11 +382,8 @@ if (lastAssistantAskForMedicalOverride && isExplicitNo(lastUserMsg)) {
       answer = MEDICAL_TRIAGE_QUESTION_FOR(lastUserMsg);
     } else if (reason === "suicide") {
       answer = SUICIDE_QUESTION_TEXT;
-    } else if (reason === "clarify") {
-      answer = CLARIFY_PHYSICAL_OR_SUICIDE;
-    } else {
-      answer = SUICIDE_QUESTION_TEXT;
-    }
+  
+    } 
   }
 
   return new NextResponse(JSON.stringify({ answer, crisis, reason }), {
