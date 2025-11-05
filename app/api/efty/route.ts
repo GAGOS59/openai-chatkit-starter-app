@@ -328,9 +328,18 @@ export async function POST(req: NextRequest) {
   // Analyse mixte du dernier message user
   const lastUserMsg = [...history].reverse().find(m => m.role === "user")?.content ?? "";
 
-  // **MODIF** : ne plus appeler le détecteur LLM pour le SUICIDE - on l'utilise uniquement pour le médical.
-  const suicideLLM: "hit" | "safe" = "safe";
-  const medicalLLM: "hit" | "safe" = lastUserMsg ? await llmFlag("medical", lastUserMsg) : "safe";
+  // Priorité aux mots-clés suicidaires : si le user contient un trigger suicide explicite,
+// on n'appelle pas le détecteur médical (évite que l'LLM médical masque le signal suicide).
+const suicideLLM: "hit" | "safe" = "safe";
+const hasSuicideKeyword = containsAny(lastUserMsg, SUICIDE_TRIGGERS);
+
+// n'appelle le détecteur médical QUE si on n'a PAS trouvé un mot-clé suicide explicite
+const medicalLLM: "hit" | "safe" = hasSuicideKeyword
+  ? "safe"
+  : lastUserMsg
+  ? await llmFlag("medical", lastUserMsg)
+  : "safe";
+
 
   // --- Overwrites immédiats : si l'assistant a posé une question de clarification
   // et que l'utilisateur répond explicitement "oui", on force le lock immédiat.
