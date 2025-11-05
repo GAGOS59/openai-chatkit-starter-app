@@ -285,15 +285,30 @@ function MobilePromoModal() {
 
 /* ---------- Alerte flottante (utilisée dans Page) ----------
    NOTE : la prop 'reason' permet d'afficher soit le bloc suicide, soit le bloc médical.
+   Ajout d'un paramètre optionnel 'lastAssistant' pour forcer l'affichage 3114
+   si le dernier message assistant contient la question suicide.
 */
-function CrisisFloating({ mode, reason }: { mode: "ask" | "lock" | "none"; reason: "none" | "medical" | "suicide" | "clarify" }) {
+function CrisisFloating({
+  mode,
+  reason,
+  lastAssistant = "",
+}: {
+  mode: "ask" | "lock" | "none";
+  reason: "none" | "medical" | "suicide" | "clarify";
+  lastAssistant?: string;
+}) {
   const [mounted, setMounted] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
-  // pour medical vs suicide on adapte le texte et les numéros affichés
-  const isSuicide = reason === "suicide";
+  // on considère suicide si reason === "suicide" OU si le dernier assistant contient la question suicide
+  const lastAssistantText = (lastAssistant || "").toLowerCase();
+  const assistantSuggestsSuicide = /idées?\s+suicidaires|suicid|me\s+tuer|je\s+veux\s+me\s+tuer|je\s+vais\s+me\s+tuer|en\s+finir/i.test(
+    lastAssistantText
+  );
+
+  const isSuicide = reason === "suicide" || assistantSuggestsSuicide;
   const isMedical = reason === "medical";
 
   const wrapper = (
@@ -528,6 +543,13 @@ export default function Page() {
   }
 
   /* ---------- Render ---------- */
+
+  // petit helper : dernier texte assistant (utilisé pour forcer l'affichage 3114 si nécessaire)
+  const lastAssistantText = messages.slice().reverse().find(m => m.role === "assistant")?.content ?? "";
+  const assistantSuggestsSuicide = /idées?\s+suicidaires|suicid|me\s+tuer|je\s+veux\s+me\s+tuer|je\s+vais\s+me\s+tuer|en\s+finir/i.test(
+    (lastAssistantText || "").toLowerCase()
+  );
+
   return (
     <main className="mx-auto max-w-6xl p-6">
       {/* Bandeau haut */}
@@ -588,7 +610,9 @@ export default function Page() {
           </div>
 
           {/* Alerte flottante */}
-          {crisisMode !== "none" && <CrisisFloating mode={crisisMode} reason={crisisReason} />}
+          {crisisMode !== "none" && (
+            <CrisisFloating mode={crisisMode} reason={crisisReason} lastAssistant={lastAssistantText} />
+          )}
 
           {/* Formulaire */}
           <form onSubmit={onSubmit} className="flex flex-col gap-2">
@@ -663,7 +687,7 @@ export default function Page() {
               aria-label="Accès rapide urgence"
               className="fixed bottom-20 right-4 z-50 flex flex-col gap-2"
             >
-              {crisisReason === "suicide" && (
+              {(crisisReason === "suicide" || assistantSuggestsSuicide) && (
                 <a
                   href="tel:3114"
                   className="rounded-full bg-[#7a1f1f] text-white px-5 py-3 text-sm shadow-lg hover:opacity-90 transition"
