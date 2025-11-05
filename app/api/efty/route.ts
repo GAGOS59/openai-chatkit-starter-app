@@ -64,28 +64,7 @@ function isCrisisQuestion(s: string) {
 }
 function isExplicitYes(s: string)  { return /^(oui|yes)\b/i.test((s || "").trim()); }
 function isExplicitNo(s: string)   { return /^(non|no)\b/i.test((s || "").trim()); }
-function assistantSuggestsAlert(s: string) {
-  const t = (s || "").toLowerCase();
-  return t.includes("danger immédiat") || t.includes("urgence") || t.includes("appelle le");
-}
-// after fetch('/api/efty', { method:'POST', body: JSON.stringify({ messages }) })
-fetch('/api/efty', opts)
-  .then(r => r.json())
-  .then(data => {
-    renderChatAnswer(data.answer); // ta fonction existante
-    // --- hide the pink suicide alert AND the floating flags when it's not a suicide lock ---
-    if (data.crisis === 'none' || data.reason !== 'suicide') {
-      // hide popup
-      const pink = document.querySelector('#efty-suicide-popup'); // adapte le sélecteur
-      if (pink) pink.style.display = 'none';
-      // hide floating flags
-      document.querySelectorAll('.suicide-flag').forEach(el => el.style.display = 'none');
-    }
-    // If there is a medical lock we still show the medical modal (if you want)
-    if (data.crisis === 'lock' && data.reason === 'medical') {
-      showMedicalModal(data.answer); // ou ton affichage existant
-    }
-  });
+
 
 
 // ---------- Normalisation & classification médicales (tolérantes) ----------
@@ -285,20 +264,9 @@ function computeCrisis(
       return { crisis: "ask", reason: "medical" };
     }
 
-    // 2) No direct reply after the last triage question:
-    // calcule cls en une constante via IIFE pour satisfaire prefer-const tout en gardant la logique
-const cls = (() => {
-  const c = classifyMedicalReply(userAfter);
-  if ((c === "unknown" || userAfter === null) && lastUser) {
-    const clsLast = classifyMedicalReply(lastUser);
-    if (clsLast === "spontane") return "spontane";
-    if (clsLast === "choc") return "choc";
-  }
-  return c;
-})();
+  
 
-
-    // 3) If the assistant already asked the triage twice and we still have no clear answer -> lock
+    // 2) If the assistant already asked the triage twice and we still have no clear answer -> lock
     if (askIdxs.length >= 2) return { crisis: "lock", reason: "medical" };
 
     // otherwise ask triage (first or second attempt)
