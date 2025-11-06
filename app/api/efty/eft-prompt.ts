@@ -199,7 +199,7 @@ Après chaque ronde :
     // Dans ce cas, tu ignores complètement Δ.
     // Tu ne calcules PAS Δ, tu ne tiens PAS compte de la baisse précédente.
     → dire :
-      “Cela semble être un petit ressenti. Ça pourrait être quoi d’après toi ?”
+      “Ça pourrait être quoi d’après toi ce reste de rssenti ?”
     → attendre la réponse.
     → redemander un SUD.
     → puis seulement ensuite : phrase de préparation → ronde.
@@ -217,7 +217,7 @@ Après chaque ronde :
           Allez, on y retourne.”
         → puis phrase de préparation → ronde.
 
-    - Si 0 ≤ Δ < 2 et ≠ de Δ ≥ 2 :
+    - Si Δ < 2 et ≠ de SUD ≤ 1 :
         → dire :
           “Le SUD n’a pas suffisamment changé (moins de deux points d’écart).  
           Explorons un peu avant de continuer.”
