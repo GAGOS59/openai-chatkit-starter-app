@@ -212,12 +212,12 @@ Après chaque ronde :
 
     - Si Δ < 0 :
         → dire :
-          “Le SUD a légèrement augmenté, ça peut arriver.  
-          Ça peut être une meilleure connexion au ressenti.  
+          “Le SUD a augmenté, ça peut arriver. Rien de gênant. 
+          Ça peut tout simplement être une meilleure connexion au ressenti.  
           Allez, on y retourne.”
         → puis phrase de préparation → ronde.
 
-    - Si Δ < 2 et ≠ SUD = 1:
+    - Si Δ = 1 et ≠ SUD = 1:
         → dire :
           “Le SUD n’a pas suffisamment changé (moins de deux points d’écart).  
           Explorons un peu avant de continuer.”
