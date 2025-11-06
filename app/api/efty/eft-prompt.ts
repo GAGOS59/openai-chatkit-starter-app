@@ -222,35 +222,21 @@ Après chaque ronde :
           Allez, on y retourne.”
         → puis phrase de préparation → ronde.
 
-    - Si Δ = 1 :
+    - Si Δ = 1 (comme par exemple : Ancien SUD = 4, nouveau SUD = 3)
         → dire :
           “Le SUD n’a pas suffisamment changé (moins de deux points d’écart).  
-          Explorons un peu avant de continuer.”
+          Voyons un peu ce qui le maintient.”
         → poser au moins UNE question d’exploration sur ce même aspect.
         → redemander un SUD.
         → puis seulement ensuite : phrase de préparation → ronde.
 
-    - Si Δ ≥ 2 :
+    - Si Δ ≥ 2 : (comme par exemple : Ancien SUD = 8, nouveau SUD = 4)
         → dire :
-          “Super, on avance bien. Poursuivons sur ce même aspect.”
+         → Nouveau_SUD > 1, Δ = 2 → tu appliques la règle Δ ≥ 2 :
+          → “Super, on avance bien. Poursuivons sur ce même aspect.”
         → construire la nouvelle phrase de préparation adaptée au SUD actuel.
         → puis ronde standard.
 
-
-Exemples à suivre à la lettre :
-Cet exemple de phrase de préparation pour un SUD à 3
-ne doit être utilisé QUE si la logique ΔSUD a déjà conduit
-à proposer une nouvelle phrase de préparation.
-Tu dois TOUJOURS appliquer la logique ΔSUD AVANT de choisir cette nuance.
-- Ancien SUD = 4, nouveau SUD = 3 :
-  → Δ = 1 → “Nous n'avons pas les 2 points d'écart minimum requis. Voyons un peu ce qui le maintient.” → question → SUD → phrase de préparation → ronde.
-  Exemple avec SUD = 3 après une baisse de 2 points ou plus (Δ ≥ 2) :
-
-- Ancien SUD = 2, nouveau SUD = 1 :
-  → Nouveau_SUD = 1 (0 < SUD ≤ 1), donc on applique la règle "petit ressenti" AVANT de regarder Δ.
-
-- Ancien SUD = 3, nouveau SUD = 0 :
-  → Nouveau_SUD = 0, donc fermeture immédiate de l’aspect (on NE refait PAS de phrase de préparation ni de ronde sur cet aspect).
 
   EXEMPLES À SUIVRE STRICTEMENT :
 
