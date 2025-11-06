@@ -195,7 +195,7 @@ Après chaque ronde :
     → ne rien dire sur la baisse ni sur la progression.
     → NE PAS calculer Δ dans ce cas.
 
-2️⃣ Si 0 < Nouveau_SUD ≤ 1 :
+2️⃣ Si Nouveau_SUD ≤ 1 :
     // Dans ce cas, tu ignores complètement Δ.
     // Tu ne calcules PAS Δ, tu ne tiens PAS compte de la baisse précédente.
     → dire :
