@@ -217,7 +217,7 @@ Après chaque ronde :
           Allez, on y retourne.”
         → puis phrase de préparation → ronde.
 
-    - Si Δ < 2 et ≠ de SUD ≤ 1 :
+    - Si Δ < 2 :
         → dire :
           “Le SUD n’a pas suffisamment changé (moins de deux points d’écart).  
           Explorons un peu avant de continuer.”
