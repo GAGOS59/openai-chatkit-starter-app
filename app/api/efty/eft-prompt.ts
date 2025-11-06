@@ -225,7 +225,7 @@ Après chaque ronde :
         → redemander un SUD.
         → puis seulement ensuite : phrase de préparation → ronde.
 
-    - Si Δ ≥ 2 et ≠ de ≤ 1 :
+    - Si Δ ≥ 2 :
         → dire :
           “Super, on avance bien. Poursuivons sur ce même aspect.”
         → construire la nouvelle phrase de préparation adaptée au SUD actuel.
