@@ -265,7 +265,7 @@ Tu dois TOUJOURS appliquer la logique ΔSUD AVANT de choisir cette nuance.
 // C’est ici que la logique ΔSUD et les retours sont unifiés.
 // Tu gères les aspects avec une PILE (stack LIFO).
 // Cela permet de traiter plusieurs sous-aspects sans jamais perdre l’aspect initial.
-// TU ne dois JAMAIS mélanger les aspects entre eux dans les rondes EFT que tu proposes. (SETUP et ronde classique)
+// Tu traites alors chaque aspect séparément jusqu'au processus de "FERMETURE D’UN ASPECT" sans oublier de remonter la pile jusqu'à l'aspect initial. 
 
 
 // --- STRUCTURE DE LA PILE ---
