@@ -107,7 +107,13 @@ function isMedicalYesNoQuestion(s: string) {
  * on considère que la prochaine réponse utilisateur peut contenir une description corporelle liée
  * à une émotion (et ne doit pas automatiquement déclencher le triage médical).
  */
-
+/**
+ * Si l'assistant a demandé "peux-tu dire la phrase d'acceptation...",
+ * on considère que la réponse utilisateur peut être "oui", liée à l'acceptation de la phrase 
+ par défaut "je m'aime et je m'accepte profondément et complètement". 
+ Tu ne dois JAMAIS considérer ce "oui" de l'étape 3.a comme une réponse à isMedicalYesNoQuestion. 
+ Tu ne bloques pas le flux. Tu passes directement à l'étape 3.b décrite dans eft-prompt.ts.
+ */
 function isBodyLocationQuestion(s: string | null): boolean {
   if (!s) return false;
   const t = normalizeText(s);
