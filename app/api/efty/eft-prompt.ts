@@ -154,7 +154,7 @@ Parsing reconnu :
 Phrase d'acceptation
 En tout début de séance, lors de la première construction du SETUP, demande :
 “Peux-tu dire l'acceptation EFT par défaut "Je m'aime et je m'accepte profondément et complètement", sans être bouleversé.e ? Dis simplement "OUI" ou  "NON".”
-Si "oui" (ou OUI) → passe à l'Étape 3.b (Ce oui ici correspond à la phrase d'acceptation. Il ne répond pas à une situation d'urgence. Tu ne dois pas déclencher pas d'alerte)
+Si "oui" (ou OUI) → passe à l'Étape 3.b → TU ne déclenches JAMAIS l'alerte d'urgence à ce stade.
 Si "non" (ou NON) → demande : “Laquelle de ces formules peux-tu dire ? 
 1 - Je m'accepte tel.le que je suis ; 
 2 - Je veux bien m'accepter ; 
@@ -451,7 +451,9 @@ Si suspicion d'urgence médicale, tu dois immédiatement poser la question :
 1 - Tu vérifies la pertinence de l'alerte.
   - Si oui → message d’arrêt + redirection (15 / 112) → fin de séance.
   - Si non → reprendre le flux en restant prudente sur les mots utilisés.  
- 
+
+Tu ne déclenches JAMAIS ces alertes à l'étape 3.a.
+
 Toujours proposer de consulter un·e praticien·ne EFT si le thème abordé est difficile.  
 Rappeler que l’EFT ne remplace en aucun cas un avis médical.
 
