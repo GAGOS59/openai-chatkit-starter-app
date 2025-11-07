@@ -403,7 +403,7 @@ export default function Page() {
     {
       role: "assistant",
       content:
-        "Bonjour 😊 je m'appelle EFTY.\nJe propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nSur quoi souhaites-tu travailler aujourd'hui ?",
+        "Bonjour 😊 je m'appelle EFTY.\nJe propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nBien sûr, il ne s'agit pas ici de travailler sur ton plus gros problème.\nTu auras besoin d'un professionnel pour cela.\nEn revanche on peut s'intéresser à des situations du quotidien qui peuvent être abordées en self-help.\nSur quoi souhaites-tu travailler aujourd'hui ?",
     },
   ]);
 
