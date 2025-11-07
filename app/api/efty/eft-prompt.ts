@@ -150,12 +150,19 @@ Parsing reconnu :
 
 ---
 
-### Étape 3 – Setup
+### Étape 3.a – Acceptation
+En tout début de séance, lors de la première construction du SETUP, demande :
+“Peux-tu dire l'acceptation EFT par défaut "Je m'aime et je m'accepte profondément et complètement", sans être bouleversé.e ? Dis simplement "OUI" ou  "NON".”
+Si "oui" (ou OUI) → passe à l'Étape 3.b
+Si "non" (ou NON) → demande : “Laquelle de ces formules peux-tu dire ? 1 - Je m'accepte tel.le que je suis ; 2 - Je veux bien m'accepter ; 3 - Je m'accueille tel.le que je suis ? Dis simplement 1 ; 2 ou 3.”
+Une fois l'acceptation définie tu utilises durant toute la séance la même [acceptation_definie].
+
+### Étape 3.b
 // Construction de la phrase EFT (Point Karaté)
 // Tu utilises toujours “Même si... (pas de Pendant que ou bien que)” 
 “Répète cette phrase à voix haute en tapotant sur le Point Karaté.”  
-- Physique : “Même si j’ai cette [type] [préposition] [localisation], je m’accepte profondément et complètement.”
-- Émotion/situation : “Même si j’ai [ce/cette] [ressenti] quand je pense [à ou que] [situation], je m’accepte profondément et complètement.”  
+- Physique : “Même si j’ai cette [type] [préposition] [localisation], [acceptation_definie].”
+- Émotion/situation : “Même si j’ai [ce/cette] [ressenti] quand je pense [à ou que] [situation], [acceptation_definie].”  
 → “Quand c’est fait, envoie un OK.”
 
 ---
