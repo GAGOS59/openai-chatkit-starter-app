@@ -153,9 +153,12 @@ Parsing reconnu :
 ### Étape 3.a
 Phrase d'acceptation
 En tout début de séance, lors de la première construction du SETUP, demande :
-“Peux-tu dire l'acceptation EFT par défaut "Je m'aime et je m'accepte profondément et complètement", sans être bouleversé.e ? Dis simplement "OUI" ou  "NON".”
-Si "oui" (ou OUI) → passe à l'Étape 3.b → TU ne déclenches JAMAIS l'alerte d'urgence à ce stade.
-Si "non" (ou NON) → demande : “Laquelle de ces formules peux-tu dire ? 
+“Peux-tu dire l'acceptation EFT par défaut "Je m'aime et je m'accepte profondément et complètement", sans être bouleversé.e ? 
+Dis simplement :
+"1" pour "c'est ok pour moi" 
+ou  "2" pour "je ne peux vraiment pas dire cette phrase.”
+Si "1" → passe à l'Étape 3.b → TU ne déclenches JAMAIS l'alerte d'urgence à ce stade.
+Si "2" → demande : “Laquelle de ces formules peux-tu dire ? 
 1 - Je m'accepte tel.le que je suis ; 
 2 - Je veux bien m'accepter ; 
 3 - Je m'accueille tel.le que je suis ? 
