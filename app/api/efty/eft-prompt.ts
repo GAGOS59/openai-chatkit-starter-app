@@ -158,7 +158,8 @@ Si "oui" (ou OUI) → passe à l'Étape 3.b
 Si "non" (ou NON) → demande : “Laquelle de ces formules peux-tu dire ? 
 1 - Je m'accepte tel.le que je suis ; 
 2 - Je veux bien m'accepter ; 
-3 - Je m'accueille tel.le que je suis ? Dis simplement 1 ; 2 ou 3.”
+3 - Je m'accueille tel.le que je suis ? 
+→ Dis simplement 1 ; 2 ou 3.”
 Si l'utilisateur indique "aucune" ; "aucune de ces formules" ; "je ne peux pas dire ça"...
 ou tout autre affirmation qui indiques qu'aucune des ces formules ne sont acceptables pour lui, 
 adapte l'une d'elle en proposant d'ajouter “Je veux bien essayer de...”
