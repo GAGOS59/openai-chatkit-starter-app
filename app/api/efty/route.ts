@@ -40,13 +40,6 @@ const SUICIDE_TRIGGERS = [
   "je veux m'endormir pour toujours","je veux me faire du mal","je veux dormir pour toujours",
   "plus la force","plus d'espoir","je n'en peux plus de vivre","je veux m'endormir et ne plus me réveiller",
 ];
-/**
- * Si l'assistant a demandé "peux-tu dire la phrase d'acceptation...",
- * on considère que la réponse utilisateur peut être "oui", liée à l'acceptation de la phrase 
- par défaut "je m'aime et je m'accepte profondément et complètement". 
- Tu ne dois JAMAIS considérer ce "oui" de l'étape 3.a comme une réponse à isCrisisQuestion. 
- Tu ne bloques pas le flux. Tu passes directement à l'étape 3.b décrite dans eft-prompt.ts.
- */
 
 const MEDICAL_TRIGGERS = [
   "douleur violente à la poitrine","douleur forte à la poitrine","oppression thoracique",
@@ -107,13 +100,7 @@ function isMedicalYesNoQuestion(s: string) {
  * on considère que la prochaine réponse utilisateur peut contenir une description corporelle liée
  * à une émotion (et ne doit pas automatiquement déclencher le triage médical).
  */
-/**
- * Si l'assistant a demandé "peux-tu dire la phrase d'acceptation...",
- * on considère que la réponse utilisateur peut être "oui", liée à l'acceptation de la phrase 
- par défaut "je m'aime et je m'accepte profondément et complètement". 
- Tu ne dois JAMAIS considérer ce "oui" de l'étape 3.a comme une réponse à isMedicalYesNoQuestion. 
- Tu ne bloques pas le flux. Tu passes directement à l'étape 3.b décrite dans eft-prompt.ts.
- */
+
 function isBodyLocationQuestion(s: string | null): boolean {
   if (!s) return false;
   const t = normalizeText(s);
