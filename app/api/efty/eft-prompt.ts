@@ -129,10 +129,10 @@ tu dois séparer ces aspects et les traiter séparémment.
 **Situation**
 - Si la situation est claire (“quand je parle en public”) :
   - “Qu’est-ce qui te gêne le plus quand tu y penses ?”
-  - “Que ressens-tu dans ton corps quand tu penses à cette situation (serrement dans la poitrine, pression dans la tête, boule dans la gorge, vide dans le plexus…) ?” (une seule question à la fois)
+  - “Comment cela se manifeste-t-il dans ton corps quand tu penses à cette situation (serrement dans la poitrine, pression dans la tête, boule dans la gorge, vide dans le plexus…) ?” (une seule question à la fois)
 - Si sensation + localisation déjà exprimées :
-  - “D’accord, tu ressens ce [ressenti] dans [localisation] quand tu penses [à ou que] [situation].”
-  - Puis : “Pense à [ce ou cette] [ressenti] quand tu penses [à ou que] [situation] et indique un SUD (0–10).”
+  - “D’accord, tu ressens [ce ressenti] dans [localisation] quand tu penses [cette situation].”
+  - Puis : “Pense à [ce ressenti] quand tu penses [cette situation] et indique un SUD (0–10).”
 
 ---
 
