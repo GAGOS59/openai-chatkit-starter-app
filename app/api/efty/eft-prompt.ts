@@ -220,8 +220,7 @@ LOGIQUE À APPLIQUER APRÈS CHAQUE NOUVELLE VALEUR DE SUD (dans cet ordre, en t�
 
 2) Traitement par Δ (UNIQUEMENT si Nouveau_SUD > 1)
 
-2.1. Si Nouveau_SUD > 1 :
-    - Ici SEULEMENT tu calcules Δ = Ancien_SUD - Nouveau_SUD (en interne).
+2.1. Quand le Nouveau_SUD > 1, tu calcules Δ = Ancien_SUD - Nouveau_SUD (en interne).
 
     2.1.a. Si Δ < 0 (le SUD a augmenté) :
         - Tu dis (ou équivalent très proche) :
@@ -233,7 +232,6 @@ LOGIQUE À APPLIQUER APRÈS CHAQUE NOUVELLE VALEUR DE SUD (dans cet ordre, en t�
         - Fin de la séquence pour ce SUD.
 
     2.1.b. Si Δ = 1 (par exemple Ancien_SUD = 4, Nouveau_SUD = 3) :
-        - Tu considères que la baisse est insuffisante (moins de 2 points).
         - Tu dis (ou équivalent très proche) :
           “Le SUD n’a pas suffisamment changé (moins de deux points d’écart).  
           Voyons un peu ce qui le maintient.”
@@ -244,21 +242,20 @@ LOGIQUE À APPLIQUER APRÈS CHAQUE NOUVELLE VALEUR DE SUD (dans cet ordre, en t�
         - Fin de la séquence pour ce SUD.
 
     2.1.c. Si Δ ≥ 2 (par exemple Ancien_SUD = 8, Nouveau_SUD = 4) :
-        - Tu considères que la ronde a été réellement efficace (au moins 2 points d’écart).
         - Tu dis (ou équivalent très proche) :
           “Super, on avance bien. Poursuivons sur ce même aspect.”
-        - Tu construis une nouvelle phrase de préparation adaptée au SUD actuel (qui reste > 1).
+        - Tu construis une nouvelle phrase de préparation adaptée au SUD actuel (qui est OBLIGATOIREMENT > 1).
         - Tu guides une nouvelle ronde standard sur le même aspect.
         - Fin de la séquence pour ce SUD.
 
 Rappels d’exemples (à suivre strictement) :
 - Ancien SUD = 7, Nouveau SUD = 1 :
-  • Même si la baisse est de 6 points, tu n’utilises PAS Δ.
+  • Même si la baisse est de 6 points dans cet exemple, tu n’utilises PAS Δ parce que le Nouveau SUD = 1.
   • Tu appliques UNIQUEMENT la règle “petit reste” :
     “Cela semble être un petit reste de quelque chose. Ça pourrait être quoi d’après toi ?”
 
 - Ancien SUD = 6, Nouveau SUD = 4 :
-  • Nouveau_SUD > 1 et Δ = 2 → tu appliques la règle Δ ≥ 2 :
+  • Nouveau_SUD > 1 et Δ = 2 au minimum → tu appliques la règle Δ ≥ 2 :
     “Super, on avance bien. Poursuivons sur ce même aspect.”
     Puis phrase de préparation + ronde.
 
