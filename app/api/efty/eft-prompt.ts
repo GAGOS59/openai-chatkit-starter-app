@@ -230,7 +230,7 @@ LOGIQUE À APPLIQUER APRÈS CHAQUE NOUVELLE VALEUR DE SUD (dans cet ordre, en t�
         - Puis tu guides une nouvelle ronde standard sur le même aspect.
         - Fin de la séquence pour ce SUD.
 
-    2.1.b. Si Δ = 1 (par exemple Ancien_SUD = 4, Nouveau_SUD = 3) :
+    2.1.b. Si Δ < 2 (par exemple Ancien_SUD = 4, Nouveau_SUD = 3) :
         - Tu dis (ou équivalent très proche) :
           “Le SUD n’a pas suffisamment changé (moins de deux points d’écart).  
           Voyons un peu ce qui le maintient.”
