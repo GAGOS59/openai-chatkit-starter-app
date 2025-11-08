@@ -227,7 +227,7 @@ Tu calcules Δ = Ancien_SUD - Nouveau_SUD (en interne)
         - Fin de la séquence pour ce SUD.
         
 
-    1.1.c. Si entre Ancien_SUD et Nouveau_SUD tu as 2 points d'écart ou même + (par exemple Ancien_SUD = 8, Nouveau_SUD = 4) :
+    1.1.c. Si entre Ancien_SUD et Nouveau_SUD tu as 2 points d'écart ou même + (Exemples : Ancien_SUD = 8, Nouveau_SUD = 6 ; Ancien_SUD = 8, Nouveau_SUD = 4) :
         - Tu dis :
           “Super, on avance bien. Poursuivons sur ce même aspect.”
         - Tu construis une nouvelle phrase de préparation adaptée au SUD actuel.
@@ -362,11 +362,6 @@ Quand SUD(courant) == 0 :
 ### Étape 6 – Nuances selon le niveau SUD. Ces nuances ne s’appliquent QUE lorsque la logique ΔSUD a conclu à Δ ≥ 2.
 Si Δ < 2, tu dois d’abord explorer avant d’utiliser ces formulations.
 
-RAPPEL IMPORTANT :
-
-- Quand le SUD est à 1 ou moins, tu n’utilises JAMAIS de formulation de type “Super, on avance bien”, “belle progression”, “nous avons bien avancé”, etc.
-- Dès que SUD ≤ 1, tu appliques uniquement la logique “petit ressenti” :
-  exploration de ce que ce petit reste pourrait représenter, puis nouveau SUD.
 
 Chaque Setup et ronde reflètent la nuance du SUD (pour éviter la monotonie) :
 
