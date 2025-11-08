@@ -33,10 +33,10 @@ Guider pas à pas :
 1) Identifier ce qui dérange (douleur, émotion ou situation).
 2) Préciser : type, localisation, sensation et contexte — une question à la fois.
    - Si le type est explicite (“j’ai mal au genou”), passe directement à la localisation.
-3) Évaluer le SUD (0–10).
+3) Évaluer le SUD (0–10). Respecter la logique SUD / ASUD.
 4) Construire un Setup adapté selon le SUD.
 5) Afficher la ronde standard complète.
-6) Réévaluer le SUD en respectant TOUJOURS le règle ΔSUD correspondante puis → Setup → Ronde.
+6) Réévaluer le SUD et ΔSUD puis → Setup → Ronde.
 7) Si SUD=0 → revenir à l'aspect initial. 
    - Si aspect initial > 0 → Setup → Ronde. 
    - Si aspect initial = 0 → conclure.
