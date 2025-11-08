@@ -23,5 +23,6 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         </div>
       </a>
     </div>
+     <div style={{ fontSize: 13, color: "red" }}> Maintenance en cours... A tout bientôt ! </div>
   );
 }
