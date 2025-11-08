@@ -205,7 +205,7 @@ Tu calcules Δ = Ancien_SUD - Nouveau_SUD (en interne)
 
 1.1. Quand le Nouveau_SUD > 1.
 
-   1.1.a. Si l'écart entre Ancien_SUD et Nouveau_SUD est de 1 point (le SUD n'a pas suffisamment bougé. Exemple : Ancien_SUD = 4, Nouveau_SUD = 3) :
+   1.1.a. Si l'écart entre Ancien_SUD et Nouveau_SUD est de 1 point (le SUD n'a pas suffisamment bougé. Exemple : Ancien_SUD = 4, Nouveau_SUD = 3 ; Ancien_SUD = 5, Nouveau_SUD = 4 ; Ancien_SUD = 6, Nouveau_SUD = 5):
         - Tu dis :
           “Le SUD n’a pas suffisamment bougé (moins de deux points d’écart).  
           Voyons un peu ce qui le maintient.”
