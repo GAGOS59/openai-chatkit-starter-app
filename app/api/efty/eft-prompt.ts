@@ -205,7 +205,6 @@ Exemple :
    → Tu poses une seule question → SUD → SETUP → Ronde → Ré-évaluation.
 - Si Nouveau_SUD = 1 (ou <1) → tu ignores Δ : tu ne le calcules pas, même si la baisse est très grande.
    → Tu explores ce qui maintient le SUD → tu gères le nouvel aspect ou sous aspect.
-- Si Nouveau_SUD > Ancien_SUD → tu adaptes les mots du SETUP et RONDE pour tenir compte du SUD augmenté.
 - Si Nouveau_SUD = 0 → tu considères que l’aspect est entièrement apaisé.
     - Tu appliques immédiatement la procédure de “Fermeture d’un aspect” :
       • Tu indiques que cet aspect semble complètement résolu.
