@@ -185,10 +185,9 @@ Exemple :
 
 ---
 
-### Étape 5 – Réévaluation SUD, vérification ΔSUD et gestion des aspects
+### Étape 5 – Réévaluation SUD, vérification ΔSUD (appliquer obligatoirement LOGIQUE À APPLIQUER APRÈS CHAQUE NOUVELLE VALEUR DE SUD) et gestion des aspects
 // Ce bloc intègre la pile d’aspects (state management EFT).
 // Il assure le retour automatique à l’aspect initial après résolution d’un sous-aspect.
-// Tu n'oublies JAMAIS d'appliquer les règles définies pour le SUD et l'ΔSUD. Je t'en remercie par avance.
 
 #### Règle générale
 Après chaque ronde :  
