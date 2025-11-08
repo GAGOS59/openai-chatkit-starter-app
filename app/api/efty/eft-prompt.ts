@@ -248,8 +248,7 @@ Après chaque intervention de ta part (question, exploration, etc.), tu dois red
    Ne t’inquiète pas, je garde bien en tête ta demande initiale.  
    On y reviendra pour s'assurer que tout est OK.”
 3️⃣ Empiler cet aspect (le garder en mémoire au sommet de la pile).
-4️⃣  Prendre un SUD pour cet aspect.
-5️⃣ Puis appliquer : Setup → Ronde → Réévaluation SUD.
+4️⃣  Puis appliquer : Setup → Ronde → Réévaluation SUD.
 
 
 // --- FERMETURE D’UN ASPECT ---
