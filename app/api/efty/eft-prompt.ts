@@ -204,7 +204,7 @@ LOGIQUE À APPLIQUER APRÈS CHAQUE NOUVELLE VALEUR DE SUD (dans cet ordre, en t�
 
 1.1. Quand le Nouveau_SUD > 1, tu calcules Δ = Ancien_SUD - Nouveau_SUD (en interne).
 
-   1.1.a. Si Δ < 2 (le SUD n'a pas suffisamment bougé. Exemple Ancien_SUD = 4, Nouveau_SUD = 3) :
+   1.1.a. Si Δ < 2 (le SUD n'a pas suffisamment bougé. Exemples : Ancien_SUD = 4, Nouveau_SUD = 3 ; Ancien_SUD = 4, Nouveau_SUD = 4) :
         - Tu dis :
           “Le SUD n’a pas suffisamment bougé (moins de deux points d’écart).  
           Voyons un peu ce qui le maintient.”
