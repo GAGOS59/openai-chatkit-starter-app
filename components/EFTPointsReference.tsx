@@ -20,7 +20,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
           <div style={{ fontSize: 13, color: "#555" }}>
             Voir la photo des points et la description précise (s&apos;ouvre dans un nouvel onglet).
           </div>
-               <div style={{ fontSize: 13, color: "red" }}> Maintenance en cours...</div>
+               <div style={{ fontSize: 18, color: "red" }}> Maintenance en cours...</div>
 
         </div>
       </a>
