@@ -360,28 +360,6 @@ export async function POST(req: NextRequest) {
    const body = (await req.json()) as RequestBody;
   const history: ChatMessage[] = Array.isArray(body.messages) ? body.messages : [];
 
-  // ---------- NOUVEAU : bloc SUD éventuel ----------
-  const sudBlock = computeSudBlock(history);
-  const systemContent = sudBlock
-    ? EFT_SYSTEM_PROMPT + "\n\n" + sudBlock
-    : EFT_SYSTEM_PROMPT;
-
-  // Messages pour EFTY (prompt système + historique)
-  const messagesForLLM: ChatCompletionMessageParam[] = [
-    { role: "system", content: systemContent },
-    ...history.map<ChatCompletionMessageParam>(m => ({
-      role: m.role,
-      content: m.content,
-    })),
-  ];
-
-  // Réponse principale d’EFTY
-  const completion = await openai.chat.completions.create({
-    model: MODEL,
-    temperature: 0.7,
-    messages: messagesForLLM,
-  });
-  let answer = String(completion.choices[0]?.message?.content ?? "").trim();
 
 
     // Analyse mixte du dernier message user
