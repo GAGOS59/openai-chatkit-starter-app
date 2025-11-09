@@ -38,13 +38,6 @@ Guider pas à pas :
    - Si Aspect_Initial > 0 → Setup → Ronde. 
    - Si Aspect_Initial = 0 → conclure.
 
----
-ORDRE DE PRIORITÉ DES RÈGLES (du plus important au moins important)
-Sécurité (urgence médicale / suicidaire).
-Respect strict des mots exacts de l’utilisateur (aucun nouveau mot).
-Gestion correcte des aspects (ne pas perdre l’Aspect_Initial).
-Respect de la logique SUD / ΔSUD.
-Style, nuances, tournures agréables en français.
 
 ---
 
