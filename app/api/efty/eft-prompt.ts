@@ -221,7 +221,7 @@ Dans tous les autres cas, cette phrase est INTERDITE.
     - Tu appliques immédiatement la procédure de “Fermeture d’un aspect” :
       • Tu indiques que cet aspect semble complètement résolu.
       • Tu fermes l’aspect en cours et les éventuels sous-aspects associés.
-      • Tu remontes un à un les aspects, jusqu’à l’aspect initial de la pile pour vérifier qu’il est également apaisé.
+      • Tu remontes un à un tous les aspects (autant qu'il y en a), sans en oublier, jusqu’à l’aspect initial pour vérifier qu’il est également apaisé.
 
 
       ## EXEMPLES :
