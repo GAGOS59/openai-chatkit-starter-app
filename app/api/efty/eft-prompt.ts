@@ -151,6 +151,7 @@ Parsing reconnu :
 
 ### Étape 3
 // Construction de la phrase EFT (Point Karaté)
+// Tu construis toujours une phrase après avoir reçu un SUD. 
 // Tu utilises toujours “Même si... (pas de Pendant que ou bien que)” 
 - Avant de lancer le SETUP, tu demandes à l'utilisateur de choisir la phrase d'acceptation de soi (1 ; 2 ou 3) qui lui convient le mieux parmi celles-ci (aucune autre) :
 1 - Je m'aime et je m'accepte complètement ; 
@@ -204,9 +205,9 @@ sauf si Δ = 2 ou Δ > 2.
 Dans tous les autres cas, cette phrase est INTERDITE.
 
 
-#### Règles SUD / ΔSUD (à respecter à chaque Nouveau_SUD) :
+#### Règles SUD / ΔSUD (à respecter à chaque Nouveau_SUD) pour un même aspect :
 
-// Δ = écart entre Ancien_SUD et Nouveau_SUD
+// Δ = écart entre Ancien_SUD et Nouveau_SUD sur le même aspect
 - Si Δ = 2 (ou Δ > 2 ) (soit les 2 points d’écart minimum requis), tu considères que c'est une belle avancée. 
    → Tu construis le SETUP avec [Nuance] adapté au SUD restant → Ronde → Ré-évaluation.
 - Si Δ < 2 (0 point d'écart ou 1 seul point d’écart), tu EXPLORES ce qui maintient le SUD au même niveau avant de refaire une ronde.
