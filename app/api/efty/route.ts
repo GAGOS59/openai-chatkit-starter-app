@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { EFT_SYSTEM_PROMPT } from "./eft-prompt"; // garde ton fichier au même endroit
-import { evaluateSud, buildSudStateBlock } from "./sud-logic";
 
 
 // ---------- Types ----------
@@ -154,52 +153,6 @@ function isSudRequest(text: string | null): boolean {
   return /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/.test(t);
 }
 
-/**
- * Parcourt l'historique et :
- * - repère les réponses utilisateur qui sont des SUD (juste après une question d'EFTY sur le SUD)
- * - si le DERNIER message user est bien un SUD, calcule Δ et construit le bloc [ÉTAT_SUD]
- * - sinon, renvoie null (le prompt ne recevra pas de bloc SUD pour cet échange)
- */
-function computeSudBlock(history: ChatMessage[]): string | null {
-  if (!history.length) return null;
-
-  // on détecte toutes les réponses "SUD" de l'utilisateur dans l'historique
-  const sudAnswers: { index: number; value: number }[] = [];
-
-  for (let i = 1; i < history.length; i++) {
-    const msg = history[i];
-    const prev = history[i - 1];
-
-    if (msg.role === "user" && prev.role === "assistant" && isSudRequest(prev.content)) {
-      const sud = extractSudServer(msg.content);
-      if (sud !== null) {
-        sudAnswers.push({ index: i, value: sud });
-      }
-    }
-  }
-
-  if (sudAnswers.length === 0) return null;
-
-  const lastSud = sudAnswers[sudAnswers.length - 1];
-  const lastMsgIndex = history.length - 1;
-
-  // si le dernier message utilisateur N'EST PAS un SUD, on ne fait rien
-  if (lastSud.index !== lastMsgIndex) return null;
-
-  const prevSudRecord =
-    sudAnswers.length > 1 ? sudAnswers[sudAnswers.length - 2] : null;
-
-  const previousSud = prevSudRecord ? prevSudRecord.value : null;
-  const currentSud = lastSud.value;
-
-  const sudEval = evaluateSud(previousSud, currentSud);
-
-  // pour l'instant, on met un libellé générique "aspect courant"
-  // (tu pourras plus tard injecter ici une vraie étiquette d'aspect si tu la stockes côté backend)
-  const aspectLabel = "aspect courant";
-
-  return buildSudStateBlock(aspectLabel, sudEval);
-}
 
 
 // ---------- OpenAI ----------
