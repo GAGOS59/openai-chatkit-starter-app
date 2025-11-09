@@ -379,22 +379,22 @@ Chaque Setup et ronde reflètent la nuance du SUD (pour éviter la monotonie) :
 - Ronde :  
   1. ST : encore un peu de colère  
   2. DS : encore un peu de colère quand je pense [situation]  
-  3. CO : cette colère encore un peu présente  
+  3. CO : [reseenti] encore un peu présente  
   4. SO : encore un peu de colère  
   5. SN : cette colère dans [localisation]  
-  6. CM : cette colère  
+  6. CM : [reseenti]  
   7. CL : encore un peu de colère  
-  8. SB : cette colère quand je pense [situation]  
+  8. SB : [reseenti] quand je pense [situation]  
 
 **Exemple avec SUD = 9 :**
   - Setup : “Même si j'en ai vraiment trop marre de mon chef quand [situation], [acceptation_definie].”  
 - Ronde :  
   1. ST : vraiment trop marre de mon chef   
   2. DS : vraiment trop marre de mon chef quand [situation]  
-  3. CO : vraiment trop marre   
+  3. CO : [situation]   
   4. SO : vraiment trop marre de mon chef  
   5. SN : vraiment trop marre de mon chef dans [localisation]  
-  6. CM : vraiment trop marre    
+  6. CM : vraiment trop marre de mon chef quand [situation]   
   7. CL : vraiment trop marre de mon chef   
   8. SB : vraiment trop marre de mon chef [situation]  
 
