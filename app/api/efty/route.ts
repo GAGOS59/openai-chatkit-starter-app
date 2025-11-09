@@ -1,440 +1,199 @@
-// app/api/efty/route.ts
-import { NextRequest, NextResponse } from "next/server";
+// app/api/efty/route.ts — version allégée (sans détection/nuance SUD)
+import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { EFT_SYSTEM_PROMPT } from "./eft-prompt"; // garde ton fichier au même endroit
+import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
+import "server-only";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-// ---------- Types ----------
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// --- Types (minimal)
 type Role = "user" | "assistant";
 interface ChatMessage { role: Role; content: string; }
-interface RequestBody { messages?: ChatMessage[]; }
-type Crisis = "none" | "ask" | "lock";
+interface MotsClient {
+  emotion?: string;
+  sensation?: string;
+  localisation?: string;
+  pensee?: string;
+  souvenir?: string;
+}
+type Payload = {
+  messages?: ChatMessage[];
+  message?: string;
+  mots_client?: MotsClient;
+  injectRappels?: boolean;
+  rappelsVoulus?: number;
+};
 
-// ---------- CORS (simple) ----------
-const ALLOWED_ORIGINS = [
-  "https://ecole-eft-france.fr",
-  "https://www.ecole-eft-france.fr",
-  "https://appli.ecole-eft-france.fr",
-  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
-  "http://localhost:3000",
-].filter(Boolean);
+// --- Utils minimal
+function clean(s?: string) {
+  return (s ?? "").replace(/\s+/g, " ").trim();
+}
+function isChatMessageArray(x: unknown): x is ChatMessage[] {
+  return Array.isArray(x) && x.every((m) => typeof m === "object" && m !== null && "role" in m && "content" in m);
+}
+function isAllowedOrigin(origin: string | null) {
+  if (!origin) return false;
+  const o = origin.toLowerCase();
+  const ALLOWED = new Set([
+    "https://appli.ecole-eft-france.fr",
+    "https://www.ecole-eft-france.fr",
+  ]);
+  if (process.env.VERCEL_ENV === "production") return ALLOWED.has(o);
+  if (o.startsWith("http://localhost")) return true;
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return o === `https://${process.env.VERCEL_URL}` || ALLOWED.has(o);
+  }
+  return ALLOWED.has(o);
+}
 
-function corsHeaders(origin: string | null) {
-  const h: Record<string, string> = {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
+// --- Micro-grammaire rappels (very small, non-invasive)
+function generateRappelsBruts(m?: MotsClient): string[] {
+  if (!m) return [];
+  const out = new Set<string>();
+  const push = (s?: string) => {
+    if (!s) return;
+    const t = s.trim().replace(/\s+/g, " ");
+    if (t && t.length <= 40) out.add(t);
   };
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
-    h["Access-Control-Allow-Origin"] = origin;
-    h["Vary"] = "Origin";
-  }
-  return h;
+  if (m.emotion) push(`cette ${m.emotion}`);
+  if (m.sensation && m.localisation) push(`cette ${m.sensation} dans ${m.localisation}`);
+  if (m.sensation && !m.localisation) push(`cette ${m.sensation}`);
+  if (m.pensee) push(`cette pensée : « ${m.pensee} »`);
+  return Array.from(out).slice(0, 6);
 }
 
-// ---------- Détection locale : suicide & médical ----------
-const SUICIDE_TRIGGERS = [
-  "suicide","me suicider","idées suicidaires","envie d'en finir",
-  "mettre fin à mes jours","je veux mourir","je vais me tuer","je veux me tuer",
-  "plus envie de vivre","je veux tout arrêter","je veux que tout s'arrête",
-  "je veux disparaître","je ne vois plus de sens à la vie","tout le monde serait mieux sans moi",
-  "je veux m'endormir pour toujours","je veux me faire du mal","je veux dormir pour toujours",
-  "plus la force","plus d'espoir","je n'en peux plus de vivre","je veux m'endormir et ne plus me réveiller",
+const CRISIS_PATTERNS: RegExp[] = [
+  /\bsuicide\b/i,
+  /\b(me\s+tuer|me\s+suicider)\b/i,
+  /\bje\s+veux\s+mourir\b/i,
+  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
+  /\bj[’']en\s+ai\s+marre\s+de\s+la\s+vie\b/i,
+  /\bme\s+foutre\s+en\s+l[’']air\b/i,
+  /\bj[’']en\s+peux\s+plus\s+de\s+vivre\b/i,
+  /\bje\s+veux\s+dispara[iî]tre\b/i
 ];
-
-const MEDICAL_TRIGGERS = [
-  "douleur violente à la poitrine","douleur forte à la poitrine","oppression thoracique",
-  "douleur poitrine","douleur à la poitrine","douleur thoracique",
-  "difficulté à respirer","je n'arrive plus à respirer","essoufflement important",
-  "faiblesse d'un côté","paralysie d'un côté","bouche de travers",
-  "troubles de la parole soudains","parler devient difficile",
-  "saignement abondant","hémorragie","traumatisme crânien",
-  "perte de connaissance","je me suis évanoui","perdu connaissance",
-  "douleur intense soudaine","douleur insupportable",
-];
-
-function containsAny(hay: string, list: string[]) {
-  const t = (hay || "").toLowerCase();
-  return list.some(k => t.includes(k));
-}
-
-// ——— Suicide helpers
-function isCrisisQuestion(s: string) {
-  const t = (s || "").toLowerCase();
-  return t.includes("as-tu des idées suicidaires") || t.includes("as tu des idees suicidaires");
-}
-function isExplicitYes(s: string)  { return /^(oui|yes)\b/i.test((s || "").trim()); }
-function isExplicitNo(s: string)   { return /^(non|no)\b/i.test((s || "").trim()); }
-
-
-
-// ---------- Normalisation & classification médicales (tolérantes) ----------
-function normalizeText(s: string | null): string {
-  if (!s) return "";
-  try {
-    const noAccents = s.normalize("NFD").replace(/\p{M}/gu, "");
-    return noAccents.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-  } catch {
-    return (s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-  }
-}
-
-// question de triage : plus tolérante sur la forme
-function isMedicalClarifierQuestion(s: string) {
-  const t = normalizeText(s);
-  const mentionDouleur = t.includes("douleur") || t.includes("douleurs") || t.includes("douleur poitrine") || t.includes("douleur thoracique");
-  const mentionsSpontane = t.includes("spontan") || t.includes("au repos") || t.includes("apres effort") || t.includes("effort") || t.includes("en courant") || t.includes("en march");
-  const mentionsChoc = t.includes("choc") || t.includes("coup") || t.includes("trauma") || t.includes("chute") || t.includes("heurter") || t.includes("collision");
-  return mentionDouleur && (mentionsSpontane || mentionsChoc);
-}
-
-// detecteur d'une question oui/non formatée par notre template
-function isMedicalYesNoQuestion(s: string) {
-  if (!s) return false;
-  const t = s.toLowerCase();
-  return t.includes("est-elle apparue spontan") || (t.includes('réponds par "oui"') && t.includes("spontan"));
-}
-
-// ---------- NOUVEAU: detecte si l'assistant demandait la localisation corporelle ----------
-/**
- * Si l'assistant a demandé "où ressens-tu", "où dans ton corps", "dans quelle partie du corps",
- * on considère que la prochaine réponse utilisateur peut contenir une description corporelle liée
- * à une émotion (et ne doit pas automatiquement déclencher le triage médical).
- */
-
-function isBodyLocationQuestion(s: string | null): boolean {
-  if (!s) return false;
-  const t = normalizeText(s);
-  const patterns = [
-    "ou ressens", "ou ressens tu", "ou ressens-tu",
-    "dans ton corps", "dans la poitrine", "dans l abdomen", "dans le ventre",
-    "dans quelle partie", "ou tu le ressens", "ou le sens tu", "ou sens tu", "ou sens-tu",
-    "ou le sens-tu"
-  ];
-  return patterns.some(p => t.includes(p));
-}
-
-// classifie une réponse utilisateur courte en "spontane" | "choc" | "unknown"
-function classifyMedicalReply(s: string | null): "spontane" | "choc" | "unknown" {
-  const t = normalizeText(s);
-  if (!t) return "unknown";
-
-  const chocTokens = ["choc","coup","traum","chute","heurter","collision","tomber","frapper","fracture"];
-  const effortTokens = [
-    "spontan","spontane","spontanement","au repos",
-    "apres effort","apres un effort","apres une effort","apres avoir","à l'effort","effort",
-    "en courant","courir","courais","couru","course","jogging",
-    "marche","sport","exercice","entrainement","soulever","porter"
-  ];
-
-  if (chocTokens.some(tok => t.includes(tok))) return "choc";
-  if (effortTokens.some(tok => t.includes(tok))) return "spontane";
-  if (/\bspontan(?:e|ement)?\b/.test(t)) return "spontane";
-  if (t === "effort" || t === "en courant" || t === "courir") return "spontane";
-
-  return "unknown";
-}
-
-// ---------- SUD HELPERS (calcul côté backend) ----------
-
-// extrait un nombre de 0 à 10 dans un texte (ex. "je suis à 6" → 6)
-function extractSudServer(v: string): number | null {
-  const m = v.trim().match(/\b([0-9]|10)\b/);
-  if (!m) return null;
-  const n = parseInt(m[1], 10);
-  return n >= 0 && n <= 10 ? n : null;
-}
-
-// détecte si l'assistant demandait un SUD (0–10)
-function isSudRequest(text: string | null): boolean {
-  if (!text) return false;
+function isCrisis(text: string): boolean {
   const t = text.toLowerCase();
-  // même logique que dans page.tsx pour setLastAskedSud
-  return /sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/.test(t);
+  return CRISIS_PATTERNS.some(rx => rx.test(t));
+}
+function crisisMessage(): string {
+  return (
+`⚠️ **Message important :**
+Il semble que vous traversiez un moment très difficile.
+Je ne suis pas un service d’urgence et votre sécurité est prioritaire.
+
+👉 **Appelez immédiatement le 15** (urgences médicales en France),
+ou contactez le **3114**, le **numéro national de prévention du suicide**,
+gratuit, anonyme et disponible 24h/24, 7j/7.
+
+Si vous êtes à l’étranger, composez le numéro d’urgence local.
+Vous n’êtes pas seul·e — il existe des personnes prêtes à vous aider. ❤️`
+  );
 }
 
+/* ---------- Handlers ---------- */
+export async function POST(req: Request) {
+  const origin = req.headers.get("origin");
+  if (!isAllowedOrigin(origin)) {
+    return new NextResponse("Origine non autorisée (CORS).", { status: 403 });
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ error: "Configuration manquante." }, { status: 500 });
+  }
 
+  let body: Payload = {};
+  try {
+    const raw = (await req.json()) as unknown;
+    if (raw && typeof raw === "object") body = raw as Payload;
+  } catch {
+    return NextResponse.json({ error: "Requête JSON invalide." }, { status: 400 });
+  }
 
-// ---------- OpenAI ----------
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const history: ChatMessage[] = isChatMessageArray(body.messages) ? body.messages : [];
+  const single: string = typeof body.message === "string" ? body.message.trim() : "";
 
-// petit wrapper LLM detector (LAISSÉ pour usage médical uniquement)
-async function llmFlag(
-  kind: "suicide" | "medical",
-  userText: string
-): Promise<"hit" | "safe"> {
-  const detectorPrompt =
-    kind === "suicide"
-      ? `Tu es un détecteur de crise suicidaire. Analyse objectivement le message.
-Réponds UNIQUEMENT par "hit" si tu suspectes un risque suicidaire ou "safe" sinon. Aucune explication.`
-      : `Tu es un détecteur d'urgence médicale. Analyse objectivement le message.
-Réponds UNIQUEMENT par "hit" si tu suspectes une urgence médicale (douleur thoracique sévère, détresse respiratoire, signes d'AVC, hémorragie, perte de connaissance, etc.) ou "safe" sinon.`;
-
-  const completion = await openai.chat.completions.create({
-    model: MODEL,
-    temperature: 0,
-    max_tokens: 2,
-    messages: [
-      { role: "system", content: detectorPrompt },
-      { role: "user", content: userText.slice(0, 2000) },
-    ],
-  });
-
-  const label = String(completion.choices[0]?.message?.content || "").trim().toLowerCase();
-  return label === "hit" ? "hit" : "safe";
-}
-
-// ---------- Questions fixes (utilisées quand crisis === "ask") ----------
-const SUICIDE_QUESTION_TEXT =
-  "As-tu des idées suicidaires en ce moment ? Réponds par **oui** ou **non**, s’il te plaît.";
-
-// Template : construit une question oui/non qui reprend le symptôme de l'utilisateur
-function MEDICAL_TRIAGE_QUESTION_FOR(symptomRaw: string) {
-  const s = (symptomRaw || "").trim();
-  const excerpt = s.length > 120 ? s.slice(0, 117).trim() + "…" : s;
-  // heuristique simple pour choisir Ce / Cette (prédicat minimal basé sur mots fréquents)
-  const lower = excerpt.toLowerCase();
-  const feminineIndicators = [
-    "douleur", "douleurs", "naus", "oppression", "fatigue", "nausée", "nausées", "gêne", "gène",
-    "oppression thoracique", "douleur thoracique", "douleur poitrine"
+  // Build messages: system prompt first, then history (minimal)
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    { role: "system", content: EFT_SYSTEM_PROMPT },
   ];
-  const article = feminineIndicators.some(tok => lower.startsWith(tok) || lower.includes(tok)) ? "Cette" : "Ce";
-  // accord du verbe selon le genre
-  const verb = article === "Cette" ? "est-elle apparue" : "est-il apparu";
-  // phrase finale (plus naturelle, poli et claire)
-  return `${article} "${excerpt}" ${verb} spontanément, sans choc (tu ne t'es pas cogné·e ni reçu un coup) ? Réponds par "oui" ou "non".`;
-}
 
-// Fermetures empathiques
-const CLOSING_SUICIDE = `Je te prends profondément au sérieux. 
-Il semble que tu traverses un moment très difficile — tu n'as pas à le vivre seul·e.
-
-Je ne peux pas poursuivre la séance d'EFT dans cette situation : il est important de contacter immédiatement une aide humaine.
-Appelle s'il te plaît **en priorité** :
-• **3114** — Prévention du suicide (gratuit, 24h/24 et 7j/7) — France (service spécialisé)
-Ensuite si besoin :
-• **112** — Urgences (numéro européen)  
-• **15** — SAMU (France)
-
-Si quelqu’un est près de toi, demande-lui de t’aider à appeler maintenant.
-Reste avec la personne qui écoute et, si possible, mets-toi en lieu sûr.
-
-Tu comptes, ta présence est importante. Je suis de tout cœur avec toi. ❤️
-(Je suspends la séance pour prioriser ta sécurité.)`;
-
-const CLOSING_MEDICAL = `Je comprends que tu vis une situation préoccupante pour ta santé. 
-Si tu présentes un symptôme grave (douleur thoracique importante, difficulté à respirer, perte de connaissance, faiblesse soudaine d'un côté, trouble brutal de la parole, saignement abondant, traumatisme grave, etc.), appelle immédiatement les secours.
-
-• **112** — Urgences (numéro européen)  
-• **15** — SAMU (France)
-
-Si quelqu’un est près de toi, demande-lui de t’aider à appeler.  
-Si tu es seul·e, mets-toi en sécurité (allongé·e si besoin), évite tout effort et attends les secours.  
-Ta sécurité passe avant tout — je suspends la séance pour prioriser ton accompagnement médical.`;
-
-// ---------- computeCrisis (gestion clarify / medical / suicide / none) ----------
-function computeCrisis(
-  history: ChatMessage[],
-  modelAnswer: string,
-  suicideLLM: "hit" | "safe",
-  medicalLLM: "hit" | "safe"
-): { crisis: Crisis; reason: "none" | "suicide" | "medical" | "clarify" } {
-
-  const lastUser = [...history].reverse().find(m => m.role === "user")?.content ?? "";
-
-  // --- NOUVEAU: détermination si le message assistant précédent était une question de localisation corporelle
-  const lastAssistantMsg = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
-  const lastAssistantIsBodyLocationQ = isBodyLocationQuestion(lastAssistantMsg);
-
-  // détection simple par liste
-  const hasSuicideKeyword = containsAny(lastUser, SUICIDE_TRIGGERS);
-
-  // IMPORTANT: si le dernier assistant a demandé "où ressens-tu..." alors une réponse
-  // utilisateur parlant de "serrement dans la poitrine" est probablement une description
-  // corporelle liée à une émotion — on ne doit pas automatiquement déclencher le triage médical.
-  const hasMedicalKeywordRaw = containsAny(lastUser, MEDICAL_TRIGGERS);
-  const hasMedicalKeyword = hasMedicalKeywordRaw && !lastAssistantIsBodyLocationQ;
-
-  // --- MUTUELLEMENT EXCLUSIF (priorité médicale)
-  // medicalSignal = mot médical OU LLM médical == "hit"
-  const medicalSignal = hasMedicalKeyword || medicalLLM === "hit";
-
-  // suicideSignal = uniquement si pas de medicalSignal ET mot suicide détecté
-  const suicideSignal = !medicalSignal && hasSuicideKeyword;
-
-  // 1) suicide only (2 questions max => lock)
-  if (suicideSignal && !medicalSignal) {
-    const asks: number[] = [];
-    history.forEach((m, i) => { if (m.role === "assistant" && isCrisisQuestion(m.content)) asks.push(i); });
-    const lastAskIdx = asks.length ? asks[asks.length - 1] : -1;
-
-    let userAfterLastAsk: string | null = null;
-    if (lastAskIdx >= 0) {
-      userAfterLastAsk = history.slice(lastAskIdx + 1).find(m => m.role === "user")?.content ?? null;
-    }
-
-    if (userAfterLastAsk && isExplicitYes(userAfterLastAsk)) return { crisis: "lock", reason: "suicide" };
-    if (userAfterLastAsk && isExplicitNo(userAfterLastAsk))  return { crisis: "none", reason: "none" };
-    if (asks.length >= 2)                                    return { crisis: "lock", reason: "suicide" };
-
-    return { crisis: "ask", reason: "suicide" };
+  if (history.length > 0) {
+    messages.push(...history.map((m) => ({ role: m.role, content: m.content })));
+  } else if (single) {
+    messages.push({ role: "user", content: single });
+  } else {
+    return NextResponse.json({ error: "Aucun message fourni." }, { status: 400 });
   }
 
-  // 2) medical only (strict OU/NO + re-ask / lock après 2 essais)
-  if (medicalSignal && !suicideSignal) {
-    const askIdxs: number[] = [];
-    // Accept both our clarifier and our yes/no template as "assistant asked triage"
-    history.forEach((m, i) => {
-      if (
-        m.role === "assistant" &&
-        (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))
-      ) askIdxs.push(i);
-    });
-    const lastMedAskIdx = askIdxs.length ? askIdxs[askIdxs.length - 1] : -1;
-
-    // reply immediately following the assistant's triage question, if any
-    const userAfter = lastMedAskIdx >= 0
-      ? history.slice(lastMedAskIdx + 1).find(m => m.role === "user")?.content ?? null
-      : null;
-
-    // 1) If user replied directly after the triage question and used explicit yes/no -> act immediately
-    if (userAfter) {
-      if (isExplicitYes(userAfter)) return { crisis: "lock", reason: "medical" };
-      if (isExplicitNo(userAfter))  return { crisis: "none", reason: "none" };
-      // if reply is present but NOT an explicit yes/no -> we must re-ask (unless we've already asked twice)
-      if (askIdxs.length >= 2) {
-        // Deux demandes d'éclaircissement sans réponse explicite -> on verrouille pour prioriser la sécurité
-        return { crisis: "lock", reason: "medical" };
-      }
-      // otherwise: re-ask (ask again)
-      return { crisis: "ask", reason: "medical" };
-    }
-
-    // 2) If the assistant already asked the triage twice and we still have no clear answer -> lock
-    if (askIdxs.length >= 2) return { crisis: "lock", reason: "medical" };
-
-    // otherwise ask triage (first or second attempt)
-    return { crisis: "ask", reason: "medical" };
-  }
-
-  // 3) both -> clarification
-  // (avec la règle mutual-exclusive ci-dessus, on n'arrive normalement jamais ici,
-  //  mais on garde la logique pour sécurité si jamais les signaux changent)
-  if (medicalSignal && suicideSignal) {
-    const clarifyPatterns = ["parles", "douleur", "pensées", "te faire du mal", "en finir"];
-    const assistantClarifyIdxs: number[] = [];
-    history.forEach((m, i) => {
-      if (m.role === "assistant" && clarifyPatterns.some(p => m.content.toLowerCase().includes(p))) {
-        assistantClarifyIdxs.push(i);
-      }
-    });
-    const lastClarifyIdx = assistantClarifyIdxs.length ? assistantClarifyIdxs[assistantClarifyIdxs.length - 1] : -1;
-
-    if (lastClarifyIdx >= 0) {
-      const userAfterClarify = history.slice(lastClarifyIdx + 1).find(m => m.role === "user")?.content ?? null;
-      if (!userAfterClarify) return { crisis: "ask", reason: "clarify" };
-
-      const t = userAfterClarify.trim().toLowerCase();
-      if (/^douleur\b|^douleur|^physique\b|^physique/.test(t)) {
-        return { crisis: "ask", reason: "medical" };
-      }
-      if (/^pensées\b|^pensée\b|^pensées|^je veux|^je vais|^me tuer|^en finir|^me faire du mal/.test(t)) {
-        return { crisis: "ask", reason: "suicide" };
-      }
-      return { crisis: "ask", reason: "clarify" };
-    }
-
-    return { crisis: "ask", reason: "clarify" };
-  }
-
-  // 4) none
-  return { crisis: "none", reason: "none" };
-}
-
-// ---------- ROUTES ----------
-export async function POST(req: NextRequest) {
-  const origin = req.headers.get("origin");
-  const headers = corsHeaders(origin);
-
-   const body = (await req.json()) as RequestBody;
-  const history: ChatMessage[] = Array.isArray(body.messages) ? body.messages : [];
-
-
-
-    // Analyse mixte du dernier message user
-  const lastUserMsg = [...history].reverse().find(m => m.role === "user")?.content ?? "";
-
-  // récupère aussi le dernier message assistant (utile pour décider d'ignorer le détecteur médical)
-  const lastAssistantMsg = [...history].reverse().find(m => m.role === "assistant")?.content ?? "";
-  const lastAssistantIsBodyLocationQ = isBodyLocationQuestion(lastAssistantMsg);
-
-  // Priorité aux mots-clés suicidaires : si le user contient un trigger suicide explicite,
-  // on n'appelle pas le détecteur médical (évite que l'LLM médical masque le signal suicide).
-  const suicideLLM: "hit" | "safe" = "safe";
-  const hasSuicideKeyword = containsAny(lastUserMsg, SUICIDE_TRIGGERS);
-
-  // IMPORTANT : si l'assistant venait de demander "où ressens-tu cela dans ton corps ?",
-  // on **n'appelle pas** le détecteur médical (pour éviter les faux positifs sur descriptions corporelles).
-  let medicalLLM: "hit" | "safe" = "safe";
-  if (!hasSuicideKeyword && lastUserMsg && !lastAssistantIsBodyLocationQ) {
-    medicalLLM = await llmFlag("medical", lastUserMsg);
-  }
-
-
-
-  // --- Overwrites immédiats : si l'assistant a posé une question de clarification
-  // et que l'utilisateur répond explicitement "oui", on force le lock immédiat.
-  // (Reproduit le même comportement robuste que pour l'alerte suicide.)
-
-  // a) si l'assistant a demandé la question suicide standard et que l'utilisateur a dit "oui"
-  const lastAssistantAskForSuicideOverride = [...history].reverse().find(
-    (m) => m.role === "assistant" && isCrisisQuestion(m.content)
-  );
-  if (lastAssistantAskForSuicideOverride && isExplicitYes(lastUserMsg)) {
-    return new NextResponse(
-      JSON.stringify({ answer: CLOSING_SUICIDE, crisis: "lock", reason: "suicide" }),
-      { headers, status: 200 }
-    );
-  }
-
-  // b) si l'assistant a posé la question de triage médical (notre template) et que l'utilisateur a dit "oui"
-  const lastAssistantAskForMedicalOverride = [...history].reverse().find(
-    (m) => m.role === "assistant" && (isMedicalClarifierQuestion(m.content) || isMedicalYesNoQuestion(m.content))
-  );
-  if (lastAssistantAskForMedicalOverride && isExplicitYes(lastUserMsg)) {
-    return new NextResponse(
-      JSON.stringify({ answer: CLOSING_MEDICAL, crisis: "lock", reason: "medical" }),
-      { headers, status: 200 }
-    );
-  }
-
-
-  // ——— compute crisis
-  const { crisis, reason } = computeCrisis(history, answer, suicideLLM, medicalLLM);
-
-  // ——— Forcer le message renvoyé selon l’état d’urgence
-  if (crisis === "lock") {
-    answer = reason === "medical" ? CLOSING_MEDICAL : CLOSING_SUICIDE;
-  } else if (crisis === "ask") {
-    if (reason === "medical") {
-      answer = MEDICAL_TRIAGE_QUESTION_FOR(lastUserMsg);
-    } else if (reason === "suicide") {
-      answer = SUICIDE_QUESTION_TEXT;
-  
-    } 
-  }
-
-  return new NextResponse(JSON.stringify({ answer, crisis, reason }), {
-    headers,
-    status: 200,
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": origin || "",
+    Vary: "Origin",
   });
+
+  // --- Optional: inject simple rappels JSON (non-invasive)
+  const injectRappels = body.injectRappels !== false;
+  const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
+  const candidats = generateRappelsBruts(body.mots_client);
+  if (injectRappels && candidats.length > 0) {
+    messages.push({
+      role: "user",
+      content: JSON.stringify({
+        meta: "CANDIDATS_RAPPELS",
+        candidats_app: candidats,
+        voulu: rappelsVoulus,
+      }),
+    });
+  }
+
+  // ---- Minimal STATE push (stateless-friendly, non prescriptif)
+  const lastUser = history.filter((m) => m.role === "user").slice(-1)[0]?.content?.trim() || single || "";
+  messages.push({
+    role: "user",
+    content: JSON.stringify({
+      meta: "STATE",
+      history_len: history.length,
+      last_user: lastUser,
+    }),
+  });
+
+  // Gentle reminder : le prompt reste souverain (ΔSUD, pile d’aspects, nuances SUD…)
+  messages.push({
+    role: "user",
+    content:
+      "NOTE: Respecte strictement le rythme et le barème décrits dans le SYSTEM PROMPT. " +
+      "La pile d’aspects et la logique ΔSUD sont entièrement pilotées par le prompt système. " +
+      "N’ajoute aucune logique serveur, applique simplement le flux décrit.",
+  });
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      temperature: 0.5,
+      messages,
+    });
+
+    const text =
+      completion.choices?.[0]?.message?.content?.trim() ??
+      "Je n’ai pas compris. Peux-tu reformuler en une phrase courte ?";
+
+    return new NextResponse(JSON.stringify({ answer: text, crisis: "none" as const }), { headers });
+  } catch (err) {
+    console.error("openai error:", err);
+    return NextResponse.json({ error: "Service temporairement indisponible." }, { status: 503 });
+  }
 }
 
-export async function OPTIONS(req: NextRequest) {
+export function OPTIONS(req: Request) {
   const origin = req.headers.get("origin");
-  const headers = corsHeaders(origin);
-  headers["Access-Control-Allow-Methods"] = "POST, OPTIONS";
-  headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization";
-  return new NextResponse(null, { headers, status: 204 });
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin! : "",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+  return new NextResponse(null, { status: 204, headers });
 }
