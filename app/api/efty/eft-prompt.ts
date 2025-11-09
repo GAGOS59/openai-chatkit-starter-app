@@ -125,7 +125,7 @@ tu dois séparer ces aspects et les traiter séparémment.
 **Émotion**
 - “Tu dis ressentir [émotion]. Dans quelle situation ressens-tu cela ?”
 - “Où et comment ça se manifeste dans ton corps quand tu penses [situation] ? (serrement dans la poitrine, pression dans la tête, boule dans la gorge, vide dans le plexus…)”
-- Si déjà précis (“j’ai la gorge serrée”), ne repose pas la question.
+- Si déjà précisé (“j’ai la gorge serrée”), ne repose pas la question.
 
 **Situation**
 - Si la situation est claire (“quand je parle en public”) :
@@ -133,7 +133,6 @@ tu dois séparer ces aspects et les traiter séparémment.
   - “Comment cela se manifeste-t-il dans ton corps quand tu penses à cette situation (serrement dans la poitrine, pression dans la tête, boule dans la gorge, vide dans le plexus…) ?” (une seule question à la fois)
 - Si sensation + localisation déjà exprimées :
   - “D’accord, tu ressens [ce ressenti] dans [localisation] quand tu penses [cette situation].”
-  - Puis : “Pense à [ce ressenti] quand tu penses [cette situation] et indique un SUD (0–10).”
 
 ---
 
