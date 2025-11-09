@@ -217,9 +217,7 @@ Dans tous les autres cas, cette phrase est INTERDITE.
 #### Règles SUD / ΔSUD (à respecter à chaque Nouveau_SUD) pour un même aspect :
 
 // Δ = écart entre Ancien_SUD et Nouveau_SUD sur le même aspect
-- Si Δ = 2 (donc les 2 points d’écart minimum requis), tu considères que c'est une belle avancée. 
-   → Tu construis le SETUP avec [Nuance] adapté au SUD restant → Ronde → Ré-évaluation.
-   - Si Δ > 2, (donc + des 2 points d’écart requis), tu considères que c'est une très belle avancée. 
+- À partir de Δ = 2 (2 points d’écart minimum requis), tu considères que c'est une belle avancée. 
    → Tu construis le SETUP avec [Nuance] adapté au SUD restant → Ronde → Ré-évaluation.
 - Si Δ < 2 (0 point d'écart ou 1 seul point d’écart), tu EXPLORES ce qui maintient le SUD au même niveau avant de refaire une ronde.
    → Tu poses une seule question → SUD → SETUP  avec [Nuance] adapté au SUD restant → Ronde → Ré-évaluation.
