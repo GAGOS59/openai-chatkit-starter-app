@@ -28,7 +28,7 @@ type Payload = {
   rappelsVoulus?: number;
 };
 
-// --- Utils minimal
+// --- Utils 
 function clean(s?: string) {
   return (s ?? "").replace(/\s+/g, " ").trim();
 }
@@ -65,6 +65,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   if (m.pensee) push(`cette pensée : « ${m.pensee} »`);
   return Array.from(out).slice(0, 6);
 }
+
 
 const CRISIS_PATTERNS: RegExp[] = [
   /\bsuicide\b/i,
@@ -135,6 +136,47 @@ export async function POST(req: Request) {
     Vary: "Origin",
   });
 
+  /* ---------- 🔐 Interception sécurité AVANT modèle ---------- */
+  const lastUserText =
+    [...messages].reverse().find((m) => m.role === "user")?.content?.toLowerCase() ?? "";
+  const askedSuicide = lastAssistantAskedSuicideQuestion(history);
+
+  if (askedSuicide) {
+    const yn = interpretYesNoServer(lastUserText);
+
+    if (yn === "yes") {
+      const answer =
+        crisisOrientationMessage_TU() +
+        "\n\nJe reste avec toi ici, mais je n’irai pas plus loin en EFT. " +
+        "Appelle le 3114 ou le 112 si tu es en danger immédiat.";
+      return new NextResponse(JSON.stringify({ answer, crisis: "lock" as const }), { headers });
+    }
+
+    if (yn === "no") {
+      const answer =
+        "Merci pour ta réponse. Si à un moment tu te sens en danger, stoppons l’EFT et contacte le 3114 (24/7). " +
+        "Quand tu es prêt·e, dis en une phrase ce qui te dérange le plus maintenant.";
+      return new NextResponse(JSON.stringify({ answer, crisis: "none" as const }), { headers });
+    }
+
+    const answer = "Je n’ai pas bien compris. Peux-tu répondre par « oui » ou « non », s’il te plaît ?";
+    return new NextResponse(JSON.stringify({ answer, crisis: "ask" as const }), { headers });
+  }
+
+  if (anyMatch(CRISIS_HARD, lastUserText)) {
+    const answer = crisisOrientationMessage_TU() + "\n\n" + ASK_SUICIDE_Q_TU;
+    return new NextResponse(JSON.stringify({ answer, crisis: "ask" as const }), { headers });
+  }
+
+  if (anyMatch(CRISIS_SOFT, lastUserText)) {
+    const answer =
+      "J’entends que c’est très difficile en ce moment. J’ai une question importante de sécurité avant de poursuivre.\n\n" +
+      ASK_SUICIDE_Q_TU;
+    return new NextResponse(JSON.stringify({ answer, crisis: "ask" as const }), { headers });
+  }
+  /* ---------- 🔐 Fin interception ---------- */
+
+  
   // --- Optional: inject simple rappels JSON (non-invasive)
   const injectRappels = body.injectRappels !== false;
   const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
