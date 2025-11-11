@@ -517,19 +517,28 @@ type ServerResponse = {
   };
 };
 
-/* ---------- Submit (sans any) ---------- */
 async function onSubmit(e: FormEvent) {
   e.preventDefault();
   const value = input.trim();
   if (!value || loading) return;
 
+  // Regexs yes/no
+  const YES_REGEX = /^\s*(oui|ouais|si|yes|yep)\b/i;
+  const NO_REGEX = /^\s*(non|nan|nope|pas du tout)\b/i;
+
   // Si on attend une réponse de sécurité (oui/non), n'accepter que oui/non
   if (crisisMode === "ask") {
-    const YES_REGEX = /^\s*(oui|ouais|si|yes|yep)\b/i;
-    const NO_REGEX = /^\s*(non|nan|nope|pas du tout)\b/i;
     if (!YES_REGEX.test(value) && !NO_REGEX.test(value)) {
       showToast("Réponds uniquement par « oui » ou « non », s'il te plaît.");
       return;
+    }
+    // Si l'utilisateur répond "oui", lock local immédiatement (optimistic lock)
+    // *cela empêche tout envoi additionnel côté UI pendant qu'on notifie le serveur*
+    if (YES_REGEX.test(value)) {
+      setCrisisMode("lock");
+      setCrisisReason("suicide");
+      showToast("Séance verrouillée — si tu es en danger, appelle le 3114 / 15 / 112.");
+      // continue quand même l'envoi pour que le serveur enregistre et déclenche ses logs/actions
     }
   }
 
@@ -543,7 +552,7 @@ async function onSubmit(e: FormEvent) {
   const clientMessageId = makeId("msg-");
   const userMsg: Message = { id: clientMessageId, role: "user", content: value };
 
-  // add to UI
+  // add to UI (user message)
   setMessages((prev) => [...prev, userMsg]);
   setInput("");
   setLoading(true);
@@ -563,27 +572,13 @@ async function onSubmit(e: FormEvent) {
     });
     if (!res.ok) throw new Error("Réponse serveur non valide");
 
-    // Parse as ServerResponse
     const data = (await res.json()) as ServerResponse;
     const reply = (data.answer || data.error || "").trim();
 
-    // afficher la réponse assistant (avec id)
-    setMessages((prev) => [
-      ...prev,
-      { id: makeId("msg-"), role: "assistant", content: reply || "Je n'ai pas pu générer de réponse." },
-    ]);
-
-    // Si le serveur force l'affichage de la question (sécurité), on le prend en compte
-    if ((data as unknown as { forceAsk?: boolean }).forceAsk) {
-      setCrisisMode("ask");
-      setCrisisReason("suicide");
-    }
-
-    // --- gérer le protocole côté client selon la réponse serveur ---
+    // --- traiter PRIORITAIREMENT les flags de sécurité retournés par le serveur ---
     const serverCrisisRaw = data.crisis ?? "none";
     const serverCrisis = serverCrisisRaw === "block" ? "lock" : (serverCrisisRaw as CrisisFlag | "soft");
 
-    // safe reason parsing (no any)
     const rawReason = data.reason ?? "none";
     const rawReasonStr = String(rawReason);
     const VALID_REASONS = ["none", "medical", "suicide", "clarify"] as const;
@@ -601,15 +596,11 @@ async function onSubmit(e: FormEvent) {
       showToast("Message supprimé pour éviter la confusion.");
     }
 
-    // si serveur fournit flaggedClientMessageId (ex: ask state), on le mémorise localement
     if (clientAction.flaggedClientMessageId) {
       setLastFlaggedClientMessageId(clientAction.flaggedClientMessageId);
     }
 
-    // focus input si demandé
-    if (clientAction.focusInput && inputRef.current) inputRef.current.focus();
-
-    // blocage : désactive l'input uniquement si le serveur demande 'block' ou clientAction.blockInput
+    // Si serveur exige un blocage -> l'appliquer immédiatement (priorité haute)
     if (clientAction.blockInput || serverCrisis === "lock") {
       setCrisisMode("lock");
       setCrisisReason(serverReason);
@@ -626,6 +617,15 @@ async function onSubmit(e: FormEvent) {
         setCrisisReason("none");
       }
     }
+
+    // append assistant message (on l'affiche après avoir appliqué le flag de sécurité)
+    setMessages((prev) => [
+      ...prev,
+      { id: makeId("msg-"), role: "assistant", content: reply || "Je n'ai pas pu générer de réponse." },
+    ]);
+
+    // focus input si demandé (si pas lock)
+    if (clientAction.focusInput && inputRef.current && crisisMode !== "lock") inputRef.current.focus();
 
     // fallback : si le serveur n'a rien envoyé mais la réponse contient la question de triage,
     // on active 'ask' côté client pour inviter la réponse (raison = suicide par défaut)
@@ -644,6 +644,7 @@ async function onSubmit(e: FormEvent) {
     setLoading(false);
   }
 }
+
 
 
   /* ---------- Render ---------- */
