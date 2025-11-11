@@ -21,36 +21,14 @@ interface MotsClient {
   souvenir?: string;
 }
 type Payload = {
-  sessionId?: string;            // facultatif : recommandé côté client
-  clientMessageId?: string;      // facultatif : id du message utilisateur (pour suppression visuelle)
+  sessionId?: string;
+  clientMessageId?: string;
   messages?: ChatMessage[];
   message?: string;
   mots_client?: MotsClient;
   injectRappels?: boolean;
   rappelsVoulus?: number;
 };
-
-// --- Utils 
-function clean(s?: string) {
-  return (s ?? "").replace(/\s+/g, " ").trim();
-}
-function isChatMessageArray(x: unknown): x is ChatMessage[] {
-  return Array.isArray(x) && x.every((m) => typeof m === "object" && m !== null && "role" in m && "content" in m);
-}
-function isAllowedOrigin(origin: string | null) {
-  if (!origin) return false;
-  const o = origin.toLowerCase();
-  const ALLOWED = new Set([
-    "https://appli.ecole-eft-france.fr",
-    "https://www.ecole-eft-france.fr",
-  ]);
-  if (process.env.VERCEL_ENV === "production") return ALLOWED.has(o);
-  if (o.startsWith("http://localhost")) return true;
-  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
-    return o === `https://${process.env.VERCEL_URL}` || ALLOWED.has(o);
-  }
-  return ALLOWED.has(o);
-}
 
 // --- Micro-grammaire rappels (very small, non-invasive)
 function generateRappelsBruts(m?: MotsClient): string[] {
@@ -69,56 +47,30 @@ function generateRappelsBruts(m?: MotsClient): string[] {
 }
 
 /* ---------- Gestion crise : patterns 3 niveaux + whitelist ---------- */
-// ---------- Sécurité : réponse forcée immédiate ----------
-/* 1) EXPLICIT / HARD -> bloc immédiat (danger clair) */
-if (matchAny(CRISIS_EXPLICIT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
-  console.warn(`[CRISIS] ${sessionKey}: explicit/hard match -> immediate block.`);
-  sess.state = "blocked_crisis";
-  return new NextResponse(JSON.stringify({
-    answer: crisisBlockMessage(), // message d'urgence (15, 3114, 112)
-    crisis: "block",
-    clientAction: {
-      blockInput: true,
-      removeFlaggedMessage: false
-    }
-  }), { headers });
-}
+// EXPLICIT = bloc immédiat
+const CRISIS_EXPLICIT: RegExp[] = [
+  /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
+  /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
+  /\bje\s+vais\s+mourir\b/i,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|i'm going to kill myself)\b/i,
+];
 
-/* 2) PROBABLE -> poser immédiatement la question binaire (PAS d'appel au modèle) */
-if (matchAny(CRISIS_PROBABLE, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
-  sess.state = "asked_suicide";
-  sess.askCount = 0;
-  sess.lastAskedTs = Date.now();
-  sess.flaggedClientMessageId = body.clientMessageId ?? null;
-  console.info(`[CRISIS] ${sessionKey}: probable match -> force ASK_SUICIDE_Q.`);
-  return new NextResponse(JSON.stringify({
-    answer: ASK_SUICIDE_Q_TU,
-    crisis: "ask",
-    clientAction: {
-      flaggedClientMessageId: sess.flaggedClientMessageId ?? null,
-      focusInput: true
-    },
-    forceAsk: true
-  }), { headers });
-}
+// PROBABLE = poser question binaire (ask yes/no)
+const CRISIS_PROBABLE: RegExp[] = [
+  /\b(j[’']?ai\s+envie\s+de\s+mourir)\b/i,
+  /\b(j[’']?en\s+ai\s+marre\s+de\s+la\s+vie)\b/i,
+  /\b(plus\s+d[’']?envie\s+de\s+vivre)\b/i,
+  /\b(je\s+veux\s+dispara[iî]tre)\b/i,
+  /\b(id[ée]es?\s+noires?)\b/i,
+];
 
-/* 3) SOFT -> idem, on pose la question (monitor) */
-if (matchAny(CRISIS_SOFT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
-  sess.state = "asked_suicide";
-  sess.askCount = 0;
-  sess.lastAskedTs = Date.now();
-  sess.flaggedClientMessageId = body.clientMessageId ?? null;
-  console.info(`[CRISIS] ${sessionKey}: soft match -> force ASK_SUICIDE_Q (monitor).`);
-  return new NextResponse(JSON.stringify({
-    answer: ASK_SUICIDE_Q_TU,
-    crisis: "ask",
-    clientAction: {
-      flaggedClientMessageId: sess.flaggedClientMessageId ?? null,
-      focusInput: true
-    },
-    forceAsk: true
-  }), { headers });
-}
+// SOFT = malaise / ras-le-bol isolé -> soft prompt (monitor)
+const CRISIS_SOFT: RegExp[] = [
+  /\b(j[’']?en\s*peux?\s+plus)\b/i,
+  /\b(j[’']?ai\s+marre)\b/i,
+  /\b(ras[-\s]?le[-\s]?bol)\b/i,
+  /\b(la\s+vie\s+me\s+(saoule|fatigue|d[aé]go[uû]te))\b/i,
+];
 
 // whitelist collocations (évite faux positifs, ex: "de rire")
 const WHITELIST_COLLISIONS: RegExp[] = [
@@ -190,21 +142,6 @@ function clearSession(key: string) {
   CRISIS_SESSIONS.delete(key);
 }
 
-/* ---------- Helpers historique (détecter si assistant a déjà posé la question) ---------- */
-function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
-  for (let i = history.length - 1; i >= 0; i--) {
-    const m = history[i];
-    if (m.role === "assistant") {
-      const t = (m.content || "").toLowerCase();
-      if (t.includes("as-tu des idées suicidaires") || t.includes("avez-vous des idées suicidaires") || t.includes("avant toute chose, as-tu des idées suicid")) {
-        return true;
-      }
-    }
-    if (m.role === "user") break;
-  }
-  return false;
-}
-
 /* ---------- Handlers ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
@@ -248,21 +185,18 @@ export async function POST(req: Request) {
     if (yn === "yes") {
       // confirmation -> bloc immédiat
       sess.state = "blocked_crisis";
-      // journaliser: (ici console, en prod log sécurisé)
       console.warn(`[CRISIS] session ${sessionKey}: user confirmed suicidal ideation.`);
-      // répondre en blocant et demander suppression du message potentiellement dangereux du chat côté UI
       return new NextResponse(JSON.stringify({
         answer: crisisBlockMessage(),
         crisis: "block",
         clientAction: {
           blockInput: true,
-          removeFlaggedMessage: false // on ne supprime pas automatiquement le message qui confirme le risque
+          removeFlaggedMessage: false
         }
       }), { headers });
     }
 
     if (yn === "no") {
-      // fausse alerte : revenir à normal, indiquer suppression du message initial (si clientMessageId fourni)
       const flaggedId = sess.flaggedClientMessageId;
       clearSession(sessionKey);
       return new NextResponse(JSON.stringify({
@@ -302,7 +236,6 @@ export async function POST(req: Request) {
   // 2) EXPLICIT triggers -> block immediate (regardless of session)
   if (matchAny(CRISIS_EXPLICIT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
     console.warn(`[CRISIS] session ${sessionKey}: explicit pattern matched -> block.`);
-    // block immediately
     sess.state = "blocked_crisis";
     return new NextResponse(JSON.stringify({
       answer: crisisBlockMessage(),
@@ -316,7 +249,6 @@ export async function POST(req: Request) {
 
   // 3) PROBABLE triggers -> pose la question binaire si pas déjà posée récemment
   if (matchAny(CRISIS_PROBABLE, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
-    // init ask state
     sess.state = "asked_suicide";
     sess.askCount = 0;
     sess.lastAskedTs = Date.now();
@@ -410,9 +342,7 @@ export async function POST(req: Request) {
       completion.choices?.[0]?.message?.content?.trim() ??
       "Je n’ai pas compris. Peux-tu reformuler en une phrase courte ?";
 
-    // Normal answer: ensure crisis state resets to normal if we were monitoring but no crisis confirmed
     if (sess.state === "monitoring") {
-      // keep minimal: do not auto-clear flagged message here — client interaction decides
       sess.state = "normal";
       sess.askCount = 0;
       sess.flaggedClientMessageId = null;
@@ -433,4 +363,25 @@ export function OPTIONS(req: Request) {
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
   return new NextResponse(null, { status: 204, headers });
+}
+
+/* --- helper CORS check (kept at bottom) --- */
+function isAllowedOrigin(origin: string | null) {
+  if (!origin) return false;
+  const o = origin.toLowerCase();
+  const ALLOWED = new Set([
+    "https://appli.ecole-eft-france.fr",
+    "https://www.ecole-eft-france.fr",
+  ]);
+  if (process.env.VERCEL_ENV === "production") return ALLOWED.has(o);
+  if (o.startsWith("http://localhost")) return true;
+  if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
+    return o === `https://${process.env.VERCEL_URL}` || ALLOWED.has(o);
+  }
+  return ALLOWED.has(o);
+}
+
+/* ---------- Utility to validate incoming shape ---------- */
+function isChatMessageArray(x: unknown): x is ChatMessage[] {
+  return Array.isArray(x) && x.every((m) => typeof m === "object" && m !== null && "role" in m && "content" in m);
 }
