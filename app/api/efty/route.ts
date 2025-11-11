@@ -259,8 +259,10 @@ export async function POST(req: Request) {
       crisis: "ask",
       clientAction: {
         removeFlaggedMessage: false,
-        flaggedClientMessageId: sess.flaggedClientMessageId ?? null
-      }
+        flaggedClientMessageId: sess.flaggedClientMessageId ?? null,
+        focusInput: true
+      },
+      forceAsk: true
     }), { headers });
   }
 
@@ -275,8 +277,10 @@ export async function POST(req: Request) {
       crisis: "soft",
       clientAction: {
         flaggedClientMessageId: sess.flaggedClientMessageId ?? null,
-        removeFlaggedMessage: false
-      }
+        removeFlaggedMessage: false,
+        focusInput: true
+      },
+      forceAsk: true
     }), { headers });
   }
 
