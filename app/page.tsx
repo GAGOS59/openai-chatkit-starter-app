@@ -503,137 +503,131 @@ export default function Page() {
     }
   }, [lastFlaggedClientMessageId]);
 
-  /* ---------- Server response type ---------- */
-  type ServerResponse = {
-    answer?: string;
-    error?: string;
-    crisis?: CrisisFlag | "block" | "ask" | "soft";
-    reason?: "none" | "medical" | "suicide" | "clarify";
-    clientAction?: {
-      removeFlaggedMessage?: boolean;
-      flaggedClientMessageId?: string | null;
-      blockInput?: boolean;
-      focusInput?: boolean;
-    };
+ /* ---------- Server response type (strict) ---------- */
+type ServerResponse = {
+  answer?: string;
+  error?: string;
+  crisis?: CrisisFlag | "block" | "ask" | "soft";
+  reason?: "none" | "medical" | "suicide" | "clarify";
+  clientAction?: {
+    removeFlaggedMessage?: boolean;
+    flaggedClientMessageId?: string | null;
+    blockInput?: boolean;
+    focusInput?: boolean;
   };
+};
 
-  /* ---------- Submit ---------- */
-  // regex simples pour accepter variantes courantes
-const YES_REGEX = /^\s*(oui|ouais|si|yes|yep)\b/i;
-const NO_REGEX = /^\s*(non|nan|nope|pas du tout)\b/i;
-  
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    const value = input.trim();
-    if (!value || loading) return;
-    
-    // Si on attend la question de sécurité -> n'accepter que oui / non
-  if (crisisMode === "ask") {
-    if (!YES_REGEX.test(value) && !NO_REGEX.test(value)) {
-      showToast("Réponds uniquement par « oui » ou « non », s'il te plaît.");
-      return;
-    }
- // ok: on envoie la réponse normalement (le serveur l'interprétera)
+/* ---------- Submit ---------- */
+async function onSubmit(e: FormEvent) {
+  e.preventDefault();
+  const value = input.trim();
+  if (!value || loading) return;
+
+  setError(null);
+  if (lastAskedSud) {
+    const sud = extractSud(value);
+    if (sud !== null) setLastAskedSud(false);
   }
-    setError(null);
-    if (lastAskedSud) {
-      const sud = extractSud(value);
-      if (sud !== null) setLastAskedSud(false);
+
+  // generate client message id
+  const clientMessageId = makeId("msg-");
+  const userMsg: Message = { id: clientMessageId, role: "user", content: value };
+
+  // add to UI
+  setMessages((prev) => [...prev, userMsg]);
+  setInput("");
+  setLoading(true);
+
+  try {
+    const historyToSend: Message[] = [...messages, userMsg];
+    const payload = {
+      sessionId: sessionIdRef.current,
+      clientMessageId,
+      messages: historyToSend.map((m) => ({ role: m.role, content: m.content })),
+    };
+
+    const res = await fetch("/api/efty", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Réponse serveur non valide");
+
+    // Parse as ServerResponse (no 'any')
+    const data = (await res.json()) as ServerResponse;
+    const reply = (data.answer || data.error || "").trim();
+
+    // afficher la réponse assistant (avec id)
+    setMessages((prev) => [
+      ...prev,
+      { id: makeId("msg-"), role: "assistant", content: reply || "Je n'ai pas pu générer de réponse." },
+    ]);
+
+    // --- gérer le protocole côté client selon la réponse serveur ---
+    const serverCrisisRaw = data.crisis ?? "none";
+    const serverCrisis = serverCrisisRaw === "block" ? "lock" : (serverCrisisRaw as CrisisFlag | "soft");
+
+    // validate reason to avoid looseness
+    const rawReason = data.reason ?? "none";
+    const VALID_REASONS = ["none", "medical", "suicide", "clarify"] as const;
+    const serverReason = VALID_REASONS.includes(rawReason as any)
+      ? (rawReason as "none" | "medical" | "suicide" | "clarify")
+      : "none";
+
+    const clientAction = data.clientAction ?? {};
+
+    // si serveur demande de supprimer le message flaggé (fausse alerte), et fournit flaggedClientMessageId
+    if (clientAction.removeFlaggedMessage && clientAction.flaggedClientMessageId) {
+      const fid: string = clientAction.flaggedClientMessageId;
+      setMessages((prev) => prev.filter((m) => m.id !== fid));
+      setLastFlaggedClientMessageId(null);
+      showToast("Message supprimé pour éviter la confusion.");
     }
 
-    // generate client message id
-    const clientMessageId = makeId("msg-");
-    const userMsg: Message = { id: clientMessageId, role: "user", content: value };
+    // si serveur fournit flaggedClientMessageId (ex: ask state), on le mémorise localement
+    if (clientAction.flaggedClientMessageId) {
+      setLastFlaggedClientMessageId(clientAction.flaggedClientMessageId);
+    }
 
-    // add to UI
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setLoading(true);
+    // focus input si demandé
+    if (clientAction.focusInput && inputRef.current) inputRef.current.focus();
 
-    try {
-      const historyToSend: Message[] = [...messages, userMsg];
-      const payload = {
-        sessionId: sessionIdRef.current,
-        clientMessageId,
-        messages: historyToSend.map((m) => ({ role: m.role, content: m.content })),
-      };
-
-      const res = await fetch("/api/efty", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error("Réponse serveur non valide");
-
-      // typed response
-      const data = (await res.json()) as ServerResponse;
-      const reply = (data.answer || data.error || "").trim();
-
-      // afficher la réponse assistant (avec id)
-      setMessages((prev) => [
-        ...prev,
-        { id: makeId("msg-"), role: "assistant", content: reply || "Je n'ai pas pu générer de réponse." },
-      ]);
-      
-
-      // --- gérer le protocole côté client selon la réponse serveur ---
-      // serveur peut renvoyer "block" ou "ask" etc. normaliser
-      const serverCrisisRaw = data.crisis ?? "none";
-      const serverCrisis = serverCrisisRaw === "block" ? "lock" : (serverCrisisRaw as CrisisFlag | "soft");
-      const serverReason = data.reason ?? "none";
-      const clientAction = data.clientAction ?? {};
-
-      // si serveur demande de supprimer le message flaggé (fausse alerte), et fournit flaggedClientMessageId
-      if (clientAction.removeFlaggedMessage && clientAction.flaggedClientMessageId) {
-        const fid: string = clientAction.flaggedClientMessageId;
-        setMessages((prev) => prev.filter((m) => m.id !== fid));
-        setLastFlaggedClientMessageId(null);
-        showToast("Message supprimé pour éviter la confusion.");
-      }
-
-      // si serveur fournit flaggedClientMessageId (ex: ask state), on le mémorise localement
-      if (clientAction.flaggedClientMessageId) {
-        setLastFlaggedClientMessageId(clientAction.flaggedClientMessageId);
-      }
-
-      // focus input si demandé
-      if (clientAction.focusInput && inputRef.current) inputRef.current.focus();
-
-      // blocage : désactive l'input
-      if (clientAction.blockInput || serverCrisis === "lock") {
-        setCrisisMode("lock");
-        setCrisisReason(serverReason as any);
-      } else {
-        // ask / soft / none
-        if (serverCrisis === "ask") {
-          setCrisisMode("ask");
-          setCrisisReason(serverReason || "clarify");
-        } else if (serverCrisis === "soft") {
-          setCrisisMode("ask"); // soft uses ask UI (clarify) — adapt if you want separate state
-          setCrisisReason(serverReason || "clarify");
-        } else {
-          setCrisisMode("none");
-          setCrisisReason("none");
-        }
-      }
-
-      // fallback : si le serveur n'a rien envoyé mais la réponse contient la question de triage,
-      // on active 'ask' côté client pour inviter la réponse (raison = suicide par défaut)
-      if (!data.crisis && inferAskFromReply(reply)) {
+    // blocage : désactive l'input
+    if (clientAction.blockInput || serverCrisis === "lock") {
+      setCrisisMode("lock");
+      setCrisisReason(serverReason);
+    } else {
+      // ask / soft / none
+      if (serverCrisis === "ask") {
         setCrisisMode("ask");
-        setCrisisReason("suicide");
+        setCrisisReason(serverReason);
+      } else if (serverCrisis === "soft") {
+        setCrisisMode("ask"); // soft uses ask UI (clarify)
+        setCrisisReason(serverReason);
+      } else {
+        setCrisisMode("none");
+        setCrisisReason("none");
       }
-    } catch (error) {
-      console.error(error);
-      setError("Le service est momentanément indisponible. Réessaie dans un instant.");
-      setMessages((prev) => [
-        ...prev,
-        { id: makeId("msg-"), role: "assistant", content: "Désolé, je n'ai pas pu répondre. Réessaie dans un instant." },
-      ]);
-    } finally {
-      setLoading(false);
     }
+
+    // fallback : si le serveur n'a rien envoyé mais la réponse contient la question de triage,
+    // on active 'ask' côté client pour inviter la réponse (raison = suicide par défaut)
+    if (!data.crisis && inferAskFromReply(reply)) {
+      setCrisisMode("ask");
+      setCrisisReason("suicide");
+    }
+  } catch (error) {
+    console.error(error);
+    setError("Le service est momentanément indisponible. Réessaie dans un instant.");
+    setMessages((prev) => [
+      ...prev,
+      { id: makeId("msg-"), role: "assistant", content: "Désolé, je n'ai pas pu répondre. Réessaie dans un instant." },
+    ]);
+  } finally {
+    setLoading(false);
   }
+}
+
 
   /* ---------- Render ---------- */
 
