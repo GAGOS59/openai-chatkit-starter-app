@@ -523,6 +523,16 @@ async function onSubmit(e: FormEvent) {
   const value = input.trim();
   if (!value || loading) return;
 
+  // Si on attend une réponse de sécurité (oui/non), n'accepter que oui/non
+  if (crisisMode === "ask") {
+    const YES_REGEX = /^\s*(oui|ouais|si|yes|yep)\b/i;
+    const NO_REGEX = /^\s*(non|nan|nope|pas du tout)\b/i;
+    if (!YES_REGEX.test(value) && !NO_REGEX.test(value)) {
+      showToast("Réponds uniquement par « oui » ou « non », s'il te plaît.");
+      return;
+    }
+  }
+
   setError(null);
   if (lastAskedSud) {
     const sud = extractSud(value);
@@ -562,6 +572,12 @@ async function onSubmit(e: FormEvent) {
       ...prev,
       { id: makeId("msg-"), role: "assistant", content: reply || "Je n'ai pas pu générer de réponse." },
     ]);
+
+    // Si le serveur force l'affichage de la question (sécurité), on le prend en compte
+    if ((data as unknown as { forceAsk?: boolean }).forceAsk) {
+      setCrisisMode("ask");
+      setCrisisReason("suicide");
+    }
 
     // --- gérer le protocole côté client selon la réponse serveur ---
     const serverCrisisRaw = data.crisis ?? "none";
