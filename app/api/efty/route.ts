@@ -199,19 +199,22 @@ export async function POST(req: Request) {
   // 1) si on est déjà en état 'asked_suicide' : interpréter la réponse utilisateur
   if (sess.state === "asked_suicide") {
     const yn = interpretYesNo(lastUser);
+
     if (yn === "yes") {
-      // confirmation -> bloc immédiat
-      sess.state = "blocked_crisis";
-      console.warn(`[CRISIS] session ${sessionKey}: user confirmed suicidal ideation.`);
-      return new NextResponse(JSON.stringify({
-        answer: crisisBlockMessage(),
-        crisis: "block",
-        clientAction: {
-          blockInput: true,
-          removeFlaggedMessage: false
-        }
-      }), { headers });
+  // confirmation -> bloc immédiat
+  sess.state = "blocked_crisis";
+  console.warn(`[CRISIS] session ${sessionKey}: user confirmed suicidal ideation.`);
+  return new NextResponse(JSON.stringify({
+    answer: crisisBlockMessage(),
+    crisis: "block",
+    clientAction: {
+      blockInput: true,
+      removeFlaggedMessage: false,
+      flaggedClientMessageId: sess.flaggedClientMessageId ?? null
     }
+  }), { headers });
+}
+
 
     if (yn === "no") {
       const flaggedId = sess.flaggedClientMessageId;
