@@ -427,16 +427,24 @@ export default function Page() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // session stable par onglet (persistée dans localStorage)
-  const sessionIdRef = useRef<string>(() => {
-    try {
-      const existing = typeof window !== "undefined" ? localStorage.getItem("efty_session_id") : null;
-      if (existing) return existing;
-    } catch {}
-    return makeId("sess-");
-  }());
-  useEffect(() => {
-    try { localStorage.setItem("efty_session_id", sessionIdRef.current); } catch { /* ignore */ }
-  }, []);
+const sessionIdRef = useRef<string>(makeId("sess-"));
+
+useEffect(() => {
+  try {
+    // si un sessionId existe déjà en localStorage, on le réutilise
+    if (typeof window !== "undefined") {
+      const existing = localStorage.getItem("efty_session_id");
+      if (existing) {
+        sessionIdRef.current = existing;
+      } else {
+        localStorage.setItem("efty_session_id", sessionIdRef.current);
+      }
+    }
+  } catch {
+    // ignore les erreurs d'accès au localStorage
+  }
+}, []);
+
 
   /* ---------- Utils ---------- */
   const showToast = useCallback((message: string) => {
