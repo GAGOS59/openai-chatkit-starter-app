@@ -518,11 +518,23 @@ export default function Page() {
   };
 
   /* ---------- Submit ---------- */
+  // regex simples pour accepter variantes courantes
+const YES_REGEX = /^\s*(oui|ouais|si|yes|yep)\b/i;
+const NO_REGEX = /^\s*(non|nan|nope|pas du tout)\b/i;
+  
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const value = input.trim();
     if (!value || loading) return;
-
+    
+    // Si on attend la question de sécurité -> n'accepter que oui / non
+  if (crisisMode === "ask") {
+    if (!YES_REGEX.test(value) && !NO_REGEX.test(value)) {
+      showToast("Réponds uniquement par « oui » ou « non », s'il te plaît.");
+      return;
+    }
+ // ok: on envoie la réponse normalement (le serveur l'interprétera)
+  }
     setError(null);
     if (lastAskedSud) {
       const sud = extractSud(value);
@@ -562,6 +574,7 @@ export default function Page() {
         ...prev,
         { id: makeId("msg-"), role: "assistant", content: reply || "Je n'ai pas pu générer de réponse." },
       ]);
+      
 
       // --- gérer le protocole côté client selon la réponse serveur ---
       // serveur peut renvoyer "block" ou "ask" etc. normaliser
