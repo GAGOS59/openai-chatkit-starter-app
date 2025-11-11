@@ -1,4 +1,4 @@
-// app/api/efty/route.ts — version allégée (sans détection/nuance SUD)
+// app/api/efty/route.ts — version améliorée : gestion crises + suppression message si fausse alerte
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { EFT_SYSTEM_PROMPT } from "./eft-prompt";
@@ -21,6 +21,8 @@ interface MotsClient {
   souvenir?: string;
 }
 type Payload = {
+  sessionId?: string;            // facultatif : recommandé côté client
+  clientMessageId?: string;      // facultatif : id du message utilisateur (pour suppression visuelle)
   messages?: ChatMessage[];
   message?: string;
   mots_client?: MotsClient;
@@ -66,34 +68,115 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out).slice(0, 6);
 }
 
-
-const CRISIS_PATTERNS: RegExp[] = [
-  /\bsuicide\b/i,
-  /\b(me\s+tuer|me\s+suicider)\b/i,
-  /\bje\s+veux\s+mourir\b/i,
-  /\bje\s+ne\s+veux\s+plus\s+vivre\b/i,
-  /\bj[’']en\s+ai\s+marre\s+de\s+la\s+vie\b/i,
-  /\bme\s+foutre\s+en\s+l[’']air\b/i,
-  /\bj[’']en\s+peux\s+plus\s+de\s+vivre\b/i,
-  /\bje\s+veux\s+dispara[iî]tre\b/i
+/* ---------- Gestion crise : patterns 3 niveaux + whitelist ---------- */
+// EXPLICIT = bloc immédiat
+const CRISIS_EXPLICIT: RegExp[] = [
+  /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
+  /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
+  /\bje\s+vais\s+mourir\b/i,
+  /\b(kill\s+myself|i\s+want\s+to\s+die|i'm going to kill myself)\b/i,
 ];
-function isCrisis(text: string): boolean {
-  const t = text.toLowerCase();
-  return CRISIS_PATTERNS.some(rx => rx.test(t));
-}
-function crisisMessage(): string {
+
+// PROBABLE = poser question binaire (ask yes/no)
+const CRISIS_PROBABLE: RegExp[] = [
+  /\b(j[’']?ai\s+envie\s+de\s+mourir)\b/i,
+  /\b(j[’']?en\s+ai\s+marre\s+de\s+la\s+vie)\b/i,
+  /\b(plus\s+d[’']?envie\s+de\s+vivre)\b/i,
+  /\b(je\s+veux\s+dispara[iî]tre)\b/i,
+  /\b(id[ée]es?\s+noires?)\b/i,
+];
+
+// SOFT = malaise / ras-le-bol isolé -> soft prompt (monitor)
+const CRISIS_SOFT: RegExp[] = [
+  /\b(j[’']?en\s*peux?\s+plus)\b/i,
+  /\b(j[’']?ai\s+marre)\b/i,
+  /\b(ras[-\s]?le[-\s]?bol)\b/i,
+  /\b(la\s+vie\s+me\s+(saoule|fatigue|d[aé]go[uû]te))\b/i,
+];
+
+// whitelist collocations (évite faux positifs, ex: "de rire")
+const WHITELIST_COLLISIONS: RegExp[] = [
+  /\b(de\s+rire|pour\s+rigoler|c'est\s+pour\s+rigoler|je\s+plaisante)\b/i
+];
+
+const ASK_SUICIDE_Q_TU =
+  "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
+
+function crisisBlockMessage(): string {
   return (
-`⚠️ **Message important :**
-Il semble que vous traversiez un moment très difficile.
-Je ne suis pas un service d’urgence et votre sécurité est prioritaire.
-
-👉 **Appelez immédiatement le 15** (urgences médicales en France),
-ou contactez le **3114**, le **numéro national de prévention du suicide**,
-gratuit, anonyme et disponible 24h/24, 7j/7.
-
-Si vous êtes à l’étranger, composez le numéro d’urgence local.
-Vous n’êtes pas seul·e — il existe des personnes prêtes à vous aider. ❤️`
+`⚠️ Je ne peux pas continuer cette conversation : il semble que tu sois en danger.
+Si tu es en France, appelle immédiatement le 15 (SAMU) ou le 3114 (prévention du suicide, 24/7).
+Si tu es à l’étranger, contacte les services d'urgence locaux (112).`
   );
+}
+
+function softSecurityPrompt(): string {
+  return (
+    "J'entends que c’est difficile en ce moment. Avant de poursuivre, veux-tu me dire si tu te sens en danger maintenant ? (réponds par oui ou non)"
+  );
+}
+
+function matchAny(xs: RegExp[], s: string) {
+  return xs.some(rx => rx.test(s));
+}
+
+function hasWhitelistCollision(s: string) {
+  return WHITELIST_COLLISIONS.some(rx => rx.test(s));
+}
+
+/* ---------- interprétation oui/non (robuste) ---------- */
+const YES_PATTERNS: RegExp[] = [
+  /^(?:oui|ouais|si|yep|yeah|yes|affirmatif)\b/i,
+  /\b(?<!pas\s)(?:oui|ouais|yes)\b/i
+];
+const NO_PATTERNS: RegExp[] = [
+  /^(?:non|nan|nope|pas du tout)\b/i,
+  /\b(aucune?\s+id[ée]e\s+suicidaire|je\s+ne\s+veux\s+pas)\b/i
+];
+
+function interpretYesNo(text: string): "yes" | "no" | "unknown" {
+  const t = (text||"").trim().toLowerCase();
+  const hasYes = YES_PATTERNS.some(rx => rx.test(t));
+  const hasNo = NO_PATTERNS.some(rx => rx.test(t));
+  if (hasYes && !hasNo) return "yes";
+  if (hasNo && !hasYes) return "no";
+  return "unknown";
+}
+
+/* ---------- Session store (simple mémoire) ---------- */
+/* Attention : en serverless ou scale horizontal, ce store est éphémère.
+   Pour production, utiliser Redis / session-store partagé. */
+type CrisisSession = {
+  state: "normal" | "asked_suicide" | "blocked_crisis" | "monitoring";
+  askCount: number;
+  lastAskedTs?: number;
+  flaggedClientMessageId?: string | null;
+};
+const CRISIS_SESSIONS = new Map<string, CrisisSession>();
+
+function getSession(key: string): CrisisSession {
+  if (!CRISIS_SESSIONS.has(key)) {
+    CRISIS_SESSIONS.set(key, { state: "normal", askCount: 0, flaggedClientMessageId: null });
+  }
+  return CRISIS_SESSIONS.get(key)!;
+}
+function clearSession(key: string) {
+  CRISIS_SESSIONS.delete(key);
+}
+
+/* ---------- Helpers historique (détecter si assistant a déjà posé la question) ---------- */
+function lastAssistantAskedSuicideQuestion(history: ChatMessage[]): boolean {
+  for (let i = history.length - 1; i >= 0; i--) {
+    const m = history[i];
+    if (m.role === "assistant") {
+      const t = (m.content || "").toLowerCase();
+      if (t.includes("as-tu des idées suicidaires") || t.includes("avez-vous des idées suicidaires") || t.includes("avant toute chose, as-tu des idées suicid")) {
+        return true;
+      }
+    }
+    if (m.role === "user") break;
+  }
+  return false;
 }
 
 /* ---------- Handlers ---------- */
@@ -117,6 +200,131 @@ export async function POST(req: Request) {
   const history: ChatMessage[] = isChatMessageArray(body.messages) ? body.messages : [];
   const single: string = typeof body.message === "string" ? body.message.trim() : "";
 
+  // Build last user text
+  const lastUser = history.filter((m) => m.role === "user").slice(-1)[0]?.content?.trim() || single || "";
+  const lastUserLower = lastUser.toLowerCase();
+
+  // Session key (préférer sessionId côté client)
+  const sessionKey = (body.sessionId?.toString().trim()) || (body.clientMessageId?.toString().trim()) || (origin || "anon");
+  const sess = getSession(sessionKey);
+
+  // Headers pour réponse CORS
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": origin || "",
+    Vary: "Origin",
+  });
+
+  // ---------- Interception sécurité AVANT modèle ----------
+  // 1) si on est déjà en état 'asked_suicide' : interpréter la réponse utilisateur
+  if (sess.state === "asked_suicide") {
+    const yn = interpretYesNo(lastUser);
+    if (yn === "yes") {
+      // confirmation -> bloc immédiat
+      sess.state = "blocked_crisis";
+      // journaliser: (ici console, en prod log sécurisé)
+      console.warn(`[CRISIS] session ${sessionKey}: user confirmed suicidal ideation.`);
+      // répondre en blocant et demander suppression du message potentiellement dangereux du chat côté UI
+      return new NextResponse(JSON.stringify({
+        answer: crisisBlockMessage(),
+        crisis: "block",
+        clientAction: {
+          blockInput: true,
+          removeFlaggedMessage: false // on ne supprime pas automatiquement le message qui confirme le risque
+        }
+      }), { headers });
+    }
+
+    if (yn === "no") {
+      // fausse alerte : revenir à normal, indiquer suppression du message initial (si clientMessageId fourni)
+      const flaggedId = sess.flaggedClientMessageId;
+      clearSession(sessionKey);
+      return new NextResponse(JSON.stringify({
+        answer: "Merci pour ta réponse. Si à un moment tu te sens en danger, contacte le 3114 (24/7). Quand tu veux, décris en une phrase ce qui te dérange maintenant.",
+        crisis: "none",
+        clientAction: {
+          removeFlaggedMessage: !!flaggedId,
+          flaggedClientMessageId: flaggedId ?? null,
+          blockInput: false
+        }
+      }), { headers });
+    }
+
+    // unknown -> relancer jusqu'à 2 fois, puis bloc
+    sess.askCount = (sess.askCount || 0) + 1;
+    if (sess.askCount >= 2) {
+      sess.state = "blocked_crisis";
+      console.warn(`[CRISIS] session ${sessionKey}: no clear answer after ${sess.askCount} asks -> block.`);
+      return new NextResponse(JSON.stringify({
+        answer: crisisBlockMessage(),
+        crisis: "block",
+        clientAction: {
+          blockInput: true,
+          removeFlaggedMessage: false
+        }
+      }), { headers });
+    }
+
+    // relancer question binaire
+    return new NextResponse(JSON.stringify({
+      answer: "Je n’ai pas bien compris. Peux-tu répondre par « oui » ou « non », s’il te plaît ?",
+      crisis: "ask",
+      clientAction: { focusInput: true }
+    }), { headers });
+  }
+
+  // 2) EXPLICIT triggers -> block immediate (regardless of session)
+  if (matchAny(CRISIS_EXPLICIT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
+    console.warn(`[CRISIS] session ${sessionKey}: explicit pattern matched -> block.`);
+    // block immediately
+    sess.state = "blocked_crisis";
+    return new NextResponse(JSON.stringify({
+      answer: crisisBlockMessage(),
+      crisis: "block",
+      clientAction: {
+        blockInput: true,
+        removeFlaggedMessage: false
+      }
+    }), { headers });
+  }
+
+  // 3) PROBABLE triggers -> pose la question binaire si pas déjà posée récemment
+  if (matchAny(CRISIS_PROBABLE, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
+    // init ask state
+    sess.state = "asked_suicide";
+    sess.askCount = 0;
+    sess.lastAskedTs = Date.now();
+    sess.flaggedClientMessageId = body.clientMessageId ?? null;
+    console.info(`[CRISIS] session ${sessionKey}: probable pattern matched -> ask suicide question (flaggedId=${sess.flaggedClientMessageId})`);
+    return new NextResponse(JSON.stringify({
+      answer: ASK_SUICIDE_Q_TU,
+      crisis: "ask",
+      clientAction: {
+        removeFlaggedMessage: false,
+        flaggedClientMessageId: sess.flaggedClientMessageId ?? null
+      }
+    }), { headers });
+  }
+
+  // 4) SOFT triggers -> soft prompt (no block, monitor)
+  if (matchAny(CRISIS_SOFT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
+    sess.state = "monitoring";
+    sess.lastAskedTs = Date.now();
+    sess.flaggedClientMessageId = body.clientMessageId ?? null;
+    console.info(`[CRISIS] session ${sessionKey}: soft pattern matched -> soft security prompt.`);
+    return new NextResponse(JSON.stringify({
+      answer: softSecurityPrompt(),
+      crisis: "soft",
+      clientAction: {
+        flaggedClientMessageId: sess.flaggedClientMessageId ?? null,
+        removeFlaggedMessage: false
+      }
+    }), { headers });
+  }
+
+  // otherwise -> proceed to normal EFT flow (call OpenAI)
+  // ---------- End Interception ----------
+
   // Build messages: system prompt first, then history (minimal)
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
     { role: "system", content: EFT_SYSTEM_PROMPT },
@@ -130,12 +338,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Aucun message fourni." }, { status: 400 });
   }
 
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": origin || "",
-    Vary: "Origin",
-  });
-  
   // --- Optional: inject simple rappels JSON (non-invasive)
   const injectRappels = body.injectRappels !== false;
   const rappelsVoulus = typeof body.rappelsVoulus === "number" ? body.rappelsVoulus : 6;
@@ -152,13 +354,13 @@ export async function POST(req: Request) {
   }
 
   // ---- Minimal STATE push (stateless-friendly, non prescriptif)
-  const lastUser = history.filter((m) => m.role === "user").slice(-1)[0]?.content?.trim() || single || "";
+  const lastUserForState = lastUser;
   messages.push({
     role: "user",
     content: JSON.stringify({
       meta: "STATE",
       history_len: history.length,
-      last_user: lastUser,
+      last_user: lastUserForState,
     }),
   });
 
@@ -182,7 +384,15 @@ export async function POST(req: Request) {
       completion.choices?.[0]?.message?.content?.trim() ??
       "Je n’ai pas compris. Peux-tu reformuler en une phrase courte ?";
 
-    return new NextResponse(JSON.stringify({ answer: text, crisis: "none" as const }), { headers });
+    // Normal answer: ensure crisis state resets to normal if we were monitoring but no crisis confirmed
+    if (sess.state === "monitoring") {
+      // keep minimal: do not auto-clear flagged message here — client interaction decides
+      sess.state = "normal";
+      sess.askCount = 0;
+      sess.flaggedClientMessageId = null;
+    }
+
+    return new NextResponse(JSON.stringify({ answer: text, crisis: "none", clientAction: { blockInput: false } }), { headers });
   } catch (err) {
     console.error("openai error:", err);
     return NextResponse.json({ error: "Service temporairement indisponible." }, { status: 503 });
