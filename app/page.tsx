@@ -517,7 +517,7 @@ type ServerResponse = {
   };
 };
 
-/* ---------- Submit ---------- */
+/* ---------- Submit (sans any) ---------- */
 async function onSubmit(e: FormEvent) {
   e.preventDefault();
   const value = input.trim();
@@ -553,7 +553,7 @@ async function onSubmit(e: FormEvent) {
     });
     if (!res.ok) throw new Error("Réponse serveur non valide");
 
-    // Parse as ServerResponse (no 'any')
+    // Parse as ServerResponse
     const data = (await res.json()) as ServerResponse;
     const reply = (data.answer || data.error || "").trim();
 
@@ -567,11 +567,12 @@ async function onSubmit(e: FormEvent) {
     const serverCrisisRaw = data.crisis ?? "none";
     const serverCrisis = serverCrisisRaw === "block" ? "lock" : (serverCrisisRaw as CrisisFlag | "soft");
 
-    // validate reason to avoid looseness
+    // safe reason parsing (no any)
     const rawReason = data.reason ?? "none";
+    const rawReasonStr = String(rawReason);
     const VALID_REASONS = ["none", "medical", "suicide", "clarify"] as const;
-    const serverReason = VALID_REASONS.includes(rawReason as any)
-      ? (rawReason as "none" | "medical" | "suicide" | "clarify")
+    const serverReason = (VALID_REASONS as readonly string[]).includes(rawReasonStr)
+      ? (rawReasonStr as "none" | "medical" | "suicide" | "clarify")
       : "none";
 
     const clientAction = data.clientAction ?? {};
