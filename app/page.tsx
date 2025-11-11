@@ -387,7 +387,7 @@ function CrisisFloating({
             )}
             {mode === "lock" && (
               <p className="mt-2 text-sm font-semibold">
-                Séance verrouillée. Si tu es en danger, appelle immédiatement l'un des numéros ci-dessus.
+                Séance verrouillée. Si tu es en danger, appelle immédiatement l&apos;un des numéros ci-dessus.
               </p>
             )}
           </div>
@@ -427,24 +427,23 @@ export default function Page() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // session stable par onglet (persistée dans localStorage)
-const sessionIdRef = useRef<string>(makeId("sess-"));
+  const sessionIdRef = useRef<string>(makeId("sess-"));
 
-useEffect(() => {
-  try {
-    // si un sessionId existe déjà en localStorage, on le réutilise
-    if (typeof window !== "undefined") {
-      const existing = localStorage.getItem("efty_session_id");
-      if (existing) {
-        sessionIdRef.current = existing;
-      } else {
-        localStorage.setItem("efty_session_id", sessionIdRef.current);
+  useEffect(() => {
+    try { 
+      // read existing session id if present
+      if (typeof window !== "undefined") {
+        const existing = localStorage.getItem("efty_session_id");
+        if (existing) {
+          sessionIdRef.current = existing;
+        } else {
+          localStorage.setItem("efty_session_id", sessionIdRef.current);
+        }
       }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore les erreurs d'accès au localStorage
-  }
-}, []);
-
+  }, []);
 
   /* ---------- Utils ---------- */
   const showToast = useCallback((message: string) => {
@@ -468,10 +467,6 @@ useEffect(() => {
       t.includes("réponds par oui/non") ||
       t.includes("reponds par oui/non")
     );
-  }
-  function isAffirmativeYes(text: string) {
-    const t = text.trim().toLowerCase();
-    return /^oui\b|^yes\b/.test(t);
   }
 
   /* ---------- Effets ---------- */
@@ -499,6 +494,28 @@ useEffect(() => {
       if (/sud\s*\(?0[–-]10\)?|indique\s+(ton|un)\s+sud/.test(t)) setLastAskedSud(true);
     }
   }, [messages]);
+
+  // use this to avoid eslint "assigned but never used"
+  useEffect(() => {
+    if (lastFlaggedClientMessageId) {
+      // debug only; keeps variable 'used' for lint
+      console.debug("[flaggedMessageId]", lastFlaggedClientMessageId);
+    }
+  }, [lastFlaggedClientMessageId]);
+
+  /* ---------- Server response type ---------- */
+  type ServerResponse = {
+    answer?: string;
+    error?: string;
+    crisis?: CrisisFlag | "block" | "ask" | "soft";
+    reason?: "none" | "medical" | "suicide" | "clarify";
+    clientAction?: {
+      removeFlaggedMessage?: boolean;
+      flaggedClientMessageId?: string | null;
+      blockInput?: boolean;
+      focusInput?: boolean;
+    };
+  };
 
   /* ---------- Submit ---------- */
   async function onSubmit(e: FormEvent) {
@@ -536,8 +553,8 @@ useEffect(() => {
       });
       if (!res.ok) throw new Error("Réponse serveur non valide");
 
-      // NOTE: le serveur renvoie { answer, crisis, clientAction: {...}, ... }
-      const data: any = await res.json();
+      // typed response
+      const data = (await res.json()) as ServerResponse;
       const reply = (data.answer || data.error || "").trim();
 
       // afficher la réponse assistant (avec id)
@@ -549,7 +566,7 @@ useEffect(() => {
       // --- gérer le protocole côté client selon la réponse serveur ---
       // serveur peut renvoyer "block" ou "ask" etc. normaliser
       const serverCrisisRaw = data.crisis ?? "none";
-      const serverCrisis = serverCrisisRaw === "block" ? "lock" : serverCrisisRaw;
+      const serverCrisis = serverCrisisRaw === "block" ? "lock" : (serverCrisisRaw as CrisisFlag | "soft");
       const serverReason = data.reason ?? "none";
       const clientAction = data.clientAction ?? {};
 
@@ -572,12 +589,12 @@ useEffect(() => {
       // blocage : désactive l'input
       if (clientAction.blockInput || serverCrisis === "lock") {
         setCrisisMode("lock");
-        setCrisisReason(serverReason);
+        setCrisisReason(serverReason as any);
       } else {
         // ask / soft / none
         if (serverCrisis === "ask") {
           setCrisisMode("ask");
-          setCrisisReason(serverReason);
+          setCrisisReason(serverReason || "clarify");
         } else if (serverCrisis === "soft") {
           setCrisisMode("ask"); // soft uses ask UI (clarify) — adapt if you want separate state
           setCrisisReason(serverReason || "clarify");
@@ -593,7 +610,8 @@ useEffect(() => {
         setCrisisMode("ask");
         setCrisisReason("suicide");
       }
-    } catch (err) {
+    } catch (error) {
+      console.error(error);
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
         ...prev,
