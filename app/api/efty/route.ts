@@ -47,12 +47,19 @@ function generateRappelsBruts(m?: MotsClient): string[] {
 }
 
 /* ---------- Gestion crise : patterns 3 niveaux + whitelist ---------- */
-// EXPLICIT = bloc immédiat
+// EXPLICIT = formulation claire (mais on demandera d'abord la question binaire
+// sauf si elle contient un indicateur d'urgence immédiate)
 const CRISIS_EXPLICIT: RegExp[] = [
   /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
   /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
   /\bje\s+vais\s+mourir\b/i,
   /\b(kill\s+myself|i\s+want\s+to\s+die|i'm going to kill myself)\b/i,
+];
+
+// Indicateurs d'urgence immédiate — si présents avec EXPLICIT => bloc immédiat
+const CRISIS_IMMEDIATE_INDICATORS: RegExp[] = [
+  /\b(maintenant|tout de suite|à l'instant|immédiat|tout de suite|right now)\b/i,
+  /\b(desormais|tout de suite|dans\s+un\s+instant)\b/i
 ];
 
 // PROBABLE = poser question binaire (ask yes/no)
@@ -179,6 +186,16 @@ export async function POST(req: Request) {
   });
 
   // ---------- Interception sécurité AVANT modèle ----------
+  // If session already blocked, keep it blocked (safe default)
+  if (sess.state === "blocked_crisis") {
+    console.warn(`[CRISIS] session ${sessionKey}: request received but session already blocked -> returning block.`);
+    return new NextResponse(JSON.stringify({
+      answer: crisisBlockMessage(),
+      crisis: "block",
+      clientAction: { blockInput: true, removeFlaggedMessage: false }
+    }), { headers });
+  }
+
   // 1) si on est déjà en état 'asked_suicide' : interpréter la réponse utilisateur
   if (sess.state === "asked_suicide") {
     const yn = interpretYesNo(lastUser);
@@ -233,21 +250,39 @@ export async function POST(req: Request) {
     }), { headers });
   }
 
-  // 2) EXPLICIT triggers -> block immediate (regardless of session)
+  // 2) EXPLICIT triggers -> normalement illustration claire.
+  //     We will *ask first* unless an IMMEDIATE indicator is present.
   if (matchAny(CRISIS_EXPLICIT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
-    console.warn(`[CRISIS] session ${sessionKey}: explicit pattern matched -> block.`);
-    sess.state = "blocked_crisis";
+    // If message includes an immediate indicator -> block immediately
+    if (matchAny(CRISIS_IMMEDIATE_INDICATORS, lastUserLower)) {
+      console.warn(`[CRISIS] session ${sessionKey}: explicit immediate indicator matched -> block.`);
+      sess.state = "blocked_crisis";
+      return new NextResponse(JSON.stringify({
+        answer: crisisBlockMessage(),
+        crisis: "block",
+        clientAction: { blockInput: true, removeFlaggedMessage: false }
+      }), { headers });
+    }
+
+    // Otherwise, ask first (binary question) before blocking
+    sess.state = "asked_suicide";
+    sess.askCount = 0;
+    sess.lastAskedTs = Date.now();
+    sess.flaggedClientMessageId = body.clientMessageId ?? null;
+    console.info(`[CRISIS] session ${sessionKey}: explicit pattern matched -> ASK_SUICIDE_Q (flaggedId=${sess.flaggedClientMessageId})`);
     return new NextResponse(JSON.stringify({
-      answer: crisisBlockMessage(),
-      crisis: "block",
+      answer: ASK_SUICIDE_Q_TU,
+      crisis: "ask",
       clientAction: {
-        blockInput: true,
-        removeFlaggedMessage: false
-      }
+        removeFlaggedMessage: false,
+        flaggedClientMessageId: sess.flaggedClientMessageId ?? null,
+        focusInput: true
+      },
+      forceAsk: true
     }), { headers });
   }
 
-  // 3) PROBABLE triggers -> pose la question binaire si pas déjà posée récemment
+  // 3) PROBABLE triggers -> pose la question binaire
   if (matchAny(CRISIS_PROBABLE, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
     sess.state = "asked_suicide";
     sess.askCount = 0;
