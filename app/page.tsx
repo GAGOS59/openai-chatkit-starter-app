@@ -377,7 +377,7 @@ function CrisisFloating({
             {/* question / message selon le mode (ask vs lock) */}
             {mode === "ask" && isSuicide && (
               <p className="mt-2 text-sm">
-                As-tu des idées suicidaires en ce moment&nbsp;? Réponds uniquement par <strong>&quot;oui&quot;</strong> ou par <strong>&quot;non&quot;</strong>.
+                As-tu des idées suicidaires en ce moment&nbsp;? Réponds uniquement par <strong>&quot;oui&quot;</strong> ou par <strong>&quot;non</strong>.
               </p>
             )}
             {mode === "ask" && isMedical && !isSuicide && (
@@ -609,7 +609,7 @@ async function onSubmit(e: FormEvent) {
     // focus input si demandé
     if (clientAction.focusInput && inputRef.current) inputRef.current.focus();
 
-    // blocage : désactive l'input
+    // blocage : désactive l'input uniquement si le serveur demande 'block' ou clientAction.blockInput
     if (clientAction.blockInput || serverCrisis === "lock") {
       setCrisisMode("lock");
       setCrisisReason(serverReason);
