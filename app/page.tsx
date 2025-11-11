@@ -1,4 +1,3 @@
-/* app/page.tsx */
 "use client";
 import React, {
   useEffect,
@@ -11,10 +10,14 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import EFTPointsReference from "@/components/EFTPointsReference";
 
-
 /* ---------- Constantes globales pour la promo mobile ---------- */
 const PAYPAL_URL = "https://paypal.me/efty25";
 const DISMISS_KEY = "efty_promo_dismissed_at_v1";
+
+/* ---------- Utilitaire id léger (évite dépendances) ---------- */
+function makeId(prefix = "") {
+  return prefix + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
+}
 
 /* ---------- Bouton AYNI ---------- */
 function AyniButton({ className = "" }: { className?: string }) {
@@ -38,7 +41,7 @@ function AyniButton({ className = "" }: { className?: string }) {
 
 /* ---------- Types ---------- */
 type Role = "user" | "assistant";
-type Message = { role: Role; content: string };
+type Message = { id: string; role: Role; content: string };
 type CrisisFlag = "none" | "ask" | "lock";
 type ToastState = { msg: string; key: number } | null;
 
@@ -283,11 +286,7 @@ function MobilePromoModal() {
   return null;
 }
 
-/* ---------- Alerte flottante (utilisée dans Page) ----------
-   NOTE : la prop 'reason' permet d'afficher soit le bloc suicide, soit le bloc médical.
-   Ajout d'un paramètre optionnel 'lastAssistant' pour forcer l'affichage 3114
-   si le dernier message assistant contient la question suicide.
-*/
+/* ---------- Alerte flottante (utilisée dans Page) ---------- */
 function CrisisFloating({
   mode,
   reason,
@@ -376,18 +375,21 @@ function CrisisFloating({
             </div>
 
             {/* question / message selon le mode (ask vs lock) */}
-                       {mode === "ask" && isSuicide && (
-  <p className="mt-2 text-sm">
-    As-tu des idées suicidaires en ce moment&nbsp;? Réponds uniquement par <strong>&quot;oui&quot;</strong> ou par <strong>&quot;non&quot;</strong>.
-  </p>
-)}
-{mode === "ask" && isMedical && !isSuicide && (
-  <p className="mt-2 text-sm">
-    Peux-tu dire si le symptôme est une douleur apparue spontanément (sans choc) ? Réponds par <strong>oui</strong> ou <strong>non</strong>.
-  </p>
-)}
-
-
+            {mode === "ask" && isSuicide && (
+              <p className="mt-2 text-sm">
+                As-tu des idées suicidaires en ce moment&nbsp;? Réponds uniquement par <strong>&quot;oui&quot;</strong> ou par <strong>&quot;non&quot;</strong>.
+              </p>
+            )}
+            {mode === "ask" && isMedical && !isSuicide && (
+              <p className="mt-2 text-sm">
+                Peux-tu dire si le symptôme est une douleur apparue spontanément (sans choc) ? Réponds par <strong>oui</strong> ou <strong>non</strong>.
+              </p>
+            )}
+            {mode === "lock" && (
+              <p className="mt-2 text-sm font-semibold">
+                Séance verrouillée. Si tu es en danger, appelle immédiatement l'un des numéros ci-dessus.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -399,13 +401,15 @@ function CrisisFloating({
 
 /* ---------- Page principale (export default) ---------- */
 export default function Page() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        "Bonjour 😊 je m'appelle EFTY.\nJe propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nBien sûr, il ne s'agit pas ici de travailler sur ton plus gros problème.\nTu auras besoin d'un professionnel pour cela.\nEn revanche on peut s'intéresser à des situations du quotidien qui peuvent être abordées en self-help.\nSur quoi souhaites-tu travailler aujourd'hui ?",
-    },
-  ]);
+  // initial assistant message with generated id
+  const initialAssistantMessage: Message = {
+    id: makeId("msg-"),
+    role: "assistant",
+    content:
+      "Bonjour 😊 je m'appelle EFTY.\nJe propose de t'accompagner pas à pas dans ton auto-séance d'EFT, à ton rythme et en toute bienveillance.\nBien sûr, il ne s'agit pas ici de travailler sur ton plus gros problème.\nTu auras besoin d'un professionnel pour cela.\nEn revanche on peut s'intéresser à des situations du quotidien qui peuvent être abordées en self-help.\nSur quoi souhaites-tu travailler aujourd'hui ?",
+  };
+
+  const [messages, setMessages] = useState<Message[]>([initialAssistantMessage]);
 
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -417,8 +421,22 @@ export default function Page() {
   const [toast, setToast] = useState<ToastState>(null);
   const [lastAskedSud, setLastAskedSud] = useState(false);
 
+  const [lastFlaggedClientMessageId, setLastFlaggedClientMessageId] = useState<string | null>(null);
+
   const chatRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // session stable par onglet (persistée dans localStorage)
+  const sessionIdRef = useRef<string>(() => {
+    try {
+      const existing = typeof window !== "undefined" ? localStorage.getItem("efty_session_id") : null;
+      if (existing) return existing;
+    } catch {}
+    return makeId("sess-");
+  }());
+  useEffect(() => {
+    try { localStorage.setItem("efty_session_id", sessionIdRef.current); } catch { /* ignore */ }
+  }, []);
 
   /* ---------- Utils ---------- */
   const showToast = useCallback((message: string) => {
@@ -486,53 +504,92 @@ export default function Page() {
       if (sud !== null) setLastAskedSud(false);
     }
 
-    const userMsg: Message = { role: "user", content: value };
+    // generate client message id
+    const clientMessageId = makeId("msg-");
+    const userMsg: Message = { id: clientMessageId, role: "user", content: value };
+
+    // add to UI
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
 
     try {
       const historyToSend: Message[] = [...messages, userMsg];
+      const payload = {
+        sessionId: sessionIdRef.current,
+        clientMessageId,
+        messages: historyToSend.map((m) => ({ role: m.role, content: m.content })),
+      };
+
       const res = await fetch("/api/efty", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: historyToSend }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Réponse serveur non valide");
 
-      const data: { answer?: string; error?: string; crisis?: CrisisFlag; reason?: "none" | "medical" | "suicide" | "clarify" } = await res.json();
+      // NOTE: le serveur renvoie { answer, crisis, clientAction: {...}, ... }
+      const data: any = await res.json();
       const reply = (data.answer || data.error || "").trim();
 
+      // afficher la réponse assistant (avec id)
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: reply || "Je n'ai pas pu générer de réponse. Peux-tu reformuler en une phrase courte ?" },
+        { id: makeId("msg-"), role: "assistant", content: reply || "Je n'ai pas pu générer de réponse." },
       ]);
 
-      // --- utiliser strictement ce que renvoie le serveur ---
-      const serverCrisis = data.crisis ?? "none";
+      // --- gérer le protocole côté client selon la réponse serveur ---
+      // serveur peut renvoyer "block" ou "ask" etc. normaliser
+      const serverCrisisRaw = data.crisis ?? "none";
+      const serverCrisis = serverCrisisRaw === "block" ? "lock" : serverCrisisRaw;
       const serverReason = data.reason ?? "none";
+      const clientAction = data.clientAction ?? {};
 
-      // si serveur indique 'none' on efface toute alerte locale
-      if (serverCrisis === "none") {
-        setCrisisMode("none");
-        setCrisisReason("none");
-      } else {
-        setCrisisMode(serverCrisis);
-        setCrisisReason(serverReason);
+      // si serveur demande de supprimer le message flaggé (fausse alerte), et fournit flaggedClientMessageId
+      if (clientAction.removeFlaggedMessage && clientAction.flaggedClientMessageId) {
+        const fid: string = clientAction.flaggedClientMessageId;
+        setMessages((prev) => prev.filter((m) => m.id !== fid));
+        setLastFlaggedClientMessageId(null);
+        showToast("Message supprimé pour éviter la confusion.");
       }
 
-      // fallback : si serveur n'a rien envoyé mais le reply contient la question de triage,
-      // on active 'ask' côté client pour inviter la réponse (raison = suicide par défaut ici)
+      // si serveur fournit flaggedClientMessageId (ex: ask state), on le mémorise localement
+      if (clientAction.flaggedClientMessageId) {
+        setLastFlaggedClientMessageId(clientAction.flaggedClientMessageId);
+      }
+
+      // focus input si demandé
+      if (clientAction.focusInput && inputRef.current) inputRef.current.focus();
+
+      // blocage : désactive l'input
+      if (clientAction.blockInput || serverCrisis === "lock") {
+        setCrisisMode("lock");
+        setCrisisReason(serverReason);
+      } else {
+        // ask / soft / none
+        if (serverCrisis === "ask") {
+          setCrisisMode("ask");
+          setCrisisReason(serverReason);
+        } else if (serverCrisis === "soft") {
+          setCrisisMode("ask"); // soft uses ask UI (clarify) — adapt if you want separate state
+          setCrisisReason(serverReason || "clarify");
+        } else {
+          setCrisisMode("none");
+          setCrisisReason("none");
+        }
+      }
+
+      // fallback : si le serveur n'a rien envoyé mais la réponse contient la question de triage,
+      // on active 'ask' côté client pour inviter la réponse (raison = suicide par défaut)
       if (!data.crisis && inferAskFromReply(reply)) {
         setCrisisMode("ask");
         setCrisisReason("suicide");
       }
-
-    } catch {
+    } catch (err) {
       setError("Le service est momentanément indisponible. Réessaie dans un instant.");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Désolé, je n'ai pas pu répondre. Réessaie dans un instant ou reformule ta demande." },
+        { id: makeId("msg-"), role: "assistant", content: "Désolé, je n'ai pas pu répondre. Réessaie dans un instant." },
       ]);
     } finally {
       setLoading(false);
@@ -542,7 +599,7 @@ export default function Page() {
   /* ---------- Render ---------- */
 
   // petit helper : dernier texte assistant (utilisé pour forcer l'affichage 3114 si nécessaire)
-  const lastAssistantText = messages.slice().reverse().find(m => m.role === "assistant")?.content ?? "";
+  const lastAssistantText = messages.slice().reverse().find((m) => m.role === "assistant")?.content ?? "";
   const assistantSuggestsSuicide = /idées?\s+suicidaires|suicid|me\s+tuer|je\s+veux\s+me\s+tuer|je\s+vais\s+me\s+tuer|en\s+finir/i.test(
     (lastAssistantText || "").toLowerCase()
   );
@@ -582,8 +639,8 @@ export default function Page() {
             className="h-[60vh] overflow-y-auto rounded-2xl border bg-white p-4 shadow-sm"
           >
             <div className="space-y-3">
-              {messages.map((m, i) => (
-                <div key={i} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
+              {messages.map((m) => (
+                <div key={m.id} className={m.role === "assistant" ? "flex" : "flex justify-end"}>
                   <div
                     className={
                       (m.role === "assistant"
