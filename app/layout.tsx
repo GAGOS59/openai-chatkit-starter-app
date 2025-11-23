@@ -19,25 +19,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr">
       <head>
         <Script
-          src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
-          strategy="beforeInteractive"
-        />
-
-        {GA_MEASUREMENT_ID && (
-          <>
-            <Script
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-              strategy="afterInteractive"
-            />
-           <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-1HHC2VHQP4"></script>
-<script>
+  src="https://www.googletagmanager.com/gtag/js?id=G-1HHC2VHQP4"
+  strategy="afterInteractive"
+/>
+<Script id="gtag-init" strategy="afterInteractive">
+{`
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-
   gtag('config', 'G-1HHC2VHQP4');
-</script>
+`}
+</Script>
+
           </>
         )}
       </head>
