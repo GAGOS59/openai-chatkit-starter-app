@@ -13,7 +13,6 @@ export const metadata: Metadata = {
   // ... garde le reste inchangé
 };
 
-const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID; // sans fallback
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -30,28 +29,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
               strategy="afterInteractive"
             />
-            <Script id="gtag-init" strategy="afterInteractive">
-              {`
-                (function(){
-                  function initGtag(id){
-                    window.dataLayer = window.dataLayer || [];
-                    function gtag(){dataLayer.push(arguments);}
-                    window.gtag = gtag;
-                    gtag('js', new Date());
-                    gtag('config', id, { send_page_view: true });
-                  }
+           <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-1HHC2VHQP4"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
 
-                  // contrôle simple de consentement : si 'ga_consent' = 'granted', on init automatiquement
-                  const consent = localStorage.getItem('ga_consent');
-                  if (consent === 'granted') {
-                    initGtag('${GA_MEASUREMENT_ID}');
-                  } else {
-                    // expose une fonction pour initier après consentement via ton CMP
-                    window.initGtagAfterConsent = () => initGtag('${GA_MEASUREMENT_ID}');
-                  }
-                })();
-              `}
-            </Script>
+  gtag('config', 'G-1HHC2VHQP4');
+</script>
           </>
         )}
       </head>
