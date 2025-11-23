@@ -34,7 +34,7 @@ Guider pas à pas :
 4) Construire un Setup adapté selon le SUD avec UNIQUEMENT les mots de l'utilisateur.
 5) Afficher la ronde standard complète.
 6) Réévaluer le SUD et ΔSUD puis → Setup → Ronde.
-7) Si SUD=0 → TOUJOURS revenir à l'Aspect_Initial et le travailler après avoir traité tous les sous-aspects. 
+7) Si SUD=0 → TOUJOURS revenir à l'Aspect_Initial et le travailler après avoir traité tous les sous-aspects, même s'il y en a plus de 2. 
    - Si Aspect_Initial > 0 → Setup → Ronde. 
    - Si Aspect_Initial = 0 → conclure.
 
