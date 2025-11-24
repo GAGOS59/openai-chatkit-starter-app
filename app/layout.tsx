@@ -17,8 +17,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // ID codé en dur ici pour que Google le voit dans View Source.
-  // Si tu préfères, on peut remplacer par process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID.
+  // ID codé en dur pour être visible dans le HTML rendu côté serveur (détection Google OK).
+  // Si tu préfères plus tard, remplace par : process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID
   const GA_ID = "G-1HHC2VHQP4";
 
   return (
@@ -30,26 +30,17 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
 
-        {/* ----- Google Analytics (visible côté serveur) ----- */}
-        {/* 1) balise externe (visible dans View Source) */}
-        <script
-          async
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-        ></script>
+        {/* Google Analytics (visible côté serveur) */}
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
 
-        {/* 2) init inline (visible aussi) — ne pas envoyer de page_view automatiquement */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              // Bloquer l'envoi automatique : attendre le consentement utilisateur
-              gtag('config', '${GA_ID}', { send_page_view: false });
-              // Fonction utilitaire à appeler après consentement
-              window.gtagSendPageViewAfterConsent = function() {
-                gtag('config', '${GA_ID}', { send_page_view: true });
-              };
+              // Envoi immédiat du page_view (pas d'attente de consentement)
+              gtag('config', '${GA_ID}');
             `,
           }}
         />
