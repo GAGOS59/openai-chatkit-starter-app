@@ -44,6 +44,10 @@ export default function RootLayout({
             `,
           }}
         />
+        <link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/efty-apple-touch-icon.png">
+<meta name="theme-color" content="#0f3d69">
+
       </head>
 
       <body className="antialiased">{children}</body>
