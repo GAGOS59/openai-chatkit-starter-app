@@ -2,6 +2,7 @@
 import Script from "next/script";
 import type { Metadata } from "next";
 import "./globals.css";
+import React from "react";
 
 export const metadata: Metadata = {
   title: {
@@ -18,7 +19,6 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   // ID codé en dur pour être visible dans le HTML rendu côté serveur (détection Google OK).
-  // Si tu préfères plus tard, remplace par : process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID
   const GA_ID = "G-1HHC2VHQP4";
 
   return (
@@ -30,27 +30,26 @@ export default function RootLayout({
           strategy="beforeInteractive"
         />
 
-        {/* Google Analytics (visible côté serveur) */}
-        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
-
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              // Envoi immédiat du page_view (pas d'attente de consentement)
-              gtag('config', '${GA_ID}');
-            `,
-          }}
+        {/* Google Analytics */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+          strategy="afterInteractive"
         />
-        <link rel="manifest" href="/manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<meta name="theme-color" content="#0f3d69">
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            // Envoi immédiat du page_view (pas d'attente de consentement)
+            gtag('config', '${GA_ID}');
+          `}
+        </Script>
 
-
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <meta name="theme-color" content="#0f3d69" />
       </head>
 
       <body className="antialiased">{children}</body>
