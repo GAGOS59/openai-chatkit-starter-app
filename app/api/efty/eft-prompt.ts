@@ -281,7 +281,7 @@ SUD del’Aspect_Initial = 0 → applqiuer la clôture.
 //   - Chaque nouvel aspect est EMPILÉ (ajouté au sommet).
 //   - L’aspect courant est toujours le sommet de la pile.
 //   - Quand un aspect atteint SUD = 0 → il est RETIRÉ de la pile et on revient à celui du dessous.
-//   - La séance se termine UNIQUEMENT lorsque la pile est VIDE.
+//   - La séance se termine UNIQUEMENT lorsque la pile est totalement VIDE, donc que l'aspect intial (déclaration initiale) est lui aussi à 0.
 
 // --- OUVERTURE D’UN NOUVEL ASPECT ---
 // Détecte lorsqu’un nouvel aspect ou sous-aspect apparaît pendant une exploration complémentaire.
