@@ -59,6 +59,35 @@ const CRISIS_PHYSICAL: RegExp[] = [
   /\b(paralysie|sens\s+plus\s+mon\s+côté|visage\s+déformé)\b/i
 ];
 
+// 1) INSERTION DES PATTERNS (Juste après vos constantes de texte)
+const CRISIS_PHYSICAL: RegExp[] = [
+  /\b(bras\s+gauche|douleur\s+poitrine|thorax|mâchoire|irradie)\b/i,
+  /\b(respirer|étouffe|plus\s+d'air|respiration|lèvres\s+bleues)\b/i,
+  /\b(hémorragie|saigne\s+beaucoup|sang|coupure\s+profonde)\b/i,
+  /\b(avaler|médicaments|boîte|poison|intoxication)\b/i,
+  /\b(paralysie|sens\s+plus\s+mon\s+côté|visage\s+déformé)\b/i
+];
+
+// ... (gardez vos CRISIS_EXPLICIT et PROBABLE existants)
+
+// 2) LOGIQUE DE DÉCISION (Dans la fonction POST, remplacez la partie interception)
+
+// --- NOUVEAU : Interception URGENCE PHYSIQUE (Blocage direct) ---
+if (matchAny(CRISIS_PHYSICAL, lastUserLower)) {
+  console.warn(`[CRISIS] session ${sessionKey}: physical emergency detected -> immediate block.`);
+  sess.state = "blocked_crisis";
+  return new NextResponse(JSON.stringify({
+    answer: "⚠️ URGENCE MÉDICALE : Tes symptômes nécessitent une assistance immédiate. Arrête l'EFT et appelle le 15 (SAMU) ou le 112 tout de suite.",
+    crisis: "block", // C'est ce mot qui déclenche le rouge dans page.tsx
+    clientAction: { blockInput: true, removeFlaggedMessage: false }
+  }), { headers });
+}
+
+// --- Gardez ensuite votre logique pour le suicide (EXPLICIT / PROBABLE) ---
+if (matchAny(CRISIS_EXPLICIT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
+  // ... votre code existant pour le suicide
+}
+
 const CRISIS_EXPLICIT: RegExp[] = [
   /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
   /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
@@ -206,6 +235,18 @@ export async function POST(req: Request) {
     }), { headers });
   }
 
+  // --- NOUVEAU : Branchement du blocage physique immédiat ---
+  if (matchAny(CRISIS_PHYSICAL, lastUserLower)) {
+    console.warn(`[CRISIS] session ${sessionKey}: physical emergency detected -> immediate block.`);
+    sess.state = "blocked_crisis";
+    return new NextResponse(JSON.stringify({
+      answer: "⚠️ URGENCE MÉDICALE : Tes symptômes nécessitent une assistance immédiate. Appelle le 15 (SAMU) ou le 112 tout de suite.",
+      crisis: "block",
+      clientAction: { blockInput: true, removeFlaggedMessage: false }
+    }), { headers });
+  }
+  // --- FIN DU BRANCHEMENT ---
+  
   // 1) si on est déjà en état 'asked_suicide' : interpréter la réponse utilisateur
   if (sess.state === "asked_suicide") {
     const yn = interpretYesNo(lastUser);
