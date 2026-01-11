@@ -9,9 +9,14 @@ export const revalidate = 0;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// --- Types
+// --- Types Stricts
 type Role = "system" | "user" | "assistant";
-interface ChatMessage { role: Role; content: string; }
+
+interface ChatMessage {
+  role: Role;
+  content: string;
+}
+
 interface MotsClient {
   emotion?: string;
   sensation?: string;
@@ -19,15 +24,16 @@ interface MotsClient {
   pensee?: string;
   souvenir?: string;
 }
-type Payload = {
+
+interface Payload {
   sessionId?: string;
   clientMessageId?: string;
-  messages?: any[]; // On met any ici pour éviter les conflits de types complexes
+  messages?: ChatMessage[];
   message?: string;
   mots_client?: MotsClient;
   injectRappels?: boolean;
   rappelsVoulus?: number;
-};
+}
 
 /* ---------- CONFIGURATION DES CRISES ---------- */
 
@@ -53,7 +59,7 @@ const WHITELIST_COLLISIONS: RegExp[] = [
 const ASK_SUICIDE_Q_TU = "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
 
 function crisisBlockMessage(): string {
-  return `⚠️ Je ne peux pas continuer cette conversation : il semble que tu sois en danger. Si tu es en France, appelle immédiatement le 15 (SAMU) ou le 3114. Si tu es à l’étranger, contacte le 112.`;
+  return `⚠️ Je ne peux pas continuer cette conversation : il semble que tu sois en danger. Si tu es en France, appelle immédiatement le 15 (SAMU) ou le 3114.`;
 }
 
 function matchAny(xs: RegExp[], s: string) { return xs.some(rx => rx.test(s)); }
@@ -68,7 +74,7 @@ function getSession(key: string): CrisisSession {
   return CRISIS_SESSIONS.get(key)!;
 }
 
-/* ---------- FONCTION PRINCIPALE (POST) ---------- */
+/* ---------- POST ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
   const headers = new Headers({
@@ -78,16 +84,19 @@ export async function POST(req: Request) {
   });
 
   let body: Payload = {};
-  try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
-  const history = body.messages || [];
-  const single = body.message?.trim() || "";
+  const history: ChatMessage[] = body.messages || [];
+  const single: string = body.message?.trim() || "";
   const lastUser = history.filter(m => m.role === "user").slice(-1)[0]?.content || single;
   const lastUserLower = lastUser.toLowerCase();
   const sessionKey = body.sessionId || origin || "anon";
   const sess = getSession(sessionKey);
 
-  // 1. URGENCE PHYSIQUE
   if (matchAny(CRISIS_PHYSICAL, lastUserLower)) {
     sess.state = "blocked_crisis";
     return new NextResponse(JSON.stringify({
@@ -97,42 +106,37 @@ export async function POST(req: Request) {
     }), { headers });
   }
 
-  // 2. SI BLOQUÉ
   if (sess.state === "blocked_crisis") {
     return new NextResponse(JSON.stringify({ answer: crisisBlockMessage(), crisis: "block", clientAction: { blockInput: true } }), { headers });
   }
 
-  // 3. SUICIDE
   if (matchAny(CRISIS_EXPLICIT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
     sess.state = "asked_suicide";
     return new NextResponse(JSON.stringify({ answer: ASK_SUICIDE_Q_TU, crisis: "ask", clientAction: { focusInput: true } }), { headers });
   }
 
-  // 4. OPENAI
   try {
-    // Correction de l'erreur TypeScript ici en typant explicitement le tableau
-    const messages: ChatMessage[] = [
-        { role: "system", content: EFT_SYSTEM_PROMPT }
+    const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: "system", content: EFT_SYSTEM_PROMPT }
     ];
 
-    // On ajoute l'historique en forçant le type
     if (history.length > 0) {
-      history.forEach((m: any) => {
-        messages.push({ role: m.role, content: m.content });
+      history.forEach((m) => {
+        apiMessages.push({ role: m.role, content: m.content });
       });
     } else if (single) {
-      messages.push({ role: "user", content: single });
+      apiMessages.push({ role: "user", content: single });
     }
 
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: messages as any, 
+      messages: apiMessages,
       temperature: 0.5,
     });
 
     const text = completion.choices[0].message.content || "";
     return new NextResponse(JSON.stringify({ answer: text, crisis: "none", clientAction: { blockInput: false } }), { headers });
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "OpenAI Error" }, { headers, status: 503 });
   }
 }
