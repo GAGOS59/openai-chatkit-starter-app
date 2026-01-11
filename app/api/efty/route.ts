@@ -9,10 +9,9 @@ export const revalidate = 0;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// --- Types Stricts pour Vercel
+// --- Types Stricts
 type Role = "system" | "user" | "assistant";
 interface ChatMessage { role: Role; content: string; }
-interface MotsClient { emotion?: string; sensation?: string; localisation?: string; pensee?: string; souvenir?: string; }
 interface Payload { sessionId?: string; messages?: ChatMessage[]; message?: string; }
 
 /* ---------- CONFIGURATION DES CRISES ---------- */
@@ -27,15 +26,15 @@ const CRISIS_PHYSICAL: RegExp[] = [
 const CRISIS_EXPLICIT: RegExp[] = [
   /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
   /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
-  /\bje\s+vais\s+mourir\b/i
+  /\bje\s+vais\s+mourir\b/i,
+  /\b(id[ée]es?\s+noires?)\b/i,
+  /\b(envie\s+de\s+mourir)\b/i
 ];
 
 const WHITELIST_COLLISIONS: RegExp[] = [/\b(de\s+rire|pour\s+rigoler|je\s+plaisante)\b/i];
-const ASK_SUICIDE_Q = "Avant toute chose, as-tu des idées suicidaires en ce moment ? (réponds par oui ou non)";
-const ASK_MEDICAL_Q = "Cette douleur ou ce symptôme semble important. Est-ce une urgence médicale immédiate ? (réponds par oui ou non)";
 
 function crisisBlockMessage(): string {
-  return `⚠️ Je ne peux pas continuer : il semble que tu sois en danger. Appelle immédiatement le 15 (SAMU) ou le 112 (Urgences).`;
+  return `⚠️ Je ne peux pas continuer cette conversation : il semble que tu sois en danger. Appelle immédiatement le 3114 (prévention suicide) ou le 15 (SAMU).`;
 }
 
 function matchAny(xs: RegExp[], s: string) { return xs.some(rx => rx.test(s)); }
@@ -46,8 +45,8 @@ function interpretYesNo(t: string): "yes" | "no" | "unknown" {
   return "unknown";
 }
 
-/* ---------- GESTION SESSION (MÉMOIRE D'ALERTE) ---------- */
-type CrisisSession = { state: "normal" | "asked" | "blocked"; };
+/* ---------- GESTION SESSION ---------- */
+type CrisisSession = { state: "normal" | "asked_suicide" | "asked_medical" | "blocked"; };
 const CRISIS_SESSIONS = new Map<string, CrisisSession>();
 
 export async function POST(req: Request) {
@@ -66,40 +65,55 @@ export async function POST(req: Request) {
   if (!CRISIS_SESSIONS.has(sessionKey)) CRISIS_SESSIONS.set(sessionKey, { state: "normal" });
   const sess = CRISIS_SESSIONS.get(sessionKey)!;
 
-  /* ---------- LOGIQUE DE SÉCURITÉ (POINTS 1, 2, 3) ---------- */
-
-  // 1. Déjà bloqué ?
+  // 1. BLOCAGE DÉFINITIF
   if (sess.state === "blocked") {
-    return new NextResponse(JSON.stringify({ answer: crisisBlockMessage(), crisis: "block", clientAction: { blockInput: true } }), { headers });
+    return new NextResponse(JSON.stringify({ 
+      answer: crisisBlockMessage(), 
+      crisis: "block", 
+      reason: "suicide", // On laisse suicide par défaut pour le rouge total
+      clientAction: { blockInput: true } 
+    }), { headers });
   }
 
-  // 2. En cours de vérification (L'utilisateur répond au Oui/Non)
-  if (sess.state === "asked") {
+  // 2. RÉPONSE À LA LEVÉE DE DOUTE
+  if (sess.state === "asked_suicide" || sess.state === "asked_medical") {
     const answer = interpretYesNo(lastUserLower);
+    const wasMedical = sess.state === "asked_medical";
+
     if (answer === "yes") {
       sess.state = "blocked";
-      return new NextResponse(JSON.stringify({ answer: crisisBlockMessage(), crisis: "block", clientAction: { blockInput: true } }), { headers });
+      return new NextResponse(JSON.stringify({
+        answer: crisisBlockMessage(),
+        crisis: "block",
+        reason: wasMedical ? "medical" : "suicide",
+        clientAction: { blockInput: true }
+      }), { headers });
     } else if (answer === "no") {
-      sess.state = "normal"; // On libère, et on laisse couler vers OpenAI plus bas
+      sess.state = "normal";
     } else {
-      return new NextResponse(JSON.stringify({ answer: "Peux-tu répondre par « oui » ou « non » pour ta sécurité ?", crisis: "ask" }), { headers });
+      return new NextResponse(JSON.stringify({
+        answer: "Peux-tu répondre par « oui » ou « non » pour ta sécurité ?",
+        crisis: "ask",
+        reason: wasMedical ? "medical" : "suicide"
+      }), { headers });
     }
   }
 
-  // 3. Détection initiale (Physique ou Suicide)
+  // 3. DÉTECTION INITIALE
   const isPhys = matchAny(CRISIS_PHYSICAL, lastUserLower);
-  const isSuicide = matchAny(CRISIS_EXPLICIT, lastUserLower) && !matchAny(WHITELIST_COLLISIONS, lastUserLower);
+  const isSuic = matchAny(CRISIS_EXPLICIT, lastUserLower) && !matchAny(WHITELIST_COLLISIONS, lastUserLower);
 
-  if (isPhys || isSuicide) {
-    sess.state = "asked";
+  if (isPhys || isSuic) {
+    sess.state = isPhys ? "asked_medical" : "asked_suicide";
     return new NextResponse(JSON.stringify({ 
-      answer: isPhys ? ASK_MEDICAL_Q : ASK_SUICIDE_Q, 
+      answer: isPhys ? "Cette douleur semble importante. Est-ce une urgence médicale ? (oui/non)" : "As-tu des idées suicidaires en ce moment ? (oui/non)", 
       crisis: "ask",
+      reason: isPhys ? "medical" : "suicide",
       clientAction: { focusInput: true }
     }), { headers });
   }
 
-  /* ---------- 4. APPEL OPENAI (SI TOUT VA BIEN) ---------- */
+  // 4. APPEL IA
   try {
     const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: EFT_SYSTEM_PROMPT }
