@@ -9,43 +9,22 @@ export const revalidate = 0;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// --- Types Stricts
 type Role = "system" | "user" | "assistant";
 interface ChatMessage { role: Role; content: string; }
 interface Payload { sessionId?: string; messages?: ChatMessage[]; message?: string; }
 
-/* ---------- CONFIGURATION DES CRISES ---------- */
 const CRISIS_PHYSICAL: RegExp[] = [
   /\b(bras\s+gauche|douleur\s+poitrine|thorax|mâchoire|irradie)\b/i,
-  /\b(respirer|étouffe|plus\s+d'air|respiration|lèvres\s+bleues)\b/i,
-  /\b(hémorragie|saigne\s+beaucoup|sang|coupure\s+profonde)\b/i,
-  /\b(avaler|médicaments|boîte|poison|intoxication)\b/i,
-  /\b(paralysie|sens\s+plus\s+mon\s+côté|visage\s+déformé)\b/i
+  /\b(respirer|étouffe|plus\s+d'air|respiration)\b/i
 ];
 
-const CRISIS_EXPLICIT: RegExp[] = [
-  /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
-  /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
-  /\bje\s+vais\s+mourir\b/i,
-  /\b(id[ée]es?\s+noires?)\b/i,
-  /\b(envie\s+de\s+mourir)\b/i
+const CRISIS_SUICIDE: RegExp[] = [
+  /\b(tuer|suicider|pendre|mourir|mort|finir|en\s+finir)\b/i,
+  /\b(id[ée]es?\s+noires?|envie\s+de\s+mourir)\b/i
 ];
 
-const WHITELIST_COLLISIONS: RegExp[] = [/\b(de\s+rire|pour\s+rigoler|je\s+plaisante)\b/i];
+const WHITELIST = [/\b(rigoler|plaisante)\b/i];
 
-function crisisBlockMessage(): string {
-  return `⚠️ Je ne peux pas continuer cette conversation : il semble que tu sois en danger. Appelle immédiatement le 3114 (prévention suicide) ou le 15 (SAMU).`;
-}
-
-function matchAny(xs: RegExp[], s: string) { return xs.some(rx => rx.test(s)); }
-function interpretYesNo(t: string): "yes" | "no" | "unknown" {
-  const s = t.toLowerCase();
-  if (/^(oui|ouais|si|yes|yep)\b/.test(s)) return "yes";
-  if (/^(non|nan|nope|no)\b/.test(s)) return "no";
-  return "unknown";
-}
-
-/* ---------- GESTION SESSION ---------- */
 type CrisisSession = { state: "normal" | "asked_suicide" | "asked_medical" | "blocked"; };
 const CRISIS_SESSIONS = new Map<string, CrisisSession>();
 
@@ -57,80 +36,59 @@ export async function POST(req: Request) {
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
   const history = body.messages || [];
-  const single = body.message?.trim() || "";
-  const lastUser = history.filter(m => m.role === "user").slice(-1)[0]?.content || single;
+  const lastUser = (history.filter(m => m.role === "user").pop()?.content || body.message || "").trim();
   const lastUserLower = lastUser.toLowerCase();
   const sessionKey = body.sessionId || origin || "anon";
   
   if (!CRISIS_SESSIONS.has(sessionKey)) CRISIS_SESSIONS.set(sessionKey, { state: "normal" });
   const sess = CRISIS_SESSIONS.get(sessionKey)!;
 
-  // 1. BLOCAGE DÉFINITIF
-  if (sess.state === "blocked") {
-    return new NextResponse(JSON.stringify({ 
-      answer: crisisBlockMessage(), 
-      crisis: "block", 
-      reason: "suicide", // On laisse suicide par défaut pour le rouge total
-      clientAction: { blockInput: true } 
-    }), { headers });
-  }
-
-  // 2. RÉPONSE À LA LEVÉE DE DOUTE
+  // 1. GESTION DES RÉPONSES AUX QUESTIONS (OUI/NON)
   if (sess.state === "asked_suicide" || sess.state === "asked_medical") {
-    const answer = interpretYesNo(lastUserLower);
-    const wasMedical = sess.state === "asked_medical";
+    const isYes = /^(oui|ouais|si|yes|yep|ui)/i.test(lastUserLower);
+    const isNo = /^(non|nan|nope|no)/i.test(lastUserLower);
 
-    if (answer === "yes") {
+    if (isYes) {
+      const finalReason = sess.state === "asked_medical" ? "medical" : "suicide";
       sess.state = "blocked";
       return new NextResponse(JSON.stringify({
-        answer: crisisBlockMessage(),
-        crisis: "block",
-        reason: wasMedical ? "medical" : "suicide",
+        answer: "⚠️ URGENCE : Appelle immédiatement le 15 ou le 3114.",
+        crisis: "block", // C'est ce signal qui verrouille tout en rouge
+        reason: finalReason,
         clientAction: { blockInput: true }
       }), { headers });
-    } else if (answer === "no") {
-      sess.state = "normal";
+    } else if (isNo) {
+      sess.state = "normal"; // On libère pour passer à OpenAI
     } else {
-      return new NextResponse(JSON.stringify({
-        answer: "Peux-tu répondre par « oui » ou « non » pour ta sécurité ?",
+      return new NextResponse(JSON.stringify({ 
+        answer: "Peux-tu répondre par OUI ou par NON pour ta sécurité ?", 
         crisis: "ask",
-        reason: wasMedical ? "medical" : "suicide"
+        reason: sess.state === "asked_medical" ? "medical" : "suicide"
       }), { headers });
     }
   }
 
-  // 3. DÉTECTION INITIALE
-  const isPhys = matchAny(CRISIS_PHYSICAL, lastUserLower);
-  const isSuic = matchAny(CRISIS_EXPLICIT, lastUserLower) && !matchAny(WHITELIST_COLLISIONS, lastUserLower);
+  // 2. DÉTECTION INITIALE (RESTAURATION DU "REASON")
+  const isPhys = CRISIS_PHYSICAL.some(rx => rx.test(lastUserLower));
+  const isSuic = CRISIS_SUICIDE.some(rx => rx.test(lastUserLower)) && !WHITELIST.some(rx => rx.test(lastUserLower));
 
   if (isPhys || isSuic) {
     sess.state = isPhys ? "asked_medical" : "asked_suicide";
     return new NextResponse(JSON.stringify({ 
-      answer: isPhys ? "Cette douleur semble importante. Est-ce une urgence médicale ? (oui/non)" : "As-tu des idées suicidaires en ce moment ? (oui/non)", 
+      // Important : on remet "suicide" dans la phrase pour le filtre visuel
+      answer: isPhys ? "Est-ce une urgence médicale ? (oui/non)" : "As-tu des idées de suicide en ce moment ? (oui/non)", 
       crisis: "ask",
-      reason: isPhys ? "medical" : "suicide",
+      reason: isPhys ? "medical" : "suicide", // INDISPENSABLE POUR PAGE.TSX
       clientAction: { focusInput: true }
     }), { headers });
   }
 
-  // 4. APPEL IA
+  // 3. APPEL OPENAI
   try {
-    const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: "system", content: EFT_SYSTEM_PROMPT }
-    ];
+    const apiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [{ role: "system", content: EFT_SYSTEM_PROMPT }];
     history.forEach(m => apiMessages.push({ role: m.role, content: m.content }));
-    if (single && history.length === 0) apiMessages.push({ role: "user", content: single });
-
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: apiMessages,
-      temperature: 0.5,
-    });
-
-    return new NextResponse(JSON.stringify({ 
-      answer: completion.choices[0].message.content, 
-      crisis: "none" 
-    }), { headers });
+    const completion = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: apiMessages, temperature: 0.5 });
+    return new NextResponse(JSON.stringify({ answer: completion.choices[0].message.content, crisis: "none" }), { headers });
   } catch {
     return NextResponse.json({ error: "Service Error" }, { headers, status: 503 });
   }
