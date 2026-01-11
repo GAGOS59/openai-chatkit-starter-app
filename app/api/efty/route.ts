@@ -225,9 +225,30 @@ export async function POST(req: Request) {
   });
 
   // ---------- Interception sécurité AVANT modèle ----------
-  // If session already blocked, keep it blocked (safe default)
+  // ---------- Interception sécurité AVANT modèle ----------
+
+  // 0) CRÉATION DES VARIABLES DE CONTRÔLE (si pas déjà fait)
+  const lastUserLower = lastUser.toLowerCase(); 
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": origin || "",
+    Vary: "Origin",
+  });
+
+  // 1) URGENCE PHYSIQUE (DÉTECTION IMMÉDIATE)
+  // On utilise directement la liste CRISIS_PHYSICAL définie plus haut
+  if (matchAny(CRISIS_PHYSICAL, lastUserLower)) {
+    console.warn(`[CRISIS] session ${sessionKey}: physical emergency detected.`);
+    sess.state = "blocked_crisis";
+    return new NextResponse(JSON.stringify({
+      answer: "⚠️ URGENCE MÉDICALE : Tes symptômes nécessitent une assistance immédiate. Arrête l'EFT et appelle le 15 (SAMU) ou le 112 tout de suite.",
+      crisis: "block",
+      clientAction: { blockInput: true, removeFlaggedMessage: false }
+    }), { headers });
+  }
+
+  // 2) SI DÉJÀ BLOQUÉ
   if (sess.state === "blocked_crisis") {
-    console.warn(`[CRISIS] session ${sessionKey}: request received but session already blocked -> returning block.`);
     return new NextResponse(JSON.stringify({
       answer: crisisBlockMessage(),
       crisis: "block",
@@ -235,17 +256,29 @@ export async function POST(req: Request) {
     }), { headers });
   }
 
-  // --- NOUVEAU : Branchement du blocage physique immédiat ---
-  if (matchAny(CRISIS_PHYSICAL, lastUserLower)) {
-    console.warn(`[CRISIS] session ${sessionKey}: physical emergency detected -> immediate block.`);
-    sess.state = "blocked_crisis";
-    return new NextResponse(JSON.stringify({
-      answer: "⚠️ URGENCE MÉDICALE : Tes symptômes nécessitent une assistance immédiate. Appelle le 15 (SAMU) ou le 112 tout de suite.",
-      crisis: "block",
-      clientAction: { blockInput: true, removeFlaggedMessage: false }
-    }), { headers });
+  // 3) GESTION SUICIDE EXISTANTE (ASK_SUICIDE)
+  if (sess.state === "asked_suicide") {
+    const yn = interpretYesNo(lastUserLower);
+    if (yn === "yes") {
+      sess.state = "blocked_crisis";
+      return new NextResponse(JSON.stringify({
+        answer: crisisBlockMessage(),
+        crisis: "block",
+        clientAction: { blockInput: true, removeFlaggedMessage: false }
+      }), { headers });
+    }
+    if (yn === "no") {
+        clearSession(sessionKey);
+        // Continue vers le flux normal
+    } else {
+        // Relance question si réponse floue
+        return new NextResponse(JSON.stringify({
+            answer: "Je n’ai pas bien compris. Peux-tu répondre par « oui » ou « non », s’il te plaît ?",
+            crisis: "ask",
+            clientAction: { focusInput: true }
+        }), { headers });
+    }
   }
-  // --- FIN DU BRANCHEMENT ---
   
   // 1) si on est déjà en état 'asked_suicide' : interpréter la réponse utilisateur
   if (sess.state === "asked_suicide") {
