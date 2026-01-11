@@ -9,9 +9,14 @@ export const revalidate = 0;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// --- Types (Restaurés selon PDF)
+// --- Types (Restaurés intégralement du PDF)
 type Role = "system" | "user" | "assistant";
-interface ChatMessage { role: Role; content: string; }
+
+interface ChatMessage { 
+  role: Role; 
+  content: string; 
+}
+
 interface MotsClient {
   emotion?: string;
   sensation?: string;
@@ -19,6 +24,7 @@ interface MotsClient {
   pensee?: string;
   souvenir?: string;
 }
+
 type Payload = {
   sessionId?: string;
   clientMessageId?: string;
@@ -29,7 +35,7 @@ type Payload = {
   rappelsVoulus?: number;
 };
 
-/* --- Micro-grammaire rappels (Restaurée du PDF Page 1-2) --- */
+/* --- Micro-grammaire rappels (Pages 1-2 du PDF) --- */
 function generateRappelsBruts(m?: MotsClient): string[] {
   if (!m) return [];
   const out = new Set<string>();
@@ -46,7 +52,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out);
 }
 
-/* ---------- GESTION CRISES (Intégrée proprement) ---------- */
+/* ---------- CONFIGURATION DES CRISES (Pages 2-3 du PDF) ---------- */
 const CRISIS_PHYSICAL: RegExp[] = [
   /\b(bras\s+gauche|douleur\s+poitrine|thorax|mâchoire|irradie)\b/i,
   /\b(respirer|étouffe|plus\s+d'air|respiration|lèvres\s+bleues)\b/i,
@@ -64,6 +70,9 @@ const CRISIS_EXPLICIT: RegExp[] = [
 
 const WHITELIST_COLLISIONS = [/\b(de\s+rire|pour\s+rigoler|je\s+plaisante)\b/i];
 
+const ASK_SUICIDE_Q_TU = "Avant toute chose, as-tu des idées de suicide en ce moment ? (réponds par oui ou non)";
+const ASK_MEDICAL_Q = "Cette douleur semble importante. Est-ce une urgence médicale immédiate ? (réponds par oui ou non)";
+
 function crisisBlockMessage(): string {
   return "⚠️ Je ne peux pas continuer cette conversation : il semble que tu sois en danger. Si tu es en France, appelle immédiatement le 15 (SAMU) ou le 3114. Si tu es à l’étranger, contacte le 112.";
 }
@@ -75,8 +84,9 @@ function interpretYesNo(t: string): "yes" | "no" | "unknown" {
   return "unknown";
 }
 
-/* --- Sessions de Crise --- */
-type CrisisSession = { state: "normal" | "asked_suicide" | "asked_medical" | "blocked"; };
+/* --- Gestion des Sessions de Crise --- */
+type CrisisState = "normal" | "asked_suicide" | "asked_medical" | "blocked";
+type CrisisSession = { state: CrisisState };
 const CRISIS_SESSIONS = new Map<string, CrisisSession>();
 
 function getSession(key: string): CrisisSession {
@@ -84,7 +94,7 @@ function getSession(key: string): CrisisSession {
   return CRISIS_SESSIONS.get(key)!;
 }
 
-/* ---------- HANDLER POST (Restauré et Amélioré) ---------- */
+/* ---------- HANDLER PRINCIPAL (POST) ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
   const headers = new Headers({
@@ -107,20 +117,36 @@ export async function POST(req: Request) {
   const sessionKey = body.sessionId || origin || "anon";
   const sess = getSession(sessionKey);
 
-  // 1. Logique Sécurité (Levée de doute)
+  // 1. Logique de Sécurité (Levée de doute & Blocage)
   if (sess.state === "blocked") {
-    return new NextResponse(JSON.stringify({ answer: crisisBlockMessage(), crisis: "block", reason: "suicide", clientAction: { blockInput: true } }), { headers });
+    return new NextResponse(JSON.stringify({ 
+      answer: crisisBlockMessage(), 
+      crisis: "block", 
+      reason: "suicide", 
+      clientAction: { blockInput: true } 
+    }), { headers });
   }
 
   if (sess.state === "asked_suicide" || sess.state === "asked_medical") {
     const yn = interpretYesNo(lastUserLower);
+    const prevAskingState = sess.state; // On mémorise pour le retour JSON
+
     if (yn === "yes") {
       sess.state = "blocked";
-      return new NextResponse(JSON.stringify({ answer: crisisBlockMessage(), crisis: "block", reason: sess.state === "asked_medical" ? "medical" : "suicide", clientAction: { blockInput: true } }), { headers });
+      return new NextResponse(JSON.stringify({
+        answer: crisisBlockMessage(),
+        crisis: "block",
+        reason: prevAskingState === "asked_medical" ? "medical" : "suicide",
+        clientAction: { blockInput: true }
+      }), { headers });
     } else if (yn === "no") {
       sess.state = "normal";
     } else {
-      return new NextResponse(JSON.stringify({ answer: "Peux-tu répondre par « oui » ou « non » pour ta sécurité ?", crisis: "ask", reason: sess.state === "asked_medical" ? "medical" : "suicide" }), { headers });
+      return new NextResponse(JSON.stringify({
+        answer: "Peux-tu répondre par « oui » ou « non » pour ta sécurité ?",
+        crisis: "ask",
+        reason: prevAskingState === "asked_medical" ? "medical" : "suicide"
+      }), { headers });
     }
   }
 
@@ -130,14 +156,14 @@ export async function POST(req: Request) {
   if (isPhys || isSuic) {
     sess.state = isPhys ? "asked_medical" : "asked_suicide";
     return new NextResponse(JSON.stringify({
-      answer: isPhys ? "Cette douleur semble importante. Est-ce une urgence médicale ? (oui/non)" : "As-tu des idées de suicide en ce moment ? (oui/non)",
+      answer: isPhys ? ASK_MEDICAL_Q : ASK_SUICIDE_Q_TU,
       crisis: "ask",
       reason: isPhys ? "medical" : "suicide",
       clientAction: { focusInput: true }
     }), { headers });
   }
 
-  // 2. Flux OpenAI (Intégration des rappels restaurée Page 3-4)
+  // 2. Flux Normal OpenAI & Injection Rappels (Pages 3-4 du PDF)
   try {
     const systemContent = [EFT_SYSTEM_PROMPT];
     if (body.injectRappels && body.mots_client) {
@@ -154,6 +180,7 @@ export async function POST(req: Request) {
     history.forEach((m) => {
       messages.push({ role: m.role as Role, content: m.content });
     });
+    
     if (single && history.length === 0) {
       messages.push({ role: "user", content: single });
     }
@@ -172,12 +199,12 @@ export async function POST(req: Request) {
     }), { headers });
 
   } catch (err) {
-    console.error("OpenAI error:", err);
+    console.error("openai error:", err);
     return NextResponse.json({ error: "Service temporairement indisponible." }, { status: 503 });
   }
 }
 
-/* --- CORS (Restauré Page 5) --- */
+/* --- Helper CORS (Page 5 du PDF) --- */
 export function OPTIONS(req: Request) {
   const origin = req.headers.get("origin");
   const headers = {
@@ -191,7 +218,10 @@ export function OPTIONS(req: Request) {
 function isAllowedOrigin(origin: string | null) {
   if (!origin) return false;
   const o = origin.toLowerCase();
-  const ALLOWED = new Set(["https://appli.ecole-eft-france.fr", "https://www.ecole-eft-france.fr"]);
+  const ALLOWED = new Set([
+    "https://appli.ecole-eft-france.fr",
+    "https://www.ecole-eft-france.fr",
+  ]);
   if (process.env.VERCEL_ENV === "production") return ALLOWED.has(o);
   if (o.startsWith("http://localhost")) return true;
   return false;
