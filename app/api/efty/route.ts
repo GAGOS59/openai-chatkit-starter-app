@@ -10,7 +10,7 @@ export const revalidate = 0;
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // --- Types
-type Role = "user" | "assistant";
+type Role = "system" | "user" | "assistant";
 interface ChatMessage { role: Role; content: string; }
 interface MotsClient {
   emotion?: string;
@@ -22,7 +22,7 @@ interface MotsClient {
 type Payload = {
   sessionId?: string;
   clientMessageId?: string;
-  messages?: ChatMessage[];
+  messages?: any[]; // On met any ici pour éviter les conflits de types complexes
   message?: string;
   mots_client?: MotsClient;
   injectRappels?: boolean;
@@ -44,14 +44,6 @@ const CRISIS_EXPLICIT: RegExp[] = [
   /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
   /\bje\s+vais\s+mourir\b/i,
   ...CRISIS_PHYSICAL
-];
-
-const CRISIS_PROBABLE: RegExp[] = [
-  /\b(j[’']?ai\s+envie\s+de\s+mourir)\b/i,
-  /\b(j[’']?en\s+ai\s+marre\s+de\s+la\s+vie)\b/i,
-  /\b(plus\s+d[’']?envie\s+de\s+vivre)\b/i,
-  /\b(je\s+veux\s+dispara[iî]tre)\b/i,
-  /\b(id[ée]es?\s+noires?)\b/i,
 ];
 
 const WHITELIST_COLLISIONS: RegExp[] = [
@@ -95,7 +87,7 @@ export async function POST(req: Request) {
   const sessionKey = body.sessionId || origin || "anon";
   const sess = getSession(sessionKey);
 
-  // 1. DÉTECTION URGENCE PHYSIQUE (BLOCAGE IMMÉDIAT)
+  // 1. URGENCE PHYSIQUE
   if (matchAny(CRISIS_PHYSICAL, lastUserLower)) {
     sess.state = "blocked_crisis";
     return new NextResponse(JSON.stringify({
@@ -105,33 +97,43 @@ export async function POST(req: Request) {
     }), { headers });
   }
 
-  // 2. SI DÉJÀ BLOQUÉ
+  // 2. SI BLOQUÉ
   if (sess.state === "blocked_crisis") {
     return new NextResponse(JSON.stringify({ answer: crisisBlockMessage(), crisis: "block", clientAction: { blockInput: true } }), { headers });
   }
 
-  // 3. DÉTECTION SUICIDE (ASK FIRST)
+  // 3. SUICIDE
   if (matchAny(CRISIS_EXPLICIT, lastUserLower) && !hasWhitelistCollision(lastUserLower)) {
     sess.state = "asked_suicide";
     return new NextResponse(JSON.stringify({ answer: ASK_SUICIDE_Q_TU, crisis: "ask", clientAction: { focusInput: true } }), { headers });
   }
 
-  // 4. FLUX NORMAL VERS OPENAI
+  // 4. OPENAI
   try {
-    const messages = [{ role: "system" as const, content: EFT_SYSTEM_PROMPT }];
-    messages.push(...history.map(m => ({ role: m.role as "user" | "assistant", content: m.content })));
-    if (single && history.length === 0) messages.push({ role: "user", content: single });
+    // Correction de l'erreur TypeScript ici en typant explicitement le tableau
+    const messages: ChatMessage[] = [
+        { role: "system", content: EFT_SYSTEM_PROMPT }
+    ];
+
+    // On ajoute l'historique en forçant le type
+    if (history.length > 0) {
+      history.forEach((m: any) => {
+        messages.push({ role: m.role, content: m.content });
+      });
+    } else if (single) {
+      messages.push({ role: "user", content: single });
+    }
 
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages,
+      messages: messages as any, 
       temperature: 0.5,
     });
 
     const text = completion.choices[0].message.content || "";
     return new NextResponse(JSON.stringify({ answer: text, crisis: "none", clientAction: { blockInput: false } }), { headers });
   } catch (err) {
-    return NextResponse.json({ error: "OpenAI Error" }, { status: 503 });
+    return NextResponse.json({ error: "OpenAI Error" }, { headers, status: 503 });
   }
 }
 
