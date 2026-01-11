@@ -49,6 +49,16 @@ function generateRappelsBruts(m?: MotsClient): string[] {
 /* ---------- Gestion crise : patterns 3 niveaux + whitelist ---------- */
 // EXPLICIT = formulation claire (mais on demandera d'abord la question binaire
 // sauf si elle contient un indicateur d'urgence immédiate)
+
+// AJOUT DES URGENCES PHYSIQUES VITALES
+const CRISIS_PHYSICAL: RegExp[] = [
+  /\b(bras\s+gauche|douleur\s+poitrine|thorax|mâchoire|irradie)\b/i,
+  /\b(respirer|étouffe|plus\s+d'air|respiration|lèvres\s+bleues)\b/i,
+  /\b(hémorragie|saigne\s+beaucoup|sang|coupure\s+profonde)\b/i,
+  /\b(avaler|médicaments|boîte|poison|intoxication)\b/i,
+  /\b(paralysie|sens\s+plus\s+mon\s+côté|visage\s+déformé)\b/i
+];
+
 const CRISIS_EXPLICIT: RegExp[] = [
   /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
   /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
