@@ -9,12 +9,12 @@ export const revalidate = 0;
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// --- Types (Restaurés intégralement du PDF)
+// --- Types (Restaurés selon PDF)
 type Role = "system" | "user" | "assistant";
 
-interface ChatMessage { 
-  role: Role; 
-  content: string; 
+interface ChatMessage {
+  role: Role;
+  content: string;
 }
 
 interface MotsClient {
@@ -52,7 +52,7 @@ function generateRappelsBruts(m?: MotsClient): string[] {
   return Array.from(out);
 }
 
-/* ---------- CONFIGURATION DES CRISES (Pages 2-3 du PDF) ---------- */
+/* ---------- CONFIGURATION DES CRISES (Format Long) ---------- */
 const CRISIS_PHYSICAL: RegExp[] = [
   /\b(bras\s+gauche|douleur\s+poitrine|thorax|mâchoire|irradie)\b/i,
   /\b(respirer|étouffe|plus\s+d'air|respiration|lèvres\s+bleues)\b/i,
@@ -65,10 +65,16 @@ const CRISIS_EXPLICIT: RegExp[] = [
   /\bje\s+(vais|veux)\s+me\s+(tuer|suicider|pendre)\b/i,
   /\bje\s+vais\s+me\s+faire\s+du\s+mal\b/i,
   /\bje\s+vais\s+mourir\b/i,
-  /\b(id[ée]es?\s+noires?|envie\s+de\s+mourir|en\s+finir)\b/i
+  /\b(id[ée]es?\s+noires?)\b/i,
+  /\b(envie\s+de\s+mourir)\b/i,
+  /\b(en\s+finir)\b/i,
+  /\b(finir\s+ma\s+vie)\b/i,
+  /\b(plus\s+envie\s+de\s+vivre)\b/i
 ];
 
-const WHITELIST_COLLISIONS = [/\b(de\s+rire|pour\s+rigoler|je\s+plaisante)\b/i];
+const WHITELIST_COLLISIONS = [
+  /\b(de\s+rire|pour\s+rigoler|je\s+plaisante)\b/i
+];
 
 const ASK_SUICIDE_Q_TU = "Avant toute chose, as-tu des idées de suicide en ce moment ? (réponds par oui ou non)";
 const ASK_MEDICAL_Q = "Cette douleur semble importante. Est-ce une urgence médicale immédiate ? (réponds par oui ou non)";
@@ -84,7 +90,7 @@ function interpretYesNo(t: string): "yes" | "no" | "unknown" {
   return "unknown";
 }
 
-/* --- Gestion des Sessions de Crise --- */
+/* --- State Management --- */
 type CrisisState = "normal" | "asked_suicide" | "asked_medical" | "blocked";
 type CrisisSession = { state: CrisisState };
 const CRISIS_SESSIONS = new Map<string, CrisisSession>();
@@ -94,7 +100,7 @@ function getSession(key: string): CrisisSession {
   return CRISIS_SESSIONS.get(key)!;
 }
 
-/* ---------- HANDLER PRINCIPAL (POST) ---------- */
+/* ---------- MAIN HANDLER ---------- */
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
   const headers = new Headers({
@@ -117,7 +123,7 @@ export async function POST(req: Request) {
   const sessionKey = body.sessionId || origin || "anon";
   const sess = getSession(sessionKey);
 
-  // 1. Logique de Sécurité (Levée de doute & Blocage)
+  // 1. BLOCAGE SÉCURITÉ
   if (sess.state === "blocked") {
     return new NextResponse(JSON.stringify({ 
       answer: crisisBlockMessage(), 
@@ -127,9 +133,25 @@ export async function POST(req: Request) {
     }), { headers });
   }
 
+  // 2. DÉTECTION INITIALE (Priorité)
+  const isPhys = CRISIS_PHYSICAL.some(rx => rx.test(lastUserLower));
+  const isSuic = CRISIS_EXPLICIT.some(rx => rx.test(lastUserLower)) && 
+                 !WHITELIST_COLLISIONS.some(rx => rx.test(lastUserLower));
+
+  if ((isPhys || isSuic) && sess.state === "normal") {
+    sess.state = isPhys ? "asked_medical" : "asked_suicide";
+    return new NextResponse(JSON.stringify({
+      answer: isPhys ? ASK_MEDICAL_Q : ASK_SUICIDE_Q_TU,
+      crisis: "ask",
+      reason: isPhys ? "medical" : "suicide",
+      clientAction: { focusInput: true }
+    }), { headers });
+  }
+
+  // 3. LOGIQUE RÉPONSE OUI/NON
   if (sess.state === "asked_suicide" || sess.state === "asked_medical") {
     const yn = interpretYesNo(lastUserLower);
-    const prevAskingState = sess.state; // On mémorise pour le retour JSON
+    const prevAskingState = sess.state;
 
     if (yn === "yes") {
       sess.state = "blocked";
@@ -142,28 +164,16 @@ export async function POST(req: Request) {
     } else if (yn === "no") {
       sess.state = "normal";
     } else {
+      const retryQuestion = prevAskingState === "asked_medical" ? ASK_MEDICAL_Q : ASK_SUICIDE_Q_TU;
       return new NextResponse(JSON.stringify({
-        answer: "Peux-tu répondre par « oui » ou « non » pour ta sécurité ?",
+        answer: `Je n'ai pas bien compris ta réponse. ${retryQuestion}`,
         crisis: "ask",
         reason: prevAskingState === "asked_medical" ? "medical" : "suicide"
       }), { headers });
     }
   }
 
-  const isPhys = CRISIS_PHYSICAL.some(rx => rx.test(lastUserLower));
-  const isSuic = CRISIS_EXPLICIT.some(rx => rx.test(lastUserLower)) && !WHITELIST_COLLISIONS.some(rx => rx.test(lastUserLower));
-
-  if (isPhys || isSuic) {
-    sess.state = isPhys ? "asked_medical" : "asked_suicide";
-    return new NextResponse(JSON.stringify({
-      answer: isPhys ? ASK_MEDICAL_Q : ASK_SUICIDE_Q_TU,
-      crisis: "ask",
-      reason: isPhys ? "medical" : "suicide",
-      clientAction: { focusInput: true }
-    }), { headers });
-  }
-
-  // 2. Flux Normal OpenAI & Injection Rappels (Pages 3-4 du PDF)
+  // 4. APPEL IA (EFT NORMAL)
   try {
     const systemContent = [EFT_SYSTEM_PROMPT];
     if (body.injectRappels && body.mots_client) {
@@ -200,11 +210,13 @@ export async function POST(req: Request) {
 
   } catch (err) {
     console.error("openai error:", err);
-    return NextResponse.json({ error: "Service temporairement indisponible." }, { status: 503 });
+    return NextResponse.json({ 
+      error: "Service temporairement indisponible." 
+    }, { status: 503 });
   }
 }
 
-/* --- Helper CORS (Page 5 du PDF) --- */
+/* --- CORS CHECK (Page 5 PDF) --- */
 export function OPTIONS(req: Request) {
   const origin = req.headers.get("origin");
   const headers = {
@@ -220,7 +232,7 @@ function isAllowedOrigin(origin: string | null) {
   const o = origin.toLowerCase();
   const ALLOWED = new Set([
     "https://appli.ecole-eft-france.fr",
-    "https://www.ecole-eft-france.fr",
+    "https://www.ecole-eft-france.fr"
   ]);
   if (process.env.VERCEL_ENV === "production") return ALLOWED.has(o);
   if (o.startsWith("http://localhost")) return true;
