@@ -76,11 +76,11 @@ const WHITELIST_COLLISIONS = [
   /\b(de\s+rire|pour\s+rigoler|je\s+plaisante)\b/i
 ];
 
-const ASK_SUICIDE_Q_TU = "Avant toute chose, as-tu des idées de suicide en ce moment ? (réponds par oui ou non)";
-const ASK_MEDICAL_Q = "Cette douleur semble importante. Est-ce une urgence médicale immédiate ? (réponds par oui ou non)";
+const ASK_SUICIDE_Q_TU = "Avant toute chose, as-tu des idées de suicide en ce moment, penses-tu à te faire du mal ou as-tu un plan pour le faire ? (réponds par oui ou non). Quoi que tu répondes tu n'es pas seul.e. Si tu es en danger immédiat, appelle de suite les numéros d'urgence qui s'affichent.";
+const ASK_MEDICAL_Q = "Cette douleur semble importante et tu pourrais être dans une situation d'urgence médicale. Te sens-tu en détresse ? (réponds par oui ou non)";
 
 function crisisBlockMessage(): string {
-  return "⚠️ Je ne peux pas continuer cette conversation : il semble que tu sois en danger. Si tu es en France, appelle immédiatement le 15 (SAMU) ou le 3114. Si tu es à l’étranger, contacte le 112.";
+  return "⚠️ Je ne peux pas continuer cette conversation car il se peut que tu sois en danger. Si tu es en France, appelle immédiatement le 15 (SAMU) ou le 3114. Si tu es à l’étranger, contacte le 112.";
 }
 
 function interpretYesNo(t: string): "yes" | "no" | "unknown" {
