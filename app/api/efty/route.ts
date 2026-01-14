@@ -77,7 +77,7 @@ const WHITELIST_COLLISIONS = [
 ];
 
 const ASK_SUICIDE_Q_TU = "Avant toute chose, as-tu des idées de suicide en ce moment, penses-tu à te faire du mal ou as-tu un plan pour le faire ? (réponds par oui ou non).";
-const ASK_MEDICAL_Q = "Cette douleur semble importante et tu pourrais être dans une situation d'urgence médicale. Te sens-tu en détresse ? (réponds par oui ou non)";
+const ASK_MEDICAL_Q = "Cette douleur semble importante et tu pourrais être dans une situation d&apos;urgence médicale. Te sens-tu en détresse ? (réponds par oui ou non)";
 
 function crisisBlockMessage(): string {
   return "⚠️ Je ne peux pas continuer cette conversation car il se peut que tu sois en danger. Si tu es en France, appelle immédiatement le 15 (SAMU) ou le 3114. Si tu es à l’étranger, contacte le 112.";
