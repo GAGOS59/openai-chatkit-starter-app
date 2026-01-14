@@ -355,7 +355,7 @@ function CrisisFloating({
           <div className="px-3 pb-3">
             {/* message général */}
             <p className="text-sm">
-              Il semble que tu traverses un moment difficile. Tu n'es pas seul.e. Je te prends au sérieux.
+              Il semble que tu traverses un moment difficile. Tu n&apos;es pas seul.e. Je te prends au sérieux.
               Je ne peux pas t&apos;accompagner avec l&apos;EFT dans une situation d&apos;urgence : ta sécurité est prioritaire.
             </p>
 
