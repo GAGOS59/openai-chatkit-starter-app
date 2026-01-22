@@ -71,7 +71,7 @@ function PromoCard() {
         </a>
 
         <a
-          href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
+          href="https://elearning.ecole-eft-france.fr/formation-eft-pour-tous/"
           target="_blank"
           rel="noopener noreferrer"
           className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#018df9] transition"
@@ -231,7 +231,7 @@ function MobilePromoModal() {
             </a>
 
             <a
-              href="https://www.action-bien-etre.com/formation-eft-des-particuliers/"
+              href="https://elearning.ecole-eft-france.fr/formation-eft-pour-tous/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-center rounded-lg bg-[#0f3d69] text-white px-4 py-3 hover:bg-[#036FAC] transition"
