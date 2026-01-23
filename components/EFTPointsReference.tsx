@@ -20,7 +20,6 @@ export default function EFTPointsReference({ className = "" }: { className?: str
           <div style={{ fontSize: 13, color: "#555" }}>
             Voir la photo des points et la description précise (s&apos;ouvre dans un nouvel onglet).
           </div>
-         <p> <div style={{ fontSize: 13, color: "#006FCA" }}> EFTY est multilingue. Elle vous répond dans la langue que vous utilisez. </div></p>      
 
         </div>
       </a>
