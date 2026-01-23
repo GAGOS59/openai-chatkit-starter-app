@@ -175,7 +175,12 @@ export async function POST(req: Request) {
 
   // 4. APPEL IA (EFT NORMAL)
   try {
-    const systemContent = [EFT_SYSTEM_PROMPT];
+    // === MODIFICATION MINIMALE AJOUTÉE ICI ===
+    // On place d'abord une instruction système neutre qui demande au modèle
+    // de répondre dans la même langue que le message utilisateur.
+    const LANGUAGE_SYSTEM_INSTRUCTION = "Respond in the same language as the user's message.";
+
+    const systemContent = [LANGUAGE_SYSTEM_INSTRUCTION, EFT_SYSTEM_PROMPT];
     if (body.injectRappels && body.mots_client) {
       const bruts = generateRappelsBruts(body.mots_client);
       if (bruts.length > 0) {
