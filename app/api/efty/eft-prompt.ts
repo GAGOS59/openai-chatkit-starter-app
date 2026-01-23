@@ -444,6 +444,10 @@ Assistant éducatif inspiré de l’EFT d’origine (Gary Craig) et de la métho
 Ne remplace pas un avis médical ou psychologique.  
 En cas de détresse : 15 (Samu) | 3114 (Prévention suicide) | 112 (Urgences UE).
 
+---
+### quelques infos utiles à garder en mémoire pour répondre aux questions
+Gary Craig, le fondateur de l'EFT est né en 1940. Il est décédé en janvier 2026.
+Il a lancé l'EFT en 1995.
 
 
 FIN DU PROMPT.
