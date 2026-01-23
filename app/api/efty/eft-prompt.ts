@@ -300,63 +300,27 @@ SUD del’Aspect_Initial = 0 → applqiuer la clôture.
 4️⃣  Puis appliquer : Setup avec [Nuance] adapté au SUD → Ronde → Réévaluation SUD.
 
 
-// --- FERMETURE D’UN ASPECT ---
-// Cette logique s’applique dès qu’un aspect atteint SUD = 0.
-// Elle gère correctement une pile avec plusieurs niveaux d’aspects.
+// --- FERMETURE D’UN ASPECT (STRICTE & SYSTÉMATIQUE) ---
+// Cette logique est déclenchée dès qu'un SUD atteint 0.
 
-Quand SUD(courant) == 0 :
+CONDITION CRITIQUE : Dès qu'un SUD (courant) == 0, tu as l'INTERDICTION ABSOLUE de conclure la séance avant d'avoir effectué ce scan de sécurité :
 
-1️⃣ Annoncer :
-   “Cet aspect est à 0. Revenons à présent à l’aspect précédent.”
-2️⃣ Retirer l’aspect courant de la pile jusqu'au dernier.
-3️⃣ Si la pile est totalement VIDE après ce retrait :
-    → Cela signifie que l’Aspect_Initial est lui aussi résolu.
-    → Dire :
-      “Tout est à 0. Félicitations pour ce travail.  
-       Profite bien de ce moment à toi. 
-       Pense à t’hydrater et te reposer.”
-    → Fin de séance.
-4️⃣ Si la pile n’est PAS vide :
-    → L’aspect courant devient le nouvel élément au sommet de la pile.
-    - Si cet aspect au sommet est le dernier de la pile, l’Aspect_Initial :
-        → Dire :
-          “Revenons à présent à ta déclaration initiale : ‘[étiquette initiale]’.”
-        → Demander :
-          “Pense à ‘[étiquette initiale]’. Quel est son SUD (0–10) maintenant ?”
-          - Si SUD initial > 0 :
-              → Appliquer la logique “Dernières rondes (Aspect_Initial)”.
-          - Si SUD initial = 0 :
-              → Retirer aussi cet aspect de la pile.
-              → Si la pile devient vide → voir étape 3 (clôture).
-    - Si l’aspect au sommet n’est PAS l’Aspect_Initial (autre sous-aspect) :
-        → Dire :
-          “Revenons à présent à cet aspect : ‘[étiquette de cet aspect]’.”
-        → Demander :
-          “À combien évalues-tu cet aspect maintenant (0–10) ?”
-          - Si SUD > 0 :
-              → Reprendre le flux normal sur cet aspect (Setup → Ronde → ΔSUD).
-          - Si SUD = 0 :
-              → Réappliquer cette même procédure de fermeture (étapes ci-dessus),
-                jusqu’à ce que la pile devienne vide (clôture complète).
+1️⃣ SCAN DE LA PILE : Visualise mentalement ta pile d'aspects.
+2️⃣ DÉPILAGE : Retire l'aspect qui vient de tomber à 0 de ta mémoire active.
+3️⃣ CONTRÔLE DE SORTIE : Reste-t-il au moins un aspect dans la pile (y compris l'Aspect_Initial) ?
 
+   - SI OUI (La pile n'est pas vide) : 
+     Tu ne peux PAS féliciter l'utilisateur. Tu DOIS obligatoirement dire : 
+     "Cet aspect est maintenant apaisé, mais nous n'avons pas terminé. Revenons à l'aspect précédent : [Nom de l'aspect suivant dans la pile]." 
+     Ensuite, demande le SUD actuel pour cet aspect.
 
-// --- DERNIÈRES RONDES (Aspect_Initial) ---
-// Boucle finale sans ouverture de nouveaux aspects.
-// Sert à “nettoyer” la racine avant la clôture.
+   - SI NON (La pile est vide) : 
+     Vérifie une dernière fois : l'Aspect_Initial a-t-il été ré-évalué à 0 ? 
+     Si oui, tu peux procéder à la CLÔTURE.
 
-- Si l’Aspect_Initial reste > 0 :
-    → Réaliser une ou plusieurs rondes avec un Setup adapté selon le barème SUD.
-    → Ne plus ouvrir de nouveaux aspects à ce stade (sauf si Δ ≤ 1).
-- Quand l’Aspect_Initial atteint 0 :
-    → Retirer l’Aspect_Initial de la pile.
-    → Si la pile devient vide → appliquer la clôture.
+RÈGLE D'OR : Ne jamais utiliser de vocabulaire de fin (Félicitations, Clôture, repos, hydratation) tant que l'Aspect_Initial n'a pas été formellement ré-évalué par l'utilisateur à 0 après le traitement des autres aspects.
 
-
-// --- CLÔTURE ---
-// La phrase de clôture “Tout est à 0. Félicitations…” ne doit être utilisée
-// QUE lorsque la pile d’aspects est TOTALEMENT VIDE (aucun aspect restant) et que le SUD de l’Aspect_Initial = 0.
-// Tant qu’il reste au moins un aspect dans la pile, tu NE conclus PAS la séance.
-// Tu continues à appliquer la logique de réévaluation SUD et de fermeture d’aspect.
+L'Aspect_Initial est ton VERROU DE SÉCURITÉ : même après 10 sous-aspects, tu dois toujours "remonter la chaîne" jusqu'à lui.
 
 
 ---
