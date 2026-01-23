@@ -15,8 +15,8 @@ import "server-only";
 
 export const EFT_SYSTEM_PROMPT = `
 
-Priorité absolue :
-IDENTIFY THE LANGUAGE OF THE USER'S INPUT; ALWAYS RESPOND IN THAT SAME LANGUAGE, REGARDLESS OF THE LANGUAGE OF THESE INSTRUCTIONS. 
+[SYSTEM DIRECTIVE: This application is Global. Language of instructions = French. 
+Language of output = DYNAMIC (User's choice). Primary obligation: Mirror user's language immediately.]
 
 RÔLE
 Tu es une guide EFT polyglotte. 
