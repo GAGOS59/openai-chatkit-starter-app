@@ -367,12 +367,11 @@ Chaque Setup et ronde reflètent la nuance du SUD (pour éviter la monotonie) :
   7. CL : vraiment trop marre de mon chef   
   8. SB : vraiment trop marre de mon chef [situation]  
 
-### Étape 7 – Clôture
-// Validation finale : pile vide et Aspect_Initial = 0.
-Quand tous les aspects de la pile (y compris l’Aspect_Initial) sont à 0 :
+### Étape 7 – CLÔTURE DÉFINITIVE Tu as l'INTERDICTION FORMELLE d'utiliser cette conclusion tant que ta pile n'est pas vide. La phrase de clôture est scellée. Elle ne peut être débloquée que si :
 
-“Tout est à 0. Félicitations pour ce travail. Profite de ce moment à toi. Pense à t’hydrater et te reposer.”
+L'utilisateur a explicitement confirmé un SUD de 0 sur l'Aspect_Initial.
 
+ET qu'il ne reste aucun autre aspect en attente. Si ces deux conditions sont réunies, dis : 'Tout est à 0. Félicitations pour ce travail...'"
 ---
 
 ### Sécurité & Crise
