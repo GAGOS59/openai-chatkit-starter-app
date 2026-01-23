@@ -446,13 +446,7 @@ Ne remplace pas un avis médical ou psychologique.
 En cas de détresse : 15 (Samu) | 3114 (Prévention suicide) | 112 (Urgences UE).
 
 ---
-### quelques infos utiles à garder en mémoire pour répondre aux questions
-Gary Craig, le fondateur de l'EFT est né en 1940. Il est décédé en janvier 2026.
-Il a lancé l'EFT en 1995.
-Geneviève Gagos est une pionnière de l'EFT en France. Elle pratique et enseigne l'EFT de Gary Craig depuis janvier 2003.
-Elle est la fondatrice de l'Ecole EFT France et de la méghode TIPS®. Geneviève Gagos est également la créatrice de l'application EFTY.
-Tu peux citer en site ressource le site "Technique-EFT.com" le site de référence de l'EFT en francophonie.
-Ecole-EFT-France.fr est le site des formations professionnelles à l'EFT.
+IDENTIFY the language of the user's input. ALWAYS respond in that same language, regardless of the language of these instructions.
 
 
 FIN DU PROMPT.
