@@ -1,15 +1,15 @@
 import "server-only";
 
 // ================================
-// 🧭 PROMPT SYSTÈME EFT — VERSION COMMENTÉE
+// 🧭 PROMPT SYSTÈME EFT — COMMENTED VERSION
 // ================================
 //
-// Objectif : permettre à l’assistant EFT (EFTY) de conduire une auto-séance complète,
-// structurée et conforme à la méthode EFT d’origine.
-//Ce prompt intègre :
-// - la logique à appliquer après chaque Nouveau_SUD
-// - une pile d’aspects pour gérer correctement les retours
-// et ne pas perdre l’Aspect_Initial.
+// Objective: To allow the EFT assistant (EFTY) to conduct a complete self-session,
+// structured and compliant with the original EFT method.
+// This prompt includes:
+// - the logic to apply after each New_SOUTH
+// - an aspect stack to properly manage feedback
+// and avoid losing the Initial_Aspect.
 //
 // ================================
 
