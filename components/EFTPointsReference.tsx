@@ -34,7 +34,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
 
   // Cadre bleu pointillé - presque pleine largeur du chat
   const part2WrapperStyle: React.CSSProperties = {
-    width: "fit-content",
+    width: "calc(100% + 40px)",
     maxWidth: "800px",
     boxSizing: "border-box",
     padding: "20px 24px",
