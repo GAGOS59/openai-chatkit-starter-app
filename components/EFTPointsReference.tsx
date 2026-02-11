@@ -4,7 +4,7 @@ import React from "react";
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
   // Ajuste ici la largeur désirée pour la partie 2 (en px)
   const PART1_WIDTH = 300; // px pour "Repères visuels" (exemple 300)
-  const PART2_WIDTH = 800; // ← EXEMPLE : 720px, remplace par la valeur souhaitée (ex. largeur du chat)
+  const PART2_WIDTH = 800; // ← EXEMPLE : 800px, remplace par la valeur souhaitée (ex. largeur du chat)
 
   return (
     <section
@@ -45,7 +45,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
       {/* ---------- PARTIE 2 : texte bleu (CENTRÉ, LARGEUR INDEPENDANTE) ---------- */}
       <div
         style={{
-          maxWidth: `${PART2_WIDTH}px`, // largeur fixe; remplace par la valeur exacte du chat si tu veux
+          maxWidth: `800px`, // largeur fixe; remplace par la valeur exacte du chat si tu veux
           width: "100%",
           margin: "0 auto",
           boxSizing: "border-box",
