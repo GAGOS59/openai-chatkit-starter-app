@@ -2,11 +2,10 @@
 import React from "react";
 
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
-  // Réglages : modifier les valeurs en px selon ton besoin
+  // <-- Modifie ces valeurs en px selon le rendu souhaité
   const PART1_WIDTH = 300; // largeur fixe du bloc "Repères visuels" (px)
-  const PART2_WIDTH = 600; // largeur fixe du bloc bleu (px)
+  const PART2_WIDTH = 800; // largeur fixe du bloc bleu (px)
 
-  // Styles minimaux et indépendants pour chaque bloc
   const sectionStyle: React.CSSProperties = {
     width: "100%",
     boxSizing: "border-box",
@@ -17,7 +16,6 @@ export default function EFTPointsReference({ className = "" }: { className?: str
   const part1Style: React.CSSProperties = {
     width: `${PART1_WIDTH}px`,
     boxSizing: "border-box",
-    // garde le bloc collé à gauche (décalé) :
     display: "block",
     textAlign: "left",
     marginBottom: 8,
@@ -32,9 +30,9 @@ export default function EFTPointsReference({ className = "" }: { className?: str
   };
 
   const part2WrapperStyle: React.CSSProperties = {
-    maxWidth: `${PART2_WIDTH}px`, // largeur fixe souhaitée pour le bloc bleu
-    width: "100%",                 // permet le comportement responsive (réduit sous PART2_WIDTH)
-    margin: "0 auto",              // centre le bloc 2 indépendamment du bloc 1
+    maxWidth: `${PART2_WIDTH}px`,
+    width: "100%",
+    margin: "0 auto",
     boxSizing: "border-box",
     padding: 0,
   };
@@ -49,7 +47,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
 
   return (
     <section className={className} aria-label="Repères visuels et info langue" style={sectionStyle}>
-      {/* PARTIE 1 : totalement indépendante, gauche */}
+      {/* PARTIE 1 : Repères visuels (indépendante, alignée à gauche) */}
       <div style={part1Style}>
         <a
           href="https://technique-eft.com/decouvrir-eft/points-illustres.html"
@@ -63,9 +61,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
           </svg>
 
           <div>
-            <div style={{ fontWeight: 600, color: "#0f3d69" }}>
-              Repères visuels : points EFT (photo + localisation)
-            </div>
+            <div style={{ fontWeight: 600, color: "#0f3d69" }}>Repères visuels : points EFT (photo + localisation)</div>
             <div style={{ fontSize: 13, color: "#555" }}>
               Voir la photo des points et la description précise (s&apos;ouvre dans un nouvel onglet).
             </div>
@@ -73,7 +69,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         </a>
       </div>
 
-      {/* PARTIE 2 : totalement indépendante, centrée, largeur PART2_WIDTH */}
+      {/* PARTIE 2 : Paragraphe bleu (indépendant, centré, largeur PART2_WIDTH) */}
       <div style={part2WrapperStyle}>
         <p style={part2TextStyle}>
           Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
