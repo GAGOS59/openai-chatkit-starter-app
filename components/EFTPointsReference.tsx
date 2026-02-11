@@ -2,10 +2,17 @@
 import React from "react";
 
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
-  // Ajuste ces valeurs si tu veux caler exactement sur le reste de la page
-  const CONTENT_MAX_WIDTH = "min(980px, 100%)"; // largeur centrale responsive
-  const HORIZONTAL_PADDING = "32px";            // padding latéral global
+  /**
+   * IMPORTANT :
+   * - Ne touche pas au bloc lien (il est volontairement inchangé / décalé pour la mise en valeur).
+   * - Ajuste CONTENT_MAX_WIDTH et HORIZONTAL_PADDING pour que le paragraphe bleu
+   *   ait exactement la même largeur que la "ligne du haut du cadre" rendue ailleurs (page.tsx).
+   */
 
+  const CONTENT_MAX_WIDTH = "980px"; // ← ajuste ici pour caler sur la largeur du cadre
+  const HORIZONTAL_PADDING = "32px";  // ← ajuste si ton cadre a un padding horizontal différent
+
+  // wrapper plein largeur (permet au lien de rester décalé visuellement)
   const fullWidthWrapper: React.CSSProperties = {
     width: "100%",
     boxSizing: "border-box",
@@ -13,12 +20,14 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     marginTop: 12
   };
 
+  // conteneur centré (seul ce conteneur contrôle la largeur du paragraphe bleu)
   const centerContainer: React.CSSProperties = {
     maxWidth: CONTENT_MAX_WIDTH,
     margin: "0 auto",
     boxSizing: "border-box"
   };
 
+  // --- Styles du lien : laissé volontairement fidèle à ton code d'origine ---
   const linkStyle: React.CSSProperties = {
     textDecoration: "none",
     color: "#0f3d69",
@@ -37,6 +46,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     color: "#555"
   };
 
+  // style du paragraphe bleu (centré dans centerContainer)
   const langTextStyle: React.CSSProperties = {
     color: "#2980b9",
     marginTop: 12,
@@ -46,7 +56,10 @@ export default function EFTPointsReference({ className = "" }: { className?: str
   return (
     <section className={className} aria-label="Repères visuels et info langue">
       <div style={fullWidthWrapper}>
-        {/* Élément décalé (mis en valeur) */}
+
+        {/* --------------------------
+            1) BLOC LIEN (INCHANGÉ - DÉCALÉ / MIS EN VALEUR)
+            -------------------------- */}
         <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: 6 }}>
           <a
             href="https://technique-eft.com/decouvrir-eft/points-illustres.html"
@@ -68,13 +81,17 @@ export default function EFTPointsReference({ className = "" }: { className?: str
           </a>
         </div>
 
-        {/* Contenu centré (texte bleu aligné avec le cadre central) */}
+        {/* --------------------------
+            2) PARAGRAPHE BLEU (CENTRÉ, MÊME LARGEUR QUE LE CADRE)
+            - Aucun autre contenu n'est ajouté ici (le cadre reste dans page.tsx).
+            -------------------------- */}
         <div style={centerContainer}>
           <p style={langTextStyle}>
             Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
             <strong> « parles-tu français ? »</strong> (ou l’équivalent dans votre langue — par ex. <em>“Do you speak English?”</em>, <em>“¿Hablas español?”</em>, <em>“Sprichst du Deutsch?”</em>, <em>“Parli italiano?”</em>) — puis attendez la confirmation avant de démarrer la séance.
           </p>
         </div>
+
       </div>
     </section>
   );
