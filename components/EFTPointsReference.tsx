@@ -3,7 +3,8 @@ import React from "react";
 
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
   return (
-    <section className={className} aria-label="Repères visuels et info langue" style={{ width: "100%", boxSizing: "border-box", padding: "0 0", marginTop: 12 }}>
+    <section className={className} aria-label="Repères visuels et info langue" style={{ width: "100%", boxSizing: "border-box", padding: "0", marginTop: 12 }}>
+      {/* BLOC LIEN — inchangé, resté décalé */}
       <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", marginBottom: 6 }}>
         <a
           href="https://technique-eft.com/decouvrir-eft/points-illustres.html"
@@ -25,10 +26,16 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         </a>
       </div>
 
-      <div style={{ maxWidth: "var(--efty-frame-width, 980px)", margin: "0 auto", boxSizing: "border-box", padding: "0" }}>
+      {/* PARAGRAPHE BLEU — centré et calé sur la variable CSS --efty-frame-width */}
+      <div style={{
+        maxWidth: "var(--efty-frame-width, 980px)",    // ← utilise la variable si définie, sinon 980px par défaut
+        margin: "0 auto",
+        boxSizing: "border-box",
+        padding: "0"
+      }}>
         <p style={{ color: "#2980b9", marginTop: 12, lineHeight: 1.45 }}>
           Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
-          <strong> « parles-tu français ? »</strong> (ou l’équivalent dans votre langue — par ex. <em>“Do you speak English?”</em>, <em>“¿Hablas español?”</em>, <em>“Sprichst du Deutsch?”</em>, <em><span>“Parli italiano?”</span></em>) — puis attendez la confirmation avant de démarrer la séance.
+          <strong> « parles-tu français ? »</strong> (ou l’équivalent dans votre langue — par ex. <em>“Do you speak English?”</em>, <em>“¿Hablas español?”</em>, <em>“Sprichst du Deutsch?”</em>, <em>“Parli italiano?”</em>) — puis attendez la confirmation avant de démarrer la séance.
         </p>
       </div>
     </section>
