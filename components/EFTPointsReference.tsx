@@ -3,7 +3,8 @@ import React from "react";
 
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
   // Ajuste ici la largeur désirée pour la partie 2 (en px)
-  const PART2_WIDTH = 720; // ← EXEMPLE : 720px, remplace par la valeur souhaitée (ex. largeur du chat)
+  const PART1_WIDTH = 300; // px pour "Repères visuels" (exemple 300)
+  const PART2_WIDTH = 800; // ← EXEMPLE : 720px, remplace par la valeur souhaitée (ex. largeur du chat)
 
   return (
     <section
