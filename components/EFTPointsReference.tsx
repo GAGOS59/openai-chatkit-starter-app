@@ -3,7 +3,7 @@ import React from "react";
 
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
   return (
-    <div className={className} style={{ marginTop: 12 }}>
+    <section className={className} aria-label="Repères visuels et info langue" style={{ marginTop: 12 }}>
       <a
         href="https://technique-eft.com/decouvrir-eft/points-illustres.html"
         target="_blank"
@@ -20,11 +20,15 @@ export default function EFTPointsReference({ className = "" }: { className?: str
           <div style={{ fontSize: 13, color: "#555" }}>
             Voir la photo des points et la description précise (s&apos;ouvre dans un nouvel onglet).
           </div>
-
         </div>
       </a>
-    </div>
-    <p> <font color="#2980b9"> Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
-« parles-tu français ? » (ou l’équivalent dans votre langue : "do you speak english" ; "¿Hablas español?" ; "Sprichst du Deutsch?" ; "Parli italiano?") — puis attendez la confirmation avant de démarrer la séance.</font></p>
+
+      {/* --- Texte d'information sur la langue (intégré sur la page, sans popup) --- */}
+      <p style={{ color: "#2980b9", marginTop: 12, lineHeight: 1.4 }}>
+        Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
+        <strong> « parles-tu français ? »</strong> (ou l’équivalent dans votre langue — par ex. <em>“Do you speak English?”</em>, <em>“¿Hablas español?”</em>,
+        <em>“Sprichst du Deutsch?”</em>, <em>“Parli italiano?”</em>) — puis attendez la confirmation avant de démarrer la séance.
+      </p>
+    </section>
   );
 }
