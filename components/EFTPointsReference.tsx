@@ -34,7 +34,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
           </svg>
 
           <div>
-            <div style={{ fontWeight: 600, color: "#0f3d69" }}>Repères visuels : points EFT (photo + localisation)</div>
+            <div style={{ fontWeight: 300, color: "#0f3d69" }}>Repères visuels : points EFT (photo + localisation)</div>
             <div style={{ fontSize: 13, color: "#555" }}>
               Voir la photo des points et la description précise (s&apos;ouvre dans un nouvel onglet).
             </div>
