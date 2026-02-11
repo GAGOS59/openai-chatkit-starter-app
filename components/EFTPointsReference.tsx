@@ -13,15 +13,15 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     gap: 16,
   };
 
-  // Cadre marine pointillé fond jaune - centré, largeur fixe
+  // Cadre rouge pointillé - centré, largeur fixe
   const part1Style: React.CSSProperties = {
     maxWidth: "400px",
     width: "fit-content",
     boxSizing: "border-box",
     padding: "16px 20px",
-    border: "2px dashed #053076",
+    border: "2px dashed #dc3545",
     borderRadius: 8,
-    backgroundColor: "#f5f4d6",
+    backgroundColor: "#fff5f5",
   };
 
   const linkStyle: React.CSSProperties = {
@@ -32,10 +32,11 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     alignItems: "flex-start",
   };
 
-  // Cadre bleu pointillé - presque pleine largeur du chat
+  // Cadre bleu pointillé - pleine largeur avec marges négatives si nécessaire
   const part2WrapperStyle: React.CSSProperties = {
-    width: "calc(100% + 40px)",
-    maxWidth: "800px",
+    width: "calc(100% + 40px)", // Dépasse le conteneur
+    marginLeft: "-20px", // Compense le padding du parent
+    marginRight: "-20px",
     boxSizing: "border-box",
     padding: "20px 24px",
     border: "2px dashed #2980b9",
@@ -79,7 +80,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         </a>
       </div>
 
-      {/* PARTIE 2 : Cadre bleu pointillé - Info langue (pleine largeur) */}
+      {/* PARTIE 2 : Cadre bleu pointillé - Info langue (pleine largeur étendue) */}
       <div style={part2WrapperStyle}>
         <p style={part2TextStyle}>
           Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
