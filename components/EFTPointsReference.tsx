@@ -2,9 +2,8 @@
 import React from "react";
 
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
-  // <-- Ajuste ici les valeurs si tu veux d'autres largeurs
-  const PART1_WIDTH = 300; // px pour "Repères visuels" (exemple 300)
-  const PART2_WIDTH = 700; // px pour la partie bleue (exemple 700)
+  // Ajuste ici la largeur désirée pour la partie 2 (en px)
+  const PART2_WIDTH = 720; // ← EXEMPLE : 720px, remplace par la valeur souhaitée (ex. largeur du chat)
 
   return (
     <section
@@ -12,16 +11,14 @@ export default function EFTPointsReference({ className = "" }: { className?: str
       aria-label="Repères visuels et info langue"
       style={{ width: "100%", boxSizing: "border-box", padding: "0", marginTop: 12 }}
     >
-      {/* ---------- PARTIE 1 : Repères visuels (indépendante) ---------- */}
+      {/* ---------- PARTIE 1 : Repères visuels (reste décalé à gauche, inchangé) ---------- */}
       <div
         style={{
-          width: PART1_WIDTH,
-          boxSizing: "border-box",
-          // pour mettre en valeur et garder le décalage, on laisse margin-left à 0
-          marginBottom: 8,
           display: "flex",
+          justifyContent: "flex-start",
           alignItems: "center",
-          gap: 10,
+          marginBottom: 8,
+          gap: 10
         }}
       >
         <a
@@ -44,17 +41,17 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         </a>
       </div>
 
-      {/* ---------- PARTIE 2 : texte bleu (indépendante, centrée) ---------- */}
+      {/* ---------- PARTIE 2 : texte bleu (CENTRÉ, LARGEUR INDEPENDANTE) ---------- */}
       <div
         style={{
-          maxWidth: `${PART2_WIDTH}px`, // largeur fixe pour le repère
+          maxWidth: `${PART2_WIDTH}px`, // largeur fixe; remplace par la valeur exacte du chat si tu veux
           width: "100%",
           margin: "0 auto",
           boxSizing: "border-box",
-          padding: "0", // si besoin, ajouter padding horizontal identique à ton chat
+          padding: "0 8px" // petit padding interne pour confort sur petits écrans
         }}
       >
-        <p style={{ color: "#2980b9", marginTop: 12, lineHeight: 1.45 }}>
+        <p style={{ color: "#2980b9", marginTop: 12, lineHeight: 1.6, textAlign: "justify", textJustify: "inter-word" }}>
           Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
           <strong> « parles-tu français ? »</strong> (ou l’équivalent dans votre langue — par ex. <em>“Do you speak English?”</em>, <em>“¿Hablas español?”</em>, <em>“Sprichst du Deutsch?”</em>, <em>“Parli italiano?”</em>) — puis attendez la confirmation avant de démarrer la séance.
         </p>
