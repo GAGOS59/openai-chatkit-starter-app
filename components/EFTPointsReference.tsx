@@ -4,7 +4,7 @@ import React from "react";
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
   // <-- Ajuste ici les valeurs si tu veux d'autres largeurs
   const PART1_WIDTH = 300; // px pour "Repères visuels" (exemple 300)
-  const PART2_WIDTH = 600; // px pour la partie bleue (exemple 600)
+  const PART2_WIDTH = 700; // px pour la partie bleue (exemple 700)
 
   return (
     <section
