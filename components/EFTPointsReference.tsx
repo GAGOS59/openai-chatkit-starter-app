@@ -13,7 +13,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     gap: 16,
   };
 
-  // Cadre rouge pointillé - centré, largeur fixe
+  // Cadre marine pointillé fond jaune - centré, largeur fixe
   const part1Style: React.CSSProperties = {
     maxWidth: "400px",
     width: "fit-content",
@@ -21,7 +21,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     padding: "16px 20px",
     border: "2px dashed #053076",
     borderRadius: 8,
-    backgroundColor: "#fff0b3",
+    backgroundColor: "#f5f4d6",
   };
 
   const linkStyle: React.CSSProperties = {
