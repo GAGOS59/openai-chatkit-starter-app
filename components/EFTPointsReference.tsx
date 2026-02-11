@@ -19,9 +19,9 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     width: "fit-content",
     boxSizing: "border-box",
     padding: "16px 20px",
-    border: "2px dashed #dc3545",
+    border: "2px dashed #053076",
     borderRadius: 8,
-    backgroundColor: "#fff5f5",
+    backgroundColor: "#fff0b3",
   };
 
   const linkStyle: React.CSSProperties = {
@@ -34,7 +34,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
 
   // Cadre bleu pointillé - presque pleine largeur du chat
   const part2WrapperStyle: React.CSSProperties = {
-    width: "100%",
+    width: "fit-content",
     maxWidth: "800px",
     boxSizing: "border-box",
     padding: "20px 24px",
