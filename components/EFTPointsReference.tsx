@@ -13,15 +13,16 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     gap: 16,
   };
 
-  // Cadre rouge pointillé - centré, largeur fixe
+  // Cadre rouge pointillé - centré, largeur modérée
   const part1Style: React.CSSProperties = {
-    maxWidth: "400px",
+    maxWidth: "450px",
     width: "fit-content",
     boxSizing: "border-box",
     padding: "16px 20px",
     border: "2px dashed #dc3545",
     borderRadius: 8,
     backgroundColor: "#fff5f5",
+    alignSelf: "center",
   };
 
   const linkStyle: React.CSSProperties = {
@@ -32,16 +33,16 @@ export default function EFTPointsReference({ className = "" }: { className?: str
     alignItems: "flex-start",
   };
 
-  // Cadre bleu pointillé - pleine largeur avec marges négatives si nécessaire
+  // Cadre bleu pointillé - presque toute la largeur du conteneur chat
   const part2WrapperStyle: React.CSSProperties = {
-    width: "calc(100% + 40px)", // Dépasse le conteneur
-    marginLeft: "-20px", // Compense le padding du parent
-    marginRight: "-20px",
+    width: "100%",
+    maxWidth: "none", // Enlève toute limite de largeur
     boxSizing: "border-box",
     padding: "20px 24px",
     border: "2px dashed #2980b9",
     borderRadius: 8,
     backgroundColor: "#f0f8ff",
+    alignSelf: "stretch", // Force à prendre toute la largeur disponible
   };
 
   const part2TextStyle: React.CSSProperties = {
@@ -54,7 +55,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
 
   return (
     <section className={className} aria-label="Repères visuels et info langue" style={sectionStyle}>
-      {/* PARTIE 1 : Cadre rouge pointillé - Repères visuels (centré) */}
+      {/* PARTIE 1 : Cadre rouge pointillé - Repères visuels (centré, plus étroit) */}
       <div style={part1Style}>
         <a
           href="https://technique-eft.com/decouvrir-eft/points-illustres.html"
@@ -80,7 +81,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         </a>
       </div>
 
-      {/* PARTIE 2 : Cadre bleu pointillé - Info langue (pleine largeur étendue) */}
+      {/* PARTIE 2 : Cadre bleu pointillé - Info langue (pleine largeur du chat) */}
       <div style={part2WrapperStyle}>
         <p style={part2TextStyle}>
           Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
