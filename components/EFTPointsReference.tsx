@@ -2,14 +2,40 @@
 import React from "react";
 
 export default function EFTPointsReference({ className = "" }: { className?: string }) {
+  // valeurs centralisées : change-les si ton "cadre" utilise d'autres valeurs
+  const CONTENT_MAX_WIDTH = "980px"; // <-- ajuste si nécessaire
+  const HORIZONTAL_PADDING = "32px";  // <-- ajuste si nécessaire
+
+  const wrapperStyle: React.CSSProperties = {
+    maxWidth: CONTENT_MAX_WIDTH,
+    margin: "0 auto",
+    padding: `0 ${HORIZONTAL_PADDING}`,
+    boxSizing: "border-box",
+    marginTop: 12
+  };
+
+  const linkStyle: React.CSSProperties = {
+    textDecoration: "none",
+    color: "#0f3d69",
+    display: "inline-flex",
+    gap: 10,
+    alignItems: "center"
+  };
+
+  const infoTextStyle: React.CSSProperties = {
+    color: "#2980b9",
+    marginTop: 12,
+    lineHeight: 1.45
+  };
+
   return (
-    <section className={className} aria-label="Repères visuels et info langue" style={{ marginTop: 12 }}>
+    <section className={className} aria-label="Repères visuels et info langue" style={wrapperStyle}>
       <a
         href="https://technique-eft.com/decouvrir-eft/points-illustres.html"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Voir image et localisation des points EFT (ouvre un nouvel onglet)"
-        style={{ textDecoration: "none", color: "#0f3d69", display: "inline-flex", gap: 10, alignItems: "center" }}
+        style={linkStyle}
       >
         <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm0 5a2 2 0 11-.001 3.999A2 2 0 0112 7zm2 10h-4v-1c0-1 2-1.5 2-2.5 0-1-1-1-1-1v-.5a2.5 2.5 0 10-5 0V15h2v1h6v-1z"/>
@@ -24,7 +50,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
       </a>
 
       {/* --- Texte d'information sur la langue (intégré sur la page, sans popup) --- */}
-      <p style={{ color: "#2980b9", marginTop: 12, lineHeight: 1.4 }}>
+      <p style={infoTextStyle}>
         Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
         <strong> « parles-tu français ? »</strong> (ou l’équivalent dans votre langue — par ex. <em>“Do you speak English?”</em>, <em>“¿Hablas español?”</em>,
         <em>“Sprichst du Deutsch?”</em>, <em>“Parli italiano?”</em>) — puis attendez la confirmation avant de démarrer la séance.
