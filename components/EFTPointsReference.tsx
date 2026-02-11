@@ -15,11 +15,11 @@ export default function EFTPointsReference({ className = "" }: { className?: str
 
   // Cadre rouge pointillé - centré, largeur modérée
   const part1Style: React.CSSProperties = {
-    maxWidth: "450px",
+    maxWidth: "350px",
     width: "fit-content",
     boxSizing: "border-box",
     padding: "16px 20px",
-    border: "2px dashed #dc3545",
+    border: "2px dashed #003457",
     borderRadius: 8,
     backgroundColor: "#fff5f5",
     alignSelf: "center",
@@ -71,7 +71,7 @@ export default function EFTPointsReference({ className = "" }: { className?: str
           </svg>
 
           <div>
-            <div style={{ fontWeight: 600, color: "#0f3d69", marginBottom: 4 }}>
+            <div style={{ fontWeight: 800, color: "#0f3d69", marginBottom: 4 }}>
               Repères visuels : points EFT (photo + localisation)
             </div>
             <div style={{ fontSize: 13, color: "#555", lineHeight: 1.4 }}>
