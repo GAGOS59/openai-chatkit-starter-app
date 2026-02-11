@@ -24,7 +24,8 @@ export default function EFTPointsReference({ className = "" }: { className?: str
         </div>
       </a>
     </div>
-    <p> <div style={{ fontSize: 13, color: "#2980b9" }}>  Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
-« parles-tu français ? » (ou l’équivalent dans votre langue : "do you speak english" ; "¿Hablas español?" ; "Sprichst du Deutsch?" ; "Parli italiano?") — puis attendez la confirmation avant de démarrer la séance.</div>div></p>
+    <div> 
+    <div style={{ fontSize: 13, color: "#2980b9" }}>  Si vous souhaitez utiliser EFTY dans une autre langue, commencez toujours par demander à EFTY dans votre langue :
+« parles-tu français ? » (ou l’équivalent dans votre langue : "do you speak english" ; "¿Hablas español?" ; "Sprichst du Deutsch?" ; "Parli italiano?") — puis attendez la confirmation avant de démarrer la séance.</div></div>
   );
 }
