@@ -762,6 +762,7 @@ async function onSubmit(e: FormEvent) {
               vos échanges réalisés dans ce chat. Mais comme pour tout ce qui transite par Internet, nous vous invitons
               à rester prudents et à ne pas divulguer d&apos;éléments très personnels.
             </p>
+            <p></span><strong><span data-redactor-tag="span" style="font-size: 16px;">– </span><a class="underline underline underline-offset-2 decoration-1 decoration-current/40 hover:decoration-current focus:decoration-current" href="https://technique-eft.com/articles/creation-efty-application-eft-ia.html"><span style="font-size: 16px;">Découvrir comment EFTY a été crée</span></a></strong></p>
             <p className="text-xs mt-3 opacity-80">
               — Édition spéciale 30 ans d&apos;EFT — © 2025 École EFT France — Direction Geneviève Gagos
             </p>
